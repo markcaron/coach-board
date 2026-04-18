@@ -93,7 +93,7 @@ export interface ShapeStyleDef {
 export const SHAPE_STYLES: ShapeStyleDef[] = [
   { name: 'White Outline', value: 'outline',     fill: 'transparent', fillOpacity: 0, stroke: 'white', strokeWidth: 0.18 },
   { name: 'Blue Fill',     value: 'fill-blue',   fill: '#4ea8de', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
-  { name: 'Red Fill',      value: 'fill-red',    fill: '#d43d55', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
+  { name: 'Pink Fill',     value: 'fill-red',    fill: '#e87da0', fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
   { name: 'Yellow Fill',   value: 'fill-yellow',  fill: '#f0c040', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
 ];
 

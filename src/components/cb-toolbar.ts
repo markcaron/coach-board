@@ -345,6 +345,53 @@ export class CbToolbar extends LitElement {
       cursor: default;
       pointer-events: none;
     }
+
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .confirm-dialog {
+      background: #16213e;
+      border: 1px solid #1a4a7a;
+      border-radius: 10px;
+      padding: 24px 28px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      max-width: 320px;
+    }
+
+    .confirm-dialog p {
+      margin: 0 0 20px;
+      font-size: 0.95rem;
+      color: #e0e0e0;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .confirm-actions button {
+      padding: 8px 18px;
+      font-size: 0.85rem;
+    }
+
+    .confirm-actions .confirm-yes {
+      background: #d43d55;
+      border-color: #d43d55;
+      color: white;
+    }
+
+    .confirm-actions .confirm-yes:hover {
+      background: #b8304a;
+    }
   `;
 
   @property({ type: String, reflect: true })
@@ -360,6 +407,7 @@ export class CbToolbar extends LitElement {
   accessor canRedo: boolean = false;
 
   @state() private accessor _openMenu: MenuId | null = null;
+  @state() private accessor _confirmClear: boolean = false;
 
   get #selectionType(): SelectionType {
     const items = this.selectedItems;
@@ -643,7 +691,7 @@ export class CbToolbar extends LitElement {
           <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
         </svg>
       </button>
-      <button class="danger" @click="${this.#clear}">Clear All</button>
+      <button class="danger" @click="${() => { this._confirmClear = true; }}">Clear All</button>
       <span class="divider"></span>
       <button @click="${() => this.dispatchEvent(new SaveSvgEvent())}">
         <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
@@ -652,6 +700,18 @@ export class CbToolbar extends LitElement {
         </svg>
         Save SVG
       </button>
+
+      ${this._confirmClear ? html`
+        <div class="confirm-overlay" @click="${this.#cancelClear}">
+          <div class="confirm-dialog" @click="${(e: Event) => e.stopPropagation()}">
+            <p>Are you sure you want to clear all?</p>
+            <div class="confirm-actions">
+              <button @click="${this.#cancelClear}">Cancel</button>
+              <button class="confirm-yes" @click="${this.#confirmClear}">Yes, clear all</button>
+            </div>
+          </div>
+        </div>
+      ` : nothing}
     `;
   }
 
@@ -920,7 +980,12 @@ export class CbToolbar extends LitElement {
     this.dispatchEvent(new ToolChangedEvent(tool));
   }
 
-  #clear() {
+  #cancelClear() {
+    this._confirmClear = false;
+  }
+
+  #confirmClear() {
+    this._confirmClear = false;
     this._openMenu = null;
     this.dispatchEvent(new ClearAllEvent());
   }
