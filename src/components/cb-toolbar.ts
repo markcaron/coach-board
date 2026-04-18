@@ -34,6 +34,11 @@ export class RedoEvent extends Event {
   constructor() { super(RedoEvent.eventName, { bubbles: true, composed: true }); }
 }
 
+export class SaveSvgEvent extends Event {
+  static readonly eventName = 'save-svg' as const;
+  constructor() { super(SaveSvgEvent.eventName, { bubbles: true, composed: true }); }
+}
+
 export class PlayerUpdateEvent extends Event {
   static readonly eventName = 'player-update' as const;
   constructor(
@@ -499,6 +504,14 @@ export class CbToolbar extends LitElement {
         </svg>
       </button>
       <button class="danger" @click="${this.#clear}">Clear All</button>
+      <span class="divider"></span>
+      <button @click="${() => this.dispatchEvent(new SaveSvgEvent())}">
+        <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
+          <path d="M 3,1 L 3,12 L 8,8 L 13,12 L 13,1 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+          <line x1="2" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+        Save SVG
+      </button>
     `;
   }
 

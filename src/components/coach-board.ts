@@ -5,7 +5,7 @@ import type { Player, Line, Equipment, Tool, LineStyle, EquipmentKind, Team } fr
 import { getTextColor } from '../lib/types.js';
 import { renderField, FIELD } from '../lib/field.js';
 import { screenToSVG, uid } from '../lib/svg-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, UndoEvent, RedoEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
 
@@ -217,6 +217,25 @@ export class CoachBoard extends LitElement {
     this.selectedIds = new Set();
   }
 
+  #saveSvg() {
+    const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+    svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[stroke="#ffd166"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svgClone);
+    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'coach-board.svg';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   get #selectedItems(): Array<Player | Equipment | Line> {
     const ids = this.selectedIds;
     if (ids.size === 0) return [];
@@ -256,7 +275,8 @@ export class CoachBoard extends LitElement {
           @equipment-update="${this.#onEquipmentUpdate}"
           @line-update="${this.#onLineUpdate}"
           @undo="${this.#undo}"
-          @redo="${this.#redo}">
+          @redo="${this.#redo}"
+          @save-svg="${this.#saveSvg}">
         </cb-toolbar>
 
         <div class="svg-wrap">
