@@ -1,8 +1,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
-import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Team } from '../lib/types.js';
-import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS } from '../lib/types.js';
+import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, Team, ShapeKind, ShapeStyle } from '../lib/types.js';
+import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES } from '../lib/types.js';
 
 export class ToolChangedEvent extends Event {
   static readonly eventName = 'tool-changed' as const;
@@ -12,6 +12,7 @@ export class ToolChangedEvent extends Event {
     public playerTeam?: Team,
     public lineStyle?: LineStyle,
     public equipmentKind?: EquipmentKind,
+    public shapeKind?: ShapeKind,
   ) {
     super(ToolChangedEvent.eventName, { bubbles: true, composed: true });
   }
@@ -69,18 +70,32 @@ export class LineUpdateEvent extends Event {
   }
 }
 
-type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'mixed';
+export class ShapeUpdateEvent extends Event {
+  static readonly eventName = 'shape-update' as const;
+  constructor(
+    public shapeIds: string[],
+    public changes: { style?: ShapeStyle },
+  ) {
+    super(ShapeUpdateEvent.eventName, { bubbles: true, composed: true });
+  }
+}
 
-function isPlayer(item: Player | Equipment | Line): item is Player {
+type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'shapes' | 'mixed';
+
+function isPlayer(item: Player | Equipment | Line | Shape): item is Player {
   return 'team' in item;
 }
 
-function isEquipment(item: Player | Equipment | Line): item is Equipment {
-  return 'kind' in item;
+function isEquipment(item: Player | Equipment | Line | Shape): item is Equipment {
+  return 'kind' in item && !('hw' in item);
 }
 
-function isLine(item: Player | Equipment | Line): item is Line {
+function isLine(item: Player | Equipment | Line | Shape): item is Line {
   return 'x1' in item;
+}
+
+function isShape(item: Player | Equipment | Line | Shape): item is Shape {
+  return 'hw' in item;
 }
 
 const TEAMS: { label: string; color: string; team: Team }[] = [
@@ -93,7 +108,7 @@ const LINE_STYLES: { label: string; value: LineStyle }[] = [
   { label: 'Run', value: 'dashed' },
 ];
 
-type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color';
+type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color' | 'shape-style';
 
 @customElement('cb-toolbar')
 export class CbToolbar extends LitElement {
@@ -336,7 +351,7 @@ export class CbToolbar extends LitElement {
   accessor activeTool: Tool = 'select';
 
   @property({ attribute: false })
-  accessor selectedItems: Array<Player | Equipment | Line> = [];
+  accessor selectedItems: Array<Player | Equipment | Line | Shape> = [];
 
   @property({ type: Boolean })
   accessor canUndo: boolean = false;
@@ -352,6 +367,7 @@ export class CbToolbar extends LitElement {
     if (items.every(i => isPlayer(i))) return items.length === 1 ? 'single-player' : 'players';
     if (items.every(i => isEquipment(i) && (i as Equipment).kind === 'cone')) return items.length === 1 ? 'single-cone' : 'cones';
     if (items.every(i => isLine(i))) return 'lines';
+    if (items.every(i => isShape(i))) return 'shapes';
     return 'mixed';
   }
 
@@ -370,6 +386,10 @@ export class CbToolbar extends LitElement {
 
   get #selectedLines(): Line[] {
     return this.selectedItems.filter(isLine);
+  }
+
+  get #selectedShapes(): Shape[] {
+    return this.selectedItems.filter(isShape);
   }
 
   connectedCallback() {
@@ -555,17 +575,17 @@ export class CbToolbar extends LitElement {
 
       <div class="dropdown-wrap">
         <button
-          aria-pressed="${t === 'draw-line'}"
+          aria-pressed="${t === 'draw-line' || t === 'draw-shape'}"
           aria-haspopup="menu"
           aria-expanded="${this._openMenu === 'line'}"
           aria-controls="menu-line"
           @click="${(e: Event) => this.#onTriggerClick('line', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('line', e)}">
           <svg class="icon" viewBox="0 0 12 12" width="12" height="12" style="vertical-align: middle"><line x1="2" y1="10" x2="10" y2="2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
-          Draw Line <span class="caret"></span>
+          Draw <span class="caret"></span>
         </button>
         ${this._openMenu === 'line' ? html`
-          <div role="menu" id="menu-line" aria-label="Draw Line"
+          <div role="menu" id="menu-line" aria-label="Draw"
                @keydown="${this.#onMenuKeyDown}">
             ${LINE_STYLES.map(s => html`
               <button role="menuitem" tabindex="-1"
@@ -581,6 +601,20 @@ export class CbToolbar extends LitElement {
                 ${s.label}
               </button>
             `)}
+            <button role="menuitem" tabindex="-1"
+                    @click="${() => this.#pickShape('rect')}">
+              <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <rect x="2" y="3" width="12" height="10" fill="none" stroke="#e0e0e0" stroke-width="1.2" rx="0.5" />
+              </svg>
+              Rectangle
+            </button>
+            <button role="menuitem" tabindex="-1"
+                    @click="${() => this.#pickShape('ellipse')}">
+              <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <ellipse cx="8" cy="8" rx="7" ry="5" fill="none" stroke="#e0e0e0" stroke-width="1.2" />
+              </svg>
+              Ellipse
+            </button>
           </div>
         ` : ''}
       </div>
@@ -589,6 +623,7 @@ export class CbToolbar extends LitElement {
         : selType === 'players' ? this.#renderMultiPlayerEditor()
         : selType === 'single-cone' || selType === 'cones' ? this.#renderConeEditor()
         : selType === 'lines' ? this.#renderLineEditor()
+        : selType === 'shapes' ? this.#renderShapeEditor()
         : nothing}
 
       <span class="spacer"></span>
@@ -811,6 +846,66 @@ export class CbToolbar extends LitElement {
     this._openMenu = null;
     this.activeTool = 'draw-line';
     this.dispatchEvent(new ToolChangedEvent('draw-line', undefined, undefined, style));
+  }
+
+  #pickShape(kind: ShapeKind) {
+    this._openMenu = null;
+    this.activeTool = 'draw-shape';
+    this.dispatchEvent(new ToolChangedEvent('draw-shape', undefined, undefined, undefined, undefined, kind));
+  }
+
+  #renderShapeEditor() {
+    const shapes = this.#selectedShapes;
+    const ref = shapes[0];
+    return html`
+      <span class="divider"></span>
+      <div class="player-editor">
+        ${shapes.length > 1 ? html`<span class="selection-info">${shapes.length} shapes</span>` : nothing}
+        <div class="dropdown-wrap">
+          <button class="color-btn"
+                  aria-haspopup="menu"
+                  aria-expanded="${this._openMenu === 'shape-style' as any}"
+                  aria-label="Shape style"
+                  @click="${(e: Event) => this.#onTriggerClick('shape-style' as MenuId, e)}"
+                  @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('shape-style' as MenuId, e)}">
+            ${ref.style === 'outline'
+              ? html`<span class="color-swatch" style="background: transparent; border: 2px solid white;"></span>`
+              : html`<span class="color-swatch" style="background: ${
+                  ref.style === 'fill-blue' ? '#4ea8de'
+                  : ref.style === 'fill-red' ? '#d43d55'
+                  : '#f0c040'
+                }; opacity: 0.6;"></span>`
+            }
+          </button>
+          ${(this._openMenu as string) === 'shape-style' ? html`
+            <div role="menu" aria-label="Shape style"
+                 style="right: 0; left: auto; flex-direction: row; gap: 4px; padding: 6px;"
+                 @keydown="${this.#onMenuKeyDown}">
+              ${SHAPE_STYLES.map(s => html`
+                <button role="menuitemradio" tabindex="-1"
+                        aria-checked="${ref.style === s.value}"
+                        aria-label="${s.name}"
+                        style="width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.style === s.value ? ' background: #1a4a7a; border-color: white;' : ''}"
+                        @click="${() => this.#changeShapeStyle(s.value)}">
+                  ${s.value === 'outline'
+                    ? html`<span class="color-swatch" style="background: transparent; border: 2px solid white;"></span>`
+                    : html`<span class="color-swatch" style="background: ${s.fill}; opacity: 0.6;"></span>`
+                  }
+                </button>
+              `)}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  #changeShapeStyle(style: ShapeStyle) {
+    this._openMenu = null;
+    const ids = this.#selectedShapes.map(s => s.id);
+    if (ids.length) {
+      this.dispatchEvent(new ShapeUpdateEvent(ids, { style }));
+    }
   }
 
   #pickEquipment(kind: EquipmentKind) {

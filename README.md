@@ -29,6 +29,10 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 - **TypeScript** — type-safe throughout
 - **Vite** — fast dev server and bundler
 
+## License
+
+This project is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). You're free to use, modify, and share it — just not for commercial purposes.
+
 ---
 
 Designed and coded with my friend, [Claude](https://claude.ai).

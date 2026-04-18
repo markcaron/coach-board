@@ -1,11 +1,11 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
-import type { Player, Line, Equipment, Tool, LineStyle, EquipmentKind, Team } from '../lib/types.js';
-import { getTextColor } from '../lib/types.js';
+import type { Player, Line, Equipment, Shape, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team } from '../lib/types.js';
+import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
 import { renderField, FIELD } from '../lib/field.js';
 import { screenToSVG, uid } from '../lib/svg-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
 
@@ -29,7 +29,7 @@ const ROTATE_HANDLE_R = 0.5;
 const HIT_SLOP = 1.2;
 const PADDING = 4;
 
-type DragKind = 'player' | 'equipment' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate';
+type DragKind = 'player' | 'equipment' | 'shape' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side';
 
 interface GroupDragState {
   anchorX: number;
@@ -58,6 +58,25 @@ interface DrawState {
   y2: number;
 }
 
+interface ShapeDrawState {
+  kind: ShapeKind;
+  startX: number;
+  startY: number;
+  curX: number;
+  curY: number;
+}
+
+interface ShapeResizeDragState {
+  id: string;
+  handle: string;
+  origCx: number;
+  origCy: number;
+  origHw: number;
+  origHh: number;
+  startX: number;
+  startY: number;
+}
+
 interface GhostCursor {
   x: number;
   y: number;
@@ -78,6 +97,7 @@ interface Snapshot {
   players: Player[];
   lines: Line[];
   equipment: Equipment[];
+  shapes: Shape[];
 }
 
 const MAX_HISTORY = 50;
@@ -152,7 +172,8 @@ export class CoachBoard extends LitElement {
       cursor: none;
     }
 
-    svg.tool-draw-line {
+    svg.tool-draw-line,
+    svg.tool-draw-shape {
       cursor: crosshair;
     }
 
@@ -170,6 +191,8 @@ export class CoachBoard extends LitElement {
   @state() accessor playerTeam: Team = 'a';
   @state() accessor lineStyle: LineStyle = 'solid';
   @state() accessor equipmentKind: EquipmentKind = 'ball';
+  @state() accessor shapeKind: ShapeKind = 'rect';
+  @state() accessor shapes: Shape[] = [];
   @state() accessor ghost: GhostCursor | null = null;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
@@ -177,7 +200,9 @@ export class CoachBoard extends LitElement {
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
   #rotateDrag: RotateDragState | null = null;
+  #shapeResizeDrag: ShapeResizeDragState | null = null;
   #draw: DrawState | null = null;
+  #shapeDraw: ShapeDrawState | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #undoStack: Snapshot[] = [];
   #redoStack: Snapshot[] = [];
@@ -187,6 +212,7 @@ export class CoachBoard extends LitElement {
       players: structuredClone(this.players),
       lines: structuredClone(this.lines),
       equipment: structuredClone(this.equipment),
+      shapes: structuredClone(this.shapes),
     };
   }
 
@@ -204,6 +230,7 @@ export class CoachBoard extends LitElement {
     this.players = prev.players;
     this.lines = prev.lines;
     this.equipment = prev.equipment;
+    this.shapes = prev.shapes;
     this.selectedIds = new Set();
   }
 
@@ -214,6 +241,7 @@ export class CoachBoard extends LitElement {
     this.players = next.players;
     this.lines = next.lines;
     this.equipment = next.equipment;
+    this.shapes = next.shapes;
     this.selectedIds = new Set();
   }
 
@@ -236,13 +264,14 @@ export class CoachBoard extends LitElement {
     URL.revokeObjectURL(url);
   }
 
-  get #selectedItems(): Array<Player | Equipment | Line> {
+  get #selectedItems(): Array<Player | Equipment | Line | Shape> {
     const ids = this.selectedIds;
     if (ids.size === 0) return [];
-    const items: Array<Player | Equipment | Line> = [];
+    const items: Array<Player | Equipment | Line | Shape> = [];
     for (const p of this.players) if (ids.has(p.id)) items.push(p);
     for (const eq of this.equipment) if (ids.has(eq.id)) items.push(eq);
     for (const l of this.lines) if (ids.has(l.id)) items.push(l);
+    for (const s of this.shapes) if (ids.has(s.id)) items.push(s);
     return items;
   }
 
@@ -274,6 +303,7 @@ export class CoachBoard extends LitElement {
           @player-update="${this.#onPlayerUpdate}"
           @equipment-update="${this.#onEquipmentUpdate}"
           @line-update="${this.#onLineUpdate}"
+          @shape-update="${this.#onShapeUpdate}"
           @undo="${this.#undo}"
           @redo="${this.#redo}"
           @save-svg="${this.#saveSvg}">
@@ -302,6 +332,11 @@ export class CoachBoard extends LitElement {
                 fill="url(#grass-stripes)" rx="0.5" />
 
           ${renderField()}
+
+          <g class="shapes-layer">
+            ${this.shapes.map(s => this.#renderShape(s))}
+            ${this.#shapeDraw ? this.#renderShapeDrawPreview() : nothing}
+          </g>
 
           <g class="lines-layer">
             ${this.lines.map(l => this.#renderLine(l))}
@@ -687,6 +722,105 @@ export class CoachBoard extends LitElement {
     `;
   }
 
+  #getShapeVisuals(style: ShapeStyle) {
+    const def = SHAPE_STYLES.find(s => s.value === style) ?? SHAPE_STYLES[0];
+    return def;
+  }
+
+  #renderShape(s: Shape) {
+    const selected = this.selectedIds.has(s.id);
+    const singleSelected = selected && this.selectedIds.size === 1;
+    const vis = this.#getShapeVisuals(s.style);
+    const angle = s.angle ?? 0;
+    const pad = 0.3;
+
+    return svg`
+      <g data-id="${s.id}" data-kind="shape"
+         transform="translate(${s.cx}, ${s.cy}) rotate(${angle})">
+        ${s.kind === 'rect'
+          ? svg`<rect x="${-s.hw}" y="${-s.hh}" width="${s.hw * 2}" height="${s.hh * 2}"
+                      fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
+                      stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                      style="cursor: pointer" />`
+          : svg`<ellipse rx="${s.hw}" ry="${s.hh}"
+                         fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
+                         stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                         style="cursor: pointer" />`
+        }
+        ${selected ? svg`
+          <rect x="${-s.hw - pad}" y="${-s.hh - pad}"
+                width="${(s.hw + pad) * 2}" height="${(s.hh + pad) * 2}"
+                fill="none" stroke="white" stroke-width="0.12"
+                stroke-dasharray="0.5,0.3" rx="0.2" />
+        ` : nothing}
+        ${singleSelected ? svg`
+          ${this.#renderShapeHandles(s)}
+          ${this.#renderRectRotateHandles(s.id,
+              -s.hw - pad - 0.5, -s.hh - pad - 0.5,
+               s.hw + pad + 0.5,  s.hh + pad + 0.5)}
+        ` : nothing}
+      </g>
+    `;
+  }
+
+  #renderShapeHandles(s: Shape) {
+    const hr = 0.35;
+    const corners = [
+      { x: -s.hw, y: -s.hh, h: 'nw' },
+      { x:  s.hw, y: -s.hh, h: 'ne' },
+      { x:  s.hw, y:  s.hh, h: 'se' },
+      { x: -s.hw, y:  s.hh, h: 'sw' },
+    ];
+    const sides = [
+      { x: 0, y: -s.hh, h: 'n' },
+      { x: s.hw, y: 0, h: 'e' },
+      { x: 0, y: s.hh, h: 's' },
+      { x: -s.hw, y: 0, h: 'w' },
+    ];
+    return svg`
+      ${corners.map(c => svg`
+        <rect x="${c.x - hr}" y="${c.y - hr}" width="${hr * 2}" height="${hr * 2}"
+              fill="white" fill-opacity="0.7" stroke="white" stroke-width="0.08"
+              data-id="${s.id}" data-kind="shape-corner" data-handle="${c.h}"
+              style="cursor: nwse-resize" />
+      `)}
+      ${sides.map(c => svg`
+        <rect x="${c.x - hr * 0.7}" y="${c.y - hr * 0.7}" width="${hr * 1.4}" height="${hr * 1.4}"
+              fill="#4ea8de" fill-opacity="0.7" stroke="white" stroke-width="0.08"
+              data-id="${s.id}" data-kind="shape-side" data-handle="${c.h}"
+              style="cursor: ${c.h === 'n' || c.h === 's' ? 'ns-resize' : 'ew-resize'}" />
+      `)}
+    `;
+  }
+
+  #renderShapeDrawPreview() {
+    const d = this.#shapeDraw!;
+    let hw = Math.abs(d.curX - d.startX) / 2;
+    let hh = Math.abs(d.curY - d.startY) / 2;
+    const cx = (d.startX + d.curX) / 2;
+    const cy = (d.startY + d.curY) / 2;
+    return svg`
+      <g transform="translate(${cx}, ${cy})" style="pointer-events: none">
+        ${d.kind === 'rect'
+          ? svg`<rect x="${-hw}" y="${-hh}" width="${hw * 2}" height="${hh * 2}"
+                      fill="none" stroke="white" stroke-width="0.15"
+                      stroke-dasharray="0.5,0.3" />`
+          : svg`<ellipse rx="${hw}" ry="${hh}"
+                         fill="none" stroke="white" stroke-width="0.15"
+                         stroke-dasharray="0.5,0.3" />`
+        }
+      </g>
+    `;
+  }
+
+  #onShapeUpdate(e: ShapeUpdateEvent) {
+    this.#pushUndo();
+    const idSet = new Set(e.shapeIds);
+    this.shapes = this.shapes.map(s =>
+      idSet.has(s.id) ? { ...s, ...e.changes } : s
+    );
+  }
+
   // ── Event handlers ──────────────────────────────────────────────
 
   #onToolChanged(e: ToolChangedEvent) {
@@ -698,15 +832,17 @@ export class CoachBoard extends LitElement {
     if (e.playerTeam) this.playerTeam = e.playerTeam;
     if (e.lineStyle) this.lineStyle = e.lineStyle;
     if (e.equipmentKind) this.equipmentKind = e.equipmentKind;
+    if (e.shapeKind) this.shapeKind = e.shapeKind;
   }
 
   #onClearAll(_e: ClearAllEvent) {
-    if (this.players.length || this.lines.length || this.equipment.length) {
+    if (this.players.length || this.lines.length || this.equipment.length || this.shapes.length) {
       this.#pushUndo();
     }
     this.players = [];
     this.lines = [];
     this.equipment = [];
+    this.shapes = [];
     this.selectedIds = new Set();
   }
 
@@ -762,6 +898,13 @@ export class CoachBoard extends LitElement {
       return;
     }
 
+    if (this.activeTool === 'draw-shape') {
+      this.#shapeDraw = { kind: this.shapeKind, startX: pt.x, startY: pt.y, curX: pt.x, curY: pt.y };
+      this.svgEl.setPointerCapture(e.pointerId);
+      this.requestUpdate();
+      return;
+    }
+
     const hit = resolveHit(e.target);
     if (!hit) {
       this.selectedIds = new Set();
@@ -775,11 +918,28 @@ export class CoachBoard extends LitElement {
       this.#pushUndo();
       const p = this.players.find(p => p.id === id);
       const eq = this.equipment.find(eq => eq.id === id);
-      const cx = p ? p.x : eq!.x;
-      const cy = p ? p.y : eq!.y;
-      const origRotation = p ? (p.angle ?? 0) : (eq!.angle ?? 0);
+      const sh = this.shapes.find(s => s.id === id);
+      const cx = p ? p.x : eq ? eq.x : sh!.cx;
+      const cy = p ? p.y : eq ? eq.y : sh!.cy;
+      const origRotation = p ? (p.angle ?? 0) : eq ? (eq.angle ?? 0) : (sh!.angle ?? 0);
       const startAngle = rad2deg(Math.atan2(pt.y - cy, pt.x - cx));
       this.#rotateDrag = { id, cx, cy, startAngle, origRotation };
+      this.svgEl.setPointerCapture(e.pointerId);
+      return;
+    }
+
+    // Shape resize handles
+    if (kind === 'shape-corner' || kind === 'shape-side') {
+      this.#pushUndo();
+      const target = e.target as SVGElement;
+      const handle = target.dataset.handle ?? 'se';
+      const sh = this.shapes.find(s => s.id === id)!;
+      this.#shapeResizeDrag = {
+        id, handle,
+        origCx: sh.cx, origCy: sh.cy,
+        origHw: sh.hw, origHh: sh.hh,
+        startX: pt.x, startY: pt.y,
+      };
       this.svgEl.setPointerCapture(e.pointerId);
       return;
     }
@@ -822,6 +982,8 @@ export class CoachBoard extends LitElement {
       if (p) { pointOrigins.set(id, { x: p.x, y: p.y }); continue; }
       const eq = this.equipment.find(eq => eq.id === id);
       if (eq) { pointOrigins.set(id, { x: eq.x, y: eq.y }); continue; }
+      const sh = this.shapes.find(s => s.id === id);
+      if (sh) { pointOrigins.set(id, { x: sh.cx, y: sh.cy }); continue; }
       const l = this.lines.find(l => l.id === id);
       if (l) { lineOrigins.set(id, { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, cx: l.cx, cy: l.cy }); }
     }
@@ -844,6 +1006,60 @@ export class CoachBoard extends LitElement {
       return;
     }
 
+    if (this.#shapeDraw) {
+      this.#shapeDraw.curX = pt.x;
+      this.#shapeDraw.curY = pt.y;
+      if (e.shiftKey) {
+        const dx = Math.abs(pt.x - this.#shapeDraw.startX);
+        const dy = Math.abs(pt.y - this.#shapeDraw.startY);
+        const size = Math.min(dx, dy);
+        this.#shapeDraw.curX = this.#shapeDraw.startX + Math.sign(pt.x - this.#shapeDraw.startX) * size;
+        this.#shapeDraw.curY = this.#shapeDraw.startY + Math.sign(pt.y - this.#shapeDraw.startY) * size;
+      }
+      this.requestUpdate();
+      return;
+    }
+
+    if (this.#shapeResizeDrag) {
+      const { id, handle, origCx, origCy, origHw, origHh, startX, startY } = this.#shapeResizeDrag;
+      const dx = pt.x - startX;
+      const dy = pt.y - startY;
+      let newHw = origHw;
+      let newHh = origHh;
+      let newCx = origCx;
+      let newCy = origCy;
+
+      if (handle === 'e' || handle === 'w' || handle === 'ne' || handle === 'se' || handle === 'nw' || handle === 'sw') {
+        if (handle.includes('e')) { newHw = Math.max(0.5, origHw + dx / 2); newCx = origCx + dx / 2; }
+        if (handle.includes('w')) { newHw = Math.max(0.5, origHw - dx / 2); newCx = origCx + dx / 2; }
+      }
+      if (handle === 'n' || handle === 's' || handle === 'ne' || handle === 'se' || handle === 'nw' || handle === 'sw') {
+        if (handle.includes('s')) { newHh = Math.max(0.5, origHh + dy / 2); newCy = origCy + dy / 2; }
+        if (handle.includes('n')) { newHh = Math.max(0.5, origHh - dy / 2); newCy = origCy + dy / 2; }
+      }
+
+      if (e.altKey) {
+        newCx = origCx;
+        newCy = origCy;
+        if (handle.includes('e') || handle.includes('w')) newHw = Math.max(0.5, origHw + Math.abs(dx) * Math.sign(handle.includes('e') ? dx : -dx));
+        if (handle.includes('s') || handle.includes('n')) newHh = Math.max(0.5, origHh + Math.abs(dy) * Math.sign(handle.includes('s') ? dy : -dy));
+      }
+
+      if (e.shiftKey) {
+        const ratio = origHw / origHh;
+        if (newHw / newHh > ratio) {
+          newHh = newHw / ratio;
+        } else {
+          newHw = newHh * ratio;
+        }
+      }
+
+      this.shapes = this.shapes.map(s =>
+        s.id === id ? { ...s, cx: newCx, cy: newCy, hw: newHw, hh: newHh } : s
+      );
+      return;
+    }
+
     if (this.#rotateDrag) {
       const { id, cx, cy, startAngle, origRotation } = this.#rotateDrag;
       const currentAngle = rad2deg(Math.atan2(pt.y - cy, pt.x - cx));
@@ -857,9 +1073,16 @@ export class CoachBoard extends LitElement {
           pl.id === id ? { ...pl, angle: newAngle } : pl
         );
       } else {
-        this.equipment = this.equipment.map(eq =>
-          eq.id === id ? { ...eq, angle: newAngle } : eq
-        );
+        const sh = this.shapes.find(s => s.id === id);
+        if (sh) {
+          this.shapes = this.shapes.map(s =>
+            s.id === id ? { ...s, angle: newAngle } : s
+          );
+        } else {
+          this.equipment = this.equipment.map(eq =>
+            eq.id === id ? { ...eq, angle: newAngle } : eq
+          );
+        }
       }
       return;
     }
@@ -890,6 +1113,10 @@ export class CoachBoard extends LitElement {
       this.equipment = this.equipment.map(eq => {
         const orig = pointOrigins.get(eq.id);
         return orig ? { ...eq, x: orig.x + dx, y: orig.y + dy } : eq;
+      });
+      this.shapes = this.shapes.map(s => {
+        const orig = pointOrigins.get(s.id);
+        return orig ? { ...s, cx: orig.x + dx, cy: orig.y + dy } : s;
       });
     }
 
@@ -932,9 +1159,32 @@ export class CoachBoard extends LitElement {
       this.requestUpdate();
     }
 
+    if (this.#shapeDraw) {
+      const d = this.#shapeDraw;
+      const hw = Math.abs(d.curX - d.startX) / 2;
+      const hh = Math.abs(d.curY - d.startY) / 2;
+      if (hw > 0.5 && hh > 0.5) {
+        this.#pushUndo();
+        const newShape: Shape = {
+          id: uid('shape'),
+          cx: (d.startX + d.curX) / 2,
+          cy: (d.startY + d.curY) / 2,
+          hw, hh,
+          kind: d.kind,
+          style: 'outline',
+        };
+        this.shapes = [...this.shapes, newShape];
+        this.selectedIds = new Set([newShape.id]);
+        this.activeTool = 'select';
+      }
+      this.#shapeDraw = null;
+      this.requestUpdate();
+    }
+
     this.#groupDrag = null;
     this.#handleDrag = null;
     this.#rotateDrag = null;
+    this.#shapeResizeDrag = null;
   }
 
   #onPointerLeave(_e: PointerEvent) {
@@ -943,9 +1193,14 @@ export class CoachBoard extends LitElement {
       this.#draw = null;
       this.requestUpdate();
     }
+    if (this.#shapeDraw) {
+      this.#shapeDraw = null;
+      this.requestUpdate();
+    }
     this.#groupDrag = null;
     this.#handleDrag = null;
     this.#rotateDrag = null;
+    this.#shapeResizeDrag = null;
   }
 
   #onKeyDown(e: KeyboardEvent) {
@@ -966,6 +1221,7 @@ export class CoachBoard extends LitElement {
       this.players = this.players.filter(p => !ids.has(p.id));
       this.lines = this.lines.filter(l => !ids.has(l.id));
       this.equipment = this.equipment.filter(eq => !ids.has(eq.id));
+      this.shapes = this.shapes.filter(s => !ids.has(s.id));
       this.selectedIds = new Set();
     }
     if (e.key === 'Escape') {

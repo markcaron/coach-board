@@ -78,6 +78,36 @@ export interface Equipment {
   angle?: number;
 }
 
-export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment';
+export type ShapeKind = 'rect' | 'ellipse';
+export type ShapeStyle = 'outline' | 'fill-blue' | 'fill-red' | 'fill-yellow';
+
+export interface ShapeStyleDef {
+  name: string;
+  value: ShapeStyle;
+  fill: string;
+  fillOpacity: number;
+  stroke: string;
+  strokeWidth: number;
+}
+
+export const SHAPE_STYLES: ShapeStyleDef[] = [
+  { name: 'White Outline', value: 'outline',     fill: 'transparent', fillOpacity: 0, stroke: 'white', strokeWidth: 0.18 },
+  { name: 'Blue Fill',     value: 'fill-blue',   fill: '#4ea8de', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
+  { name: 'Red Fill',      value: 'fill-red',    fill: '#d43d55', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
+  { name: 'Yellow Fill',   value: 'fill-yellow',  fill: '#f0c040', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
+];
+
+export interface Shape {
+  id: string;
+  cx: number;
+  cy: number;
+  hw: number;
+  hh: number;
+  kind: ShapeKind;
+  style: ShapeStyle;
+  angle?: number;
+}
+
+export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape';
 export type LineStyle = 'solid' | 'dashed';
 export type EquipmentKind = 'ball' | 'cone' | 'coach' | 'goal' | 'mini-goal';
