@@ -4,7 +4,7 @@ import { customElement, state, query } from 'lit/decorators.js';
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team } from '../lib/types.js';
 import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
 import { renderField, FIELD } from '../lib/field.js';
-import { screenToSVG, uid } from '../lib/svg-utils.js';
+import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -246,6 +246,14 @@ export class CoachBoard extends LitElement {
       if (data.equipment) this.equipment = data.equipment;
       if (data.shapes) this.shapes = data.shapes;
       if (data.textItems) this.textItems = data.textItems;
+
+      const allIds = [
+        ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
+      ].map(i => i.id).concat(this.lines.map(l => l.id));
+      for (const id of allIds) {
+        const num = parseInt(id.split('-').pop() ?? '0', 10);
+        if (!isNaN(num)) ensureMinId(num);
+      }
     } catch { /* corrupted data */ }
   }
 
@@ -253,7 +261,6 @@ export class CoachBoard extends LitElement {
     this.#undoStack.push(this.#snapshot());
     if (this.#undoStack.length > MAX_HISTORY) this.#undoStack.shift();
     this.#redoStack = [];
-    this.#saveToStorage();
     this.requestUpdate();
   }
 
@@ -267,7 +274,6 @@ export class CoachBoard extends LitElement {
     this.shapes = prev.shapes;
     this.textItems = prev.textItems;
     this.selectedIds = new Set();
-    this.#saveToStorage();
   }
 
   #redo() {
@@ -280,7 +286,6 @@ export class CoachBoard extends LitElement {
     this.shapes = next.shapes;
     this.textItems = next.textItems;
     this.selectedIds = new Set();
-    this.#saveToStorage();
   }
 
   #saveSvg() {
@@ -323,6 +328,14 @@ export class CoachBoard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('keydown', this.#boundKeyDown);
+  }
+
+  protected override updated(changedProperties: Map<PropertyKey, unknown>) {
+    if (changedProperties.has('players') || changedProperties.has('lines') ||
+        changedProperties.has('equipment') || changedProperties.has('shapes') ||
+        changedProperties.has('textItems')) {
+      this.#saveToStorage();
+    }
   }
 
   render() {
@@ -953,7 +966,6 @@ export class CoachBoard extends LitElement {
     this.shapes = [];
     this.textItems = [];
     this.selectedIds = new Set();
-    this.#saveToStorage();
   }
 
   #onPlayerUpdate(e: PlayerUpdateEvent) {
@@ -1311,9 +1323,6 @@ export class CoachBoard extends LitElement {
       this.requestUpdate();
     }
 
-    if (this.#groupDrag || this.#handleDrag || this.#rotateDrag || this.#shapeResizeDrag) {
-      this.#saveToStorage();
-    }
     this.#groupDrag = null;
     this.#handleDrag = null;
     this.#rotateDrag = null;

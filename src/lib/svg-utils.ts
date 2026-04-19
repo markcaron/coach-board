@@ -17,3 +17,7 @@ let nextId = 1;
 export function uid(prefix = 'cb'): string {
   return `${prefix}-${nextId++}`;
 }
+
+export function ensureMinId(min: number) {
+  if (min >= nextId) nextId = min + 1;
+}
