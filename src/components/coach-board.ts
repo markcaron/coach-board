@@ -770,10 +770,12 @@ export class CoachBoard extends LitElement {
           ? svg`<rect x="${-s.hw}" y="${-s.hh}" width="${s.hw * 2}" height="${s.hh * 2}"
                       fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
                       stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                      stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
                       style="cursor: pointer" />`
           : svg`<ellipse rx="${s.hw}" ry="${s.hh}"
                          fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
                          stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                         stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
                          style="cursor: pointer" />`
         }
         ${selected ? svg`

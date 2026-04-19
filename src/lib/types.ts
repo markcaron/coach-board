@@ -79,7 +79,7 @@ export interface Equipment {
 }
 
 export type ShapeKind = 'rect' | 'ellipse';
-export type ShapeStyle = 'outline' | 'fill-blue' | 'fill-red' | 'fill-yellow';
+export type ShapeStyle = 'outline' | 'dashed' | 'fill-blue' | 'fill-red' | 'fill-yellow';
 
 export interface ShapeStyleDef {
   name: string;
@@ -88,10 +88,12 @@ export interface ShapeStyleDef {
   fillOpacity: number;
   stroke: string;
   strokeWidth: number;
+  strokeDasharray?: string;
 }
 
 export const SHAPE_STYLES: ShapeStyleDef[] = [
   { name: 'White Outline', value: 'outline',     fill: 'transparent', fillOpacity: 0, stroke: 'white', strokeWidth: 0.18 },
+  { name: 'White Dashed',  value: 'dashed',      fill: 'transparent', fillOpacity: 0, stroke: 'white', strokeWidth: 0.18, strokeDasharray: '0.6,0.4' },
   { name: 'Blue Fill',     value: 'fill-blue',   fill: '#4ea8de', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
   { name: 'Pink Fill',     value: 'fill-red',    fill: '#e87da0', fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
   { name: 'Yellow Fill',   value: 'fill-yellow',  fill: '#f0c040', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },

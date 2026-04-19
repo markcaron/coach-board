@@ -430,7 +430,7 @@ export class CbToolbar extends LitElement {
       border-radius: 0 0 8px 8px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
       z-index: 5;
-      --swatch-border: #999;
+      --swatch-border: white;
     }
 
     .edit-bar label {
@@ -470,6 +470,7 @@ export class CbToolbar extends LitElement {
     .edit-bar .divider {
       background: rgba(0, 0, 0, 0.15);
     }
+
   `;
 
   @property({ type: String, reflect: true })
@@ -854,7 +855,7 @@ export class CbToolbar extends LitElement {
                 @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('color', e)}">
           ${refPlayer.team === 'a' ? html`
             <svg viewBox="0 0 16 16" width="16" height="16">
-              <polygon points="8,2 14,14 2,14" fill="${refPlayer.color}" stroke="currentColor" stroke-width="1" stroke-linejoin="round" />
+              <polygon points="8,2 14,14 2,14" fill="${refPlayer.color}" stroke="white" stroke-width="1" stroke-linejoin="round" />
             </svg>
           ` : html`
             <span class="color-swatch" style="background: ${refPlayer.color}"></span>
@@ -1031,6 +1032,8 @@ export class CbToolbar extends LitElement {
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('shape-style' as MenuId, e)}">
             ${ref.style === 'outline'
               ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
+              : ref.style === 'dashed'
+              ? html`<span class="color-swatch" style="background: transparent; border: 2px dashed var(--swatch-border, white);"></span>`
               : html`<span class="color-swatch" style="background: ${
                   ref.style === 'fill-blue' ? '#4ea8de'
                   : ref.style === 'fill-red' ? '#d43d55'
@@ -1051,6 +1054,8 @@ export class CbToolbar extends LitElement {
                         @click="${() => this.#changeShapeStyle(s.value)}">
                   ${s.value === 'outline'
                     ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
+                    : s.value === 'dashed'
+                    ? html`<span class="color-swatch" style="background: transparent; border: 2px dashed var(--swatch-border, white);"></span>`
                     : html`<span class="color-swatch" style="background: ${s.fill}; opacity: 0.6;"></span>`
                   }
                 </button>
