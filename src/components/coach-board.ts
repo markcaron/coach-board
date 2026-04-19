@@ -103,6 +103,7 @@ interface Snapshot {
 }
 
 const MAX_HISTORY = 50;
+const STORAGE_KEY = 'coach-board-state';
 
 function isModifier(e: PointerEvent | MouseEvent): boolean {
   return e.shiftKey || e.metaKey || e.ctrlKey;
@@ -222,10 +223,37 @@ export class CoachBoard extends LitElement {
     };
   }
 
+  #saveToStorage() {
+    try {
+      const data: Snapshot = {
+        players: this.players,
+        lines: this.lines,
+        equipment: this.equipment,
+        shapes: this.shapes,
+        textItems: this.textItems,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch { /* quota exceeded or private browsing */ }
+  }
+
+  #loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw) as Partial<Snapshot>;
+      if (data.players) this.players = data.players;
+      if (data.lines) this.lines = data.lines;
+      if (data.equipment) this.equipment = data.equipment;
+      if (data.shapes) this.shapes = data.shapes;
+      if (data.textItems) this.textItems = data.textItems;
+    } catch { /* corrupted data */ }
+  }
+
   #pushUndo() {
     this.#undoStack.push(this.#snapshot());
     if (this.#undoStack.length > MAX_HISTORY) this.#undoStack.shift();
     this.#redoStack = [];
+    this.#saveToStorage();
     this.requestUpdate();
   }
 
@@ -239,6 +267,7 @@ export class CoachBoard extends LitElement {
     this.shapes = prev.shapes;
     this.textItems = prev.textItems;
     this.selectedIds = new Set();
+    this.#saveToStorage();
   }
 
   #redo() {
@@ -251,6 +280,7 @@ export class CoachBoard extends LitElement {
     this.shapes = next.shapes;
     this.textItems = next.textItems;
     this.selectedIds = new Set();
+    this.#saveToStorage();
   }
 
   #saveSvg() {
@@ -287,6 +317,7 @@ export class CoachBoard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener('keydown', this.#boundKeyDown);
+    this.#loadFromStorage();
   }
 
   disconnectedCallback() {
@@ -922,6 +953,7 @@ export class CoachBoard extends LitElement {
     this.shapes = [];
     this.textItems = [];
     this.selectedIds = new Set();
+    this.#saveToStorage();
   }
 
   #onPlayerUpdate(e: PlayerUpdateEvent) {
@@ -1279,6 +1311,9 @@ export class CoachBoard extends LitElement {
       this.requestUpdate();
     }
 
+    if (this.#groupDrag || this.#handleDrag || this.#rotateDrag || this.#shapeResizeDrag) {
+      this.#saveToStorage();
+    }
     this.#groupDrag = null;
     this.#handleDrag = null;
     this.#rotateDrag = null;
