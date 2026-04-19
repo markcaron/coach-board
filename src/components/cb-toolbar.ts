@@ -1,8 +1,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
-import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, Team, ShapeKind, ShapeStyle } from '../lib/types.js';
-import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES } from '../lib/types.js';
+import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle } from '../lib/types.js';
+import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES, TEXT_SIZES } from '../lib/types.js';
 
 export class ToolChangedEvent extends Event {
   static readonly eventName = 'tool-changed' as const;
@@ -80,22 +80,38 @@ export class ShapeUpdateEvent extends Event {
   }
 }
 
-type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'shapes' | 'mixed';
+export class TextUpdateEvent extends Event {
+  static readonly eventName = 'text-update' as const;
+  constructor(
+    public textIds: string[],
+    public changes: { text?: string; fontSize?: number },
+  ) {
+    super(TextUpdateEvent.eventName, { bubbles: true, composed: true });
+  }
+}
 
-function isPlayer(item: Player | Equipment | Line | Shape): item is Player {
+type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
+
+type AnyItem = Player | Equipment | Line | Shape | TextItem;
+
+function isPlayer(item: AnyItem): item is Player {
   return 'team' in item;
 }
 
-function isEquipment(item: Player | Equipment | Line | Shape): item is Equipment {
+function isEquipment(item: AnyItem): item is Equipment {
   return 'kind' in item && !('hw' in item);
 }
 
-function isLine(item: Player | Equipment | Line | Shape): item is Line {
+function isLine(item: AnyItem): item is Line {
   return 'x1' in item;
 }
 
-function isShape(item: Player | Equipment | Line | Shape): item is Shape {
+function isShape(item: AnyItem): item is Shape {
   return 'hw' in item;
+}
+
+function isTextItem(item: AnyItem): item is TextItem {
+  return 'text' in item;
 }
 
 const TEAMS: { label: string; color: string; team: Team }[] = [
@@ -108,12 +124,13 @@ const LINE_STYLES: { label: string; value: LineStyle }[] = [
   { label: 'Run', value: 'dashed' },
 ];
 
-type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color' | 'shape-style';
+type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color' | 'shape-style' | 'text-size';
 
 @customElement('cb-toolbar')
 export class CbToolbar extends LitElement {
   static styles = css`
     :host {
+      position: relative;
       display: flex;
       gap: 4px;
       align-items: center;
@@ -291,6 +308,12 @@ export class CbToolbar extends LitElement {
       cursor: pointer;
     }
 
+    .color-btn[aria-haspopup="menu"] {
+      width: auto;
+      padding: 0 6px;
+      gap: 4px;
+    }
+
     .color-btn:hover {
       border-color: #4ea8de;
     }
@@ -299,7 +322,7 @@ export class CbToolbar extends LitElement {
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      border: 1px solid white;
+      border: 1px solid var(--swatch-border, white);
     }
 
     .color-grid {
@@ -392,13 +415,68 @@ export class CbToolbar extends LitElement {
     .confirm-actions .confirm-yes:hover {
       background: #b8304a;
     }
+
+    .edit-bar {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      min-height: 40px;
+      padding: 6px 12px;
+      background: white;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      z-index: 5;
+      --swatch-border: #999;
+    }
+
+    .edit-bar label {
+      color: #151515;
+    }
+
+    .edit-bar .selection-info {
+      color: #555;
+    }
+
+    .edit-bar button:not([role]) {
+      background: #f0f0f0;
+      color: #151515;
+      border-color: #ccc;
+    }
+
+    .edit-bar button:not([role]):hover {
+      background: #e0e0e0;
+      border-color: #999;
+    }
+
+    .edit-bar button:not([role]):focus-visible {
+      outline: 2px solid #4ea8de;
+      outline-offset: 2px;
+    }
+
+    .edit-bar .number-input {
+      color: #151515;
+      background: white;
+      border-color: #ccc;
+    }
+
+    .edit-bar .number-input:focus {
+      border-color: #4ea8de;
+    }
+
+    .edit-bar .divider {
+      background: rgba(0, 0, 0, 0.15);
+    }
   `;
 
   @property({ type: String, reflect: true })
   accessor activeTool: Tool = 'select';
 
   @property({ attribute: false })
-  accessor selectedItems: Array<Player | Equipment | Line | Shape> = [];
+  accessor selectedItems: AnyItem[] = [];
 
   @property({ type: Boolean })
   accessor canUndo: boolean = false;
@@ -416,6 +494,7 @@ export class CbToolbar extends LitElement {
     if (items.every(i => isEquipment(i) && (i as Equipment).kind === 'cone')) return items.length === 1 ? 'single-cone' : 'cones';
     if (items.every(i => isLine(i))) return 'lines';
     if (items.every(i => isShape(i))) return 'shapes';
+    if (items.every(i => isTextItem(i))) return items.length === 1 ? 'single-text' : 'texts';
     return 'mixed';
   }
 
@@ -438,6 +517,10 @@ export class CbToolbar extends LitElement {
 
   get #selectedShapes(): Shape[] {
     return this.selectedItems.filter(isShape);
+  }
+
+  get #selectedTexts(): TextItem[] {
+    return this.selectedItems.filter(isTextItem);
   }
 
   connectedCallback() {
@@ -667,12 +750,13 @@ export class CbToolbar extends LitElement {
         ` : ''}
       </div>
 
-      ${selType === 'single-player' ? this.#renderSinglePlayerEditor()
-        : selType === 'players' ? this.#renderMultiPlayerEditor()
-        : selType === 'single-cone' || selType === 'cones' ? this.#renderConeEditor()
-        : selType === 'lines' ? this.#renderLineEditor()
-        : selType === 'shapes' ? this.#renderShapeEditor()
-        : nothing}
+      <button
+        aria-pressed="${t === 'add-text'}"
+        @click="${() => this.#pick('add-text')}">
+        <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
+          <text x="8" y="13" text-anchor="middle" fill="currentColor" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">T</text>
+        </svg> Add Text
+      </button>
 
       <span class="spacer"></span>
       <button class="icon-btn" title="Undo (Cmd+Z)"
@@ -701,6 +785,18 @@ export class CbToolbar extends LitElement {
         Save SVG
       </button>
 
+      ${selType !== 'none' && selType !== 'mixed' ? html`
+        <div class="edit-bar">
+          ${selType === 'single-player' ? this.#renderSinglePlayerEditor()
+            : selType === 'players' ? this.#renderMultiPlayerEditor()
+            : selType === 'single-cone' || selType === 'cones' ? this.#renderConeEditor()
+            : selType === 'lines' ? this.#renderLineEditor()
+            : selType === 'shapes' ? this.#renderShapeEditor()
+            : selType === 'single-text' || selType === 'texts' ? this.#renderTextEditor()
+            : nothing}
+        </div>
+      ` : nothing}
+
       ${this._confirmClear ? html`
         <div class="confirm-overlay" @click="${this.#cancelClear}">
           <div class="confirm-dialog" @click="${(e: Event) => e.stopPropagation()}">
@@ -718,8 +814,8 @@ export class CbToolbar extends LitElement {
   #renderSinglePlayerEditor() {
     const p = this.#singlePlayer!;
     return html`
-      <span class="divider"></span>
       <div class="player-editor">
+        <label>Edit player:</label>
         <label>#</label>
         <input class="number-input"
                type="text"
@@ -738,9 +834,9 @@ export class CbToolbar extends LitElement {
     const players = this.#selectedPlayers;
     const firstPlayer = players[0];
     return html`
-      <span class="divider"></span>
       <div class="player-editor">
-        <span class="selection-info">${players.length} players</span>
+        <label>Edit player:</label>
+        <span class="selection-info">${players.length} selected</span>
         ${this.#renderPlayerColorBtn(firstPlayer)}
       </div>
     `;
@@ -758,15 +854,16 @@ export class CbToolbar extends LitElement {
                 @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('color', e)}">
           ${refPlayer.team === 'a' ? html`
             <svg viewBox="0 0 16 16" width="16" height="16">
-              <polygon points="8,2 14,14 2,14" fill="${refPlayer.color}" stroke="white" stroke-width="1" stroke-linejoin="round" />
+              <polygon points="8,2 14,14 2,14" fill="${refPlayer.color}" stroke="currentColor" stroke-width="1" stroke-linejoin="round" />
             </svg>
           ` : html`
             <span class="color-swatch" style="background: ${refPlayer.color}"></span>
           `}
+          <span class="caret"></span>
         </button>
         ${this._openMenu === 'color' ? html`
           <div role="menu" id="menu-color" aria-label="Player color"
-               class="color-grid" style="right: 0; left: auto;"
+               class="color-grid"
                @keydown="${this.#onMenuKeyDown}">
             ${PLAYER_COLORS.map(c => html`
               <button role="menuitemradio" tabindex="-1"
@@ -792,9 +889,9 @@ export class CbToolbar extends LitElement {
     const cones = this.#selectedCones;
     const refCone = cones[0];
     return html`
-      <span class="divider"></span>
       <div class="player-editor">
-        ${cones.length > 1 ? html`<span class="selection-info">${cones.length} cones</span>` : nothing}
+        <label>Edit cone:</label>
+        ${cones.length > 1 ? html`<span class="selection-info">${cones.length} selected</span>` : nothing}
         <div class="dropdown-wrap">
           <button class="color-btn"
                   aria-haspopup="menu"
@@ -806,10 +903,11 @@ export class CbToolbar extends LitElement {
             <svg viewBox="0 0 16 16" width="16" height="16">
               <circle cx="8" cy="8" r="5" fill="#222" stroke="${refCone.color ?? '#7fff00'}" stroke-width="3" />
             </svg>
+            <span class="caret"></span>
           </button>
           ${this._openMenu === 'cone-color' ? html`
             <div role="menu" id="menu-cone-color" aria-label="Cone color"
-                 class="color-grid" style="right: 0; left: auto; grid-template-columns: repeat(2, 1fr);"
+                 class="color-grid" style="grid-template-columns: repeat(2, 1fr);"
                  @keydown="${this.#onMenuKeyDown}">
               ${CONE_COLORS.map(c => html`
                 <button role="menuitemradio" tabindex="-1"
@@ -836,7 +934,6 @@ export class CbToolbar extends LitElement {
     const hasEnd = ref.arrowEnd;
     const ids = lines.map(l => l.id);
     return html`
-      <span class="divider"></span>
       <div class="player-editor">
         ${lines.length > 1 ? html`<span class="selection-info">${lines.length} lines</span>` : nothing}
         <button class="color-btn" title="Arrow on start"
@@ -844,8 +941,8 @@ export class CbToolbar extends LitElement {
                 aria-label="Arrow on start"
                 @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowStart: !hasStart }))}">
           <svg viewBox="0 0 20 12" width="20" height="12">
-            <line x1="8" y1="6" x2="18" y2="6" stroke="#e0e0e0" stroke-width="2" />
-            <polygon points="8,3 2,6 8,9" fill="${hasStart ? '#e0e0e0' : '#555'}" />
+            <line x1="8" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2" />
+            <polygon points="8,3 2,6 8,9" fill="${hasStart ? 'currentColor' : '#ccc'}" />
           </svg>
         </button>
         <button class="color-btn" title="${isSolid ? 'Switch to dashed' : 'Switch to solid'}"
@@ -853,7 +950,7 @@ export class CbToolbar extends LitElement {
                 @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { style: isSolid ? 'dashed' : 'solid' }))}">
           <svg viewBox="0 0 20 12" width="20" height="12">
             <line x1="2" y1="6" x2="18" y2="6"
-                  stroke="#e0e0e0" stroke-width="2.5"
+                  stroke="currentColor" stroke-width="2.5"
                   stroke-dasharray="${isSolid ? 'none' : '3,2'}" />
           </svg>
         </button>
@@ -862,8 +959,8 @@ export class CbToolbar extends LitElement {
                 aria-label="Arrow on end"
                 @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowEnd: !hasEnd }))}">
           <svg viewBox="0 0 20 12" width="20" height="12">
-            <line x1="2" y1="6" x2="12" y2="6" stroke="#e0e0e0" stroke-width="2" />
-            <polygon points="12,3 18,6 12,9" fill="${hasEnd ? '#e0e0e0' : '#555'}" />
+            <line x1="2" y1="6" x2="12" y2="6" stroke="currentColor" stroke-width="2" />
+            <polygon points="12,3 18,6 12,9" fill="${hasEnd ? 'currentColor' : '#ccc'}" />
           </svg>
         </button>
         <div class="dropdown-wrap">
@@ -918,7 +1015,6 @@ export class CbToolbar extends LitElement {
     const shapes = this.#selectedShapes;
     const ref = shapes[0];
     return html`
-      <span class="divider"></span>
       <div class="player-editor">
         ${shapes.length > 1 ? html`<span class="selection-info">${shapes.length} shapes</span>` : nothing}
         <div class="dropdown-wrap">
@@ -929,7 +1025,7 @@ export class CbToolbar extends LitElement {
                   @click="${(e: Event) => this.#onTriggerClick('shape-style' as MenuId, e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('shape-style' as MenuId, e)}">
             ${ref.style === 'outline'
-              ? html`<span class="color-swatch" style="background: transparent; border: 2px solid white;"></span>`
+              ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
               : html`<span class="color-swatch" style="background: ${
                   ref.style === 'fill-blue' ? '#4ea8de'
                   : ref.style === 'fill-red' ? '#d43d55'
@@ -948,7 +1044,7 @@ export class CbToolbar extends LitElement {
                         style="width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.style === s.value ? ' background: #1a4a7a; border-color: white;' : ''}"
                         @click="${() => this.#changeShapeStyle(s.value)}">
                   ${s.value === 'outline'
-                    ? html`<span class="color-swatch" style="background: transparent; border: 2px solid white;"></span>`
+                    ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
                     : html`<span class="color-swatch" style="background: ${s.fill}; opacity: 0.6;"></span>`
                   }
                 </button>
@@ -958,6 +1054,87 @@ export class CbToolbar extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  #renderTextEditor() {
+    const texts = this.#selectedTexts;
+    const ref = texts[0];
+    const currentSize = ref.fontSize ?? 2;
+    const currentLabel = TEXT_SIZES.find(s => s.value === currentSize)?.label ?? 'M';
+    const ids = texts.map(t => t.id);
+    return html`
+      <div class="player-editor">
+        ${texts.length > 1
+          ? html`<span class="selection-info">${texts.length} texts</span>`
+          : html`
+            <label>Edit text:</label>
+            <input class="number-input" style="width: 100px; text-align: left; padding: 0 6px;"
+                   type="text"
+                   aria-label="Text content"
+                   .value="${ref.text}"
+                   @blur="${this.#onTextBlur}"
+                   @keydown="${this.#onTextKeyDown}"
+                   @pointerdown="${(e: Event) => e.stopPropagation()}" />
+            <button @click="${this.#onTextSave}">Save</button>
+          `}
+        <span class="divider"></span>
+        <label>Font size:</label>
+        <div class="dropdown-wrap">
+          <button class="color-btn"
+                  aria-haspopup="menu"
+                  aria-expanded="${this._openMenu === 'text-size'}"
+                  aria-controls="menu-text-size"
+                  aria-label="Font size"
+                  title="Font size"
+                  style="width: auto; padding: 0 8px; font-size: 0.8rem; font-weight: bold;"
+                  @click="${(e: Event) => this.#onTriggerClick('text-size', e)}"
+                  @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('text-size', e)}">
+            ${currentLabel}
+            <span class="caret"></span>
+          </button>
+          ${this._openMenu === 'text-size' ? html`
+            <div role="menu" id="menu-text-size" aria-label="Font size"
+                 @keydown="${this.#onMenuKeyDown}">
+              ${TEXT_SIZES.map(s => html`
+                <button role="menuitemradio" tabindex="-1"
+                        aria-checked="${currentSize === s.value}"
+                        @click="${() => this.#changeTextSize(ids, s.value)}">
+                  <span style="font-weight: bold; min-width: 24px;">${s.label}</span>
+                </button>
+              `)}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  #onTextBlur(e: FocusEvent) {
+    const input = e.target as HTMLInputElement;
+    const value = input.value.trim();
+    const texts = this.#selectedTexts;
+    if (texts.length === 1 && value && value !== texts[0].text) {
+      this.dispatchEvent(new TextUpdateEvent([texts[0].id], { text: value }));
+    }
+  }
+
+  #onTextKeyDown(e: KeyboardEvent) {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  }
+
+  #onTextSave() {
+    const input = this.renderRoot.querySelector('.player-editor .number-input') as HTMLInputElement | null;
+    if (input) input.blur();
+  }
+
+  #changeTextSize(ids: string[], fontSize: number) {
+    this._openMenu = null;
+    if (ids.length) {
+      this.dispatchEvent(new TextUpdateEvent(ids, { fontSize }));
+    }
   }
 
   #changeShapeStyle(style: ShapeStyle) {

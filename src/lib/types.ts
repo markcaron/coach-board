@@ -108,6 +108,28 @@ export interface Shape {
   angle?: number;
 }
 
-export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape';
+export interface TextSizeDef {
+  label: string;
+  value: number;
+}
+
+export const TEXT_SIZES: TextSizeDef[] = [
+  { label: 'XS', value: 1 },
+  { label: 'S',  value: 1.5 },
+  { label: 'M',  value: 2 },
+  { label: 'L',  value: 3 },
+  { label: 'XL', value: 4 },
+];
+
+export interface TextItem {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  fontSize?: number;
+  angle?: number;
+}
+
+export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text';
 export type LineStyle = 'solid' | 'dashed';
 export type EquipmentKind = 'ball' | 'cone' | 'coach' | 'goal' | 'mini-goal';

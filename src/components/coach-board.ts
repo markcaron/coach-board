@@ -1,15 +1,16 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
-import type { Player, Line, Equipment, Shape, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team } from '../lib/types.js';
+import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team } from '../lib/types.js';
 import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
 import { renderField, FIELD } from '../lib/field.js';
 import { screenToSVG, uid } from '../lib/svg-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
 
 const PLAYER_RADIUS = 1.6;
+const TEXT_FONT_SIZE = 2;
 
 function triPoints(cx: number, cy: number, r: number): string {
   const h = r * 1.32;
@@ -29,7 +30,7 @@ const ROTATE_HANDLE_R = 0.5;
 const HIT_SLOP = 1.2;
 const PADDING = 4;
 
-type DragKind = 'player' | 'equipment' | 'shape' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side';
+type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side';
 
 interface GroupDragState {
   anchorX: number;
@@ -98,6 +99,7 @@ interface Snapshot {
   lines: Line[];
   equipment: Equipment[];
   shapes: Shape[];
+  textItems: TextItem[];
 }
 
 const MAX_HISTORY = 50;
@@ -165,10 +167,12 @@ export class CoachBoard extends LitElement {
       height: auto;
       cursor: default;
       border-radius: 0 0 10px 10px;
+      user-select: none;
     }
 
     svg.tool-add-player,
-    svg.tool-add-equipment {
+    svg.tool-add-equipment,
+    svg.tool-add-text {
       cursor: none;
     }
 
@@ -193,6 +197,7 @@ export class CoachBoard extends LitElement {
   @state() accessor equipmentKind: EquipmentKind = 'ball';
   @state() accessor shapeKind: ShapeKind = 'rect';
   @state() accessor shapes: Shape[] = [];
+  @state() accessor textItems: TextItem[] = [];
   @state() accessor ghost: GhostCursor | null = null;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
@@ -213,6 +218,7 @@ export class CoachBoard extends LitElement {
       lines: structuredClone(this.lines),
       equipment: structuredClone(this.equipment),
       shapes: structuredClone(this.shapes),
+      textItems: structuredClone(this.textItems),
     };
   }
 
@@ -231,6 +237,7 @@ export class CoachBoard extends LitElement {
     this.lines = prev.lines;
     this.equipment = prev.equipment;
     this.shapes = prev.shapes;
+    this.textItems = prev.textItems;
     this.selectedIds = new Set();
   }
 
@@ -242,6 +249,7 @@ export class CoachBoard extends LitElement {
     this.lines = next.lines;
     this.equipment = next.equipment;
     this.shapes = next.shapes;
+    this.textItems = next.textItems;
     this.selectedIds = new Set();
   }
 
@@ -264,14 +272,15 @@ export class CoachBoard extends LitElement {
     URL.revokeObjectURL(url);
   }
 
-  get #selectedItems(): Array<Player | Equipment | Line | Shape> {
+  get #selectedItems(): Array<Player | Equipment | Line | Shape | TextItem> {
     const ids = this.selectedIds;
     if (ids.size === 0) return [];
-    const items: Array<Player | Equipment | Line | Shape> = [];
+    const items: Array<Player | Equipment | Line | Shape | TextItem> = [];
     for (const p of this.players) if (ids.has(p.id)) items.push(p);
     for (const eq of this.equipment) if (ids.has(eq.id)) items.push(eq);
     for (const l of this.lines) if (ids.has(l.id)) items.push(l);
     for (const s of this.shapes) if (ids.has(s.id)) items.push(s);
+    for (const t of this.textItems) if (ids.has(t.id)) items.push(t);
     return items;
   }
 
@@ -304,6 +313,7 @@ export class CoachBoard extends LitElement {
           @equipment-update="${this.#onEquipmentUpdate}"
           @line-update="${this.#onLineUpdate}"
           @shape-update="${this.#onShapeUpdate}"
+          @text-update="${this.#onTextUpdate}"
           @undo="${this.#undo}"
           @redo="${this.#redo}"
           @save-svg="${this.#saveSvg}">
@@ -351,6 +361,10 @@ export class CoachBoard extends LitElement {
             ${this.equipment.map(eq => this.#renderEquipment(eq))}
           </g>
 
+          <g class="text-layer">
+            ${this.textItems.map(t => this.#renderTextItem(t))}
+          </g>
+
           ${this.activeTool === 'add-player' && this.ghost
             ? this.playerTeam === 'a'
               ? svg`
@@ -367,6 +381,16 @@ export class CoachBoard extends LitElement {
             : nothing}
           ${this.activeTool === 'add-equipment' && this.ghost
             ? this.#renderGhostEquipment()
+            : nothing}
+          ${this.activeTool === 'add-text' && this.ghost
+            ? svg`
+              <text x="${this.ghost.x}" y="${this.ghost.y}"
+                    text-anchor="middle" dominant-baseline="central"
+                    fill="white" fill-opacity="0.5" font-size="${TEXT_FONT_SIZE}"
+                    font-family="system-ui, sans-serif"
+                    style="pointer-events: none">
+                T
+              </text>`
             : nothing}
         </svg>
         </div>
@@ -386,6 +410,11 @@ export class CoachBoard extends LitElement {
         <filter id="player-shadow" x="-50%" y="-50%" width="200%" height="200%">
           <feDropShadow dx="0" dy="0.3" stdDeviation="0.4"
                         flood-color="#000" flood-opacity="0.5" />
+        </filter>
+
+        <filter id="text-shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="0.15" stdDeviation="0.25"
+                        flood-color="#000" flood-opacity="0.35" />
         </filter>
 
         <pattern id="goal-net" width="0.5" height="0.5"
@@ -813,6 +842,52 @@ export class CoachBoard extends LitElement {
     `;
   }
 
+  #renderTextItem(t: TextItem) {
+    const selected = this.selectedIds.has(t.id);
+    const singleSelected = selected && this.selectedIds.size === 1;
+    const angle = t.angle ?? 0;
+    const fs = t.fontSize ?? TEXT_FONT_SIZE;
+    const approxCharW = fs * 0.6;
+    const hw = Math.max(t.text.length * approxCharW, fs) / 2;
+    const hh = fs * 0.7;
+    const pad = 0.4;
+
+    return svg`
+      <g data-id="${t.id}" data-kind="text"
+         transform="translate(${t.x}, ${t.y}) rotate(${angle})">
+        <rect x="${-hw - pad}" y="${-hh - pad}"
+              width="${(hw + pad) * 2}" height="${(hh + pad) * 2}"
+              fill="transparent"
+              style="cursor: pointer" />
+        ${selected ? svg`
+          <rect x="${-hw - pad}" y="${-hh - pad}"
+                width="${(hw + pad) * 2}" height="${(hh + pad) * 2}"
+                fill="none" stroke="white" stroke-width="0.12"
+                stroke-dasharray="0.5,0.3" rx="0.2" />
+        ` : nothing}
+        <text x="0" y="0"
+              text-anchor="middle" dominant-baseline="central"
+              fill="white" font-size="${fs}"
+              font-family="system-ui, sans-serif"
+              filter="url(#text-shadow)"
+              style="pointer-events: none">
+          ${t.text}
+        </text>
+        ${singleSelected ? this.#renderRectRotateHandles(t.id,
+            -hw - pad - 0.5, -hh - pad - 0.5,
+             hw + pad + 0.5,  hh + pad + 0.5) : nothing}
+      </g>
+    `;
+  }
+
+  #onTextUpdate(e: TextUpdateEvent) {
+    this.#pushUndo();
+    const idSet = new Set(e.textIds);
+    this.textItems = this.textItems.map(t =>
+      idSet.has(t.id) ? { ...t, ...e.changes } : t
+    );
+  }
+
   #onShapeUpdate(e: ShapeUpdateEvent) {
     this.#pushUndo();
     const idSet = new Set(e.shapeIds);
@@ -836,13 +911,14 @@ export class CoachBoard extends LitElement {
   }
 
   #onClearAll(_e: ClearAllEvent) {
-    if (this.players.length || this.lines.length || this.equipment.length || this.shapes.length) {
+    if (this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length) {
       this.#pushUndo();
     }
     this.players = [];
     this.lines = [];
     this.equipment = [];
     this.shapes = [];
+    this.textItems = [];
     this.selectedIds = new Set();
   }
 
@@ -891,6 +967,12 @@ export class CoachBoard extends LitElement {
       return;
     }
 
+    if (this.activeTool === 'add-text') {
+      this.#pushUndo();
+      this.#addTextItem(pt.x, pt.y, 'Text');
+      return;
+    }
+
     if (this.activeTool === 'draw-line') {
       this.#draw = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
       this.svgEl.setPointerCapture(e.pointerId);
@@ -919,9 +1001,10 @@ export class CoachBoard extends LitElement {
       const p = this.players.find(p => p.id === id);
       const eq = this.equipment.find(eq => eq.id === id);
       const sh = this.shapes.find(s => s.id === id);
-      const cx = p ? p.x : eq ? eq.x : sh!.cx;
-      const cy = p ? p.y : eq ? eq.y : sh!.cy;
-      const origRotation = p ? (p.angle ?? 0) : eq ? (eq.angle ?? 0) : (sh!.angle ?? 0);
+      const ti = this.textItems.find(t => t.id === id);
+      const cx = p ? p.x : eq ? eq.x : sh ? sh.cx : ti!.x;
+      const cy = p ? p.y : eq ? eq.y : sh ? sh.cy : ti!.y;
+      const origRotation = p ? (p.angle ?? 0) : eq ? (eq.angle ?? 0) : sh ? (sh.angle ?? 0) : (ti!.angle ?? 0);
       const startAngle = rad2deg(Math.atan2(pt.y - cy, pt.x - cx));
       this.#rotateDrag = { id, cx, cy, startAngle, origRotation };
       this.svgEl.setPointerCapture(e.pointerId);
@@ -984,6 +1067,8 @@ export class CoachBoard extends LitElement {
       if (eq) { pointOrigins.set(id, { x: eq.x, y: eq.y }); continue; }
       const sh = this.shapes.find(s => s.id === id);
       if (sh) { pointOrigins.set(id, { x: sh.cx, y: sh.cy }); continue; }
+      const ti = this.textItems.find(t => t.id === id);
+      if (ti) { pointOrigins.set(id, { x: ti.x, y: ti.y }); continue; }
       const l = this.lines.find(l => l.id === id);
       if (l) { lineOrigins.set(id, { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, cx: l.cx, cy: l.cy }); }
     }
@@ -994,7 +1079,7 @@ export class CoachBoard extends LitElement {
   #onPointerMove(e: PointerEvent) {
     const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
 
-    if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment') {
+    if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
       this.ghost = { x: pt.x, y: pt.y };
       return;
     }
@@ -1079,9 +1164,16 @@ export class CoachBoard extends LitElement {
             s.id === id ? { ...s, angle: newAngle } : s
           );
         } else {
-          this.equipment = this.equipment.map(eq =>
-            eq.id === id ? { ...eq, angle: newAngle } : eq
-          );
+          const ti = this.textItems.find(t => t.id === id);
+          if (ti) {
+            this.textItems = this.textItems.map(t =>
+              t.id === id ? { ...t, angle: newAngle } : t
+            );
+          } else {
+            this.equipment = this.equipment.map(eq =>
+              eq.id === id ? { ...eq, angle: newAngle } : eq
+            );
+          }
         }
       }
       return;
@@ -1117,6 +1209,10 @@ export class CoachBoard extends LitElement {
       this.shapes = this.shapes.map(s => {
         const orig = pointOrigins.get(s.id);
         return orig ? { ...s, cx: orig.x + dx, cy: orig.y + dy } : s;
+      });
+      this.textItems = this.textItems.map(t => {
+        const orig = pointOrigins.get(t.id);
+        return orig ? { ...t, x: orig.x + dx, y: orig.y + dy } : t;
       });
     }
 
@@ -1222,6 +1318,7 @@ export class CoachBoard extends LitElement {
       this.lines = this.lines.filter(l => !ids.has(l.id));
       this.equipment = this.equipment.filter(eq => !ids.has(eq.id));
       this.shapes = this.shapes.filter(s => !ids.has(s.id));
+      this.textItems = this.textItems.filter(t => !ids.has(t.id));
       this.selectedIds = new Set();
     }
     if (e.key === 'Escape') {
@@ -1252,6 +1349,17 @@ export class CoachBoard extends LitElement {
       kind: this.equipmentKind,
     };
     this.equipment = [...this.equipment, newEq];
+  }
+
+  #addTextItem(x: number, y: number, text: string) {
+    const newText: TextItem = {
+      id: uid('text'),
+      x, y,
+      text,
+    };
+    this.textItems = [...this.textItems, newText];
+    this.selectedIds = new Set([newText.id]);
+    this.activeTool = 'select';
   }
 }
 
