@@ -935,7 +935,8 @@ export class CbToolbar extends LitElement {
     const ids = lines.map(l => l.id);
     return html`
       <div class="player-editor">
-        ${lines.length > 1 ? html`<span class="selection-info">${lines.length} lines</span>` : nothing}
+        <label>Edit line:</label>
+        ${lines.length > 1 ? html`<span class="selection-info">${lines.length} selected</span>` : nothing}
         <button class="color-btn" title="Arrow on start"
                 aria-pressed="${hasStart}"
                 aria-label="Arrow on start"
@@ -972,10 +973,11 @@ export class CbToolbar extends LitElement {
                   @click="${(e: Event) => this.#onTriggerClick('line-color', e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('line-color', e)}">
             <span class="color-swatch" style="background: ${ref.color}"></span>
+            <span class="caret"></span>
           </button>
           ${this._openMenu === 'line-color' ? html`
             <div role="menu" id="menu-line-color" aria-label="Line color"
-                 style="right: 0; left: auto; flex-direction: row; gap: 4px; padding: 6px;"
+                 style="flex-direction: row; gap: 4px; padding: 6px;"
                  @keydown="${this.#onMenuKeyDown}">
               ${LINE_COLORS.map(c => html`
                 <button role="menuitemradio" tabindex="-1"
@@ -1014,9 +1016,12 @@ export class CbToolbar extends LitElement {
   #renderShapeEditor() {
     const shapes = this.#selectedShapes;
     const ref = shapes[0];
+    const allSameKind = shapes.every(s => s.kind === ref.kind);
+    const kindLabel = allSameKind ? (ref.kind === 'rect' ? 'rectangle' : 'ellipse') : 'shape';
     return html`
       <div class="player-editor">
-        ${shapes.length > 1 ? html`<span class="selection-info">${shapes.length} shapes</span>` : nothing}
+        <label>Edit ${kindLabel}:</label>
+        ${shapes.length > 1 ? html`<span class="selection-info">${shapes.length} selected</span>` : nothing}
         <div class="dropdown-wrap">
           <button class="color-btn"
                   aria-haspopup="menu"
@@ -1032,10 +1037,11 @@ export class CbToolbar extends LitElement {
                   : '#f0c040'
                 }; opacity: 0.6;"></span>`
             }
+            <span class="caret"></span>
           </button>
           ${(this._openMenu as string) === 'shape-style' ? html`
             <div role="menu" aria-label="Shape style"
-                 style="right: 0; left: auto; flex-direction: row; gap: 4px; padding: 6px;"
+                 style="flex-direction: row; gap: 4px; padding: 6px;"
                  @keydown="${this.#onMenuKeyDown}">
               ${SHAPE_STYLES.map(s => html`
                 <button role="menuitemradio" tabindex="-1"
