@@ -740,7 +740,7 @@ export class CbToolbar extends LitElement {
           aria-controls="menu-player"
           @click="${(e: Event) => this.#onTriggerClick('player', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('player', e)}">
-          <span class="icon">●</span> Add Player <span class="caret"></span>
+          <span class="icon">●</span> Player <span class="caret"></span>
         </button>
         ${this._openMenu === 'player' ? html`
           <div role="menu" id="menu-player" aria-label="Add Player"
@@ -771,7 +771,7 @@ export class CbToolbar extends LitElement {
           @click="${(e: Event) => this.#onTriggerClick('equipment', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('equipment', e)}">
           <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" style="vertical-align: middle"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor" /></svg>
-          Add Equipment <span class="caret"></span>
+          Equipment <span class="caret"></span>
         </button>
         ${this._openMenu === 'equipment' ? html`
           <div role="menu" id="menu-equipment" aria-label="Add Equipment"
@@ -868,7 +868,7 @@ export class CbToolbar extends LitElement {
         @click="${() => this.#pick('add-text')}">
         <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
           <text x="8" y="13" text-anchor="middle" fill="currentColor" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">T</text>
-        </svg> Add Text
+        </svg> Text
       </button>
       </div>
 
