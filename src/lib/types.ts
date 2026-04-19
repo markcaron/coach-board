@@ -53,6 +53,7 @@ export interface Player {
   color: string;
   label?: string;
   angle?: number;
+  groupId?: string;
 }
 
 export interface Line {
@@ -67,6 +68,7 @@ export interface Line {
   style: 'solid' | 'dashed';
   arrowStart: boolean;
   arrowEnd: boolean;
+  groupId?: string;
 }
 
 export interface Equipment {
@@ -76,6 +78,7 @@ export interface Equipment {
   kind: EquipmentKind;
   color?: string;
   angle?: number;
+  groupId?: string;
 }
 
 export type ShapeKind = 'rect' | 'ellipse';
@@ -108,6 +111,7 @@ export interface Shape {
   kind: ShapeKind;
   style: ShapeStyle;
   angle?: number;
+  groupId?: string;
 }
 
 export interface TextSizeDef {
@@ -130,6 +134,7 @@ export interface TextItem {
   text: string;
   fontSize?: number;
   angle?: number;
+  groupId?: string;
 }
 
 export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text';

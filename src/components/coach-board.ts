@@ -5,7 +5,8 @@ import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, Equipme
 import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
 import { renderField, FIELD } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
+import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
 
@@ -154,12 +155,22 @@ export class CoachBoard extends LitElement {
       --field-stripe-dark: #276749;
     }
 
-    .board-container {
+    .toolbar-area {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .field-area {
       display: flex;
-      flex-direction: column;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .svg-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 1100px;
     }
 
     svg {
@@ -167,7 +178,6 @@ export class CoachBoard extends LitElement {
       width: 100%;
       height: auto;
       cursor: default;
-      border-radius: 0 0 10px 10px;
       user-select: none;
     }
 
@@ -180,10 +190,6 @@ export class CoachBoard extends LitElement {
     svg.tool-draw-line,
     svg.tool-draw-shape {
       cursor: crosshair;
-    }
-
-    .svg-wrap {
-      position: relative;
     }
   `;
 
@@ -345,7 +351,7 @@ export class CoachBoard extends LitElement {
     const vbH = FIELD.WIDTH + PADDING * 2;
 
     return html`
-      <div class="board-container">
+      <div class="toolbar-area">
         <cb-toolbar
           .activeTool="${this.activeTool}"
           .selectedItems="${this.#selectedItems}"
@@ -358,11 +364,16 @@ export class CoachBoard extends LitElement {
           @line-update="${this.#onLineUpdate}"
           @shape-update="${this.#onShapeUpdate}"
           @text-update="${this.#onTextUpdate}"
+          @align-items="${this.#onAlignItems}"
+          @group-items="${this.#onGroupItems}"
+          @ungroup-items="${this.#onUngroupItems}"
           @undo="${this.#undo}"
           @redo="${this.#redo}"
           @save-svg="${this.#saveSvg}">
         </cb-toolbar>
+      </div>
 
+      <div class="field-area">
         <div class="svg-wrap">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -934,6 +945,119 @@ export class CoachBoard extends LitElement {
     );
   }
 
+  #onAlignItems(e: AlignItemsEvent) {
+    const ids = this.selectedIds;
+    if (ids.size < 2) return;
+
+    interface ItemPos { id: string; x: number; y: number }
+    const items: ItemPos[] = [];
+
+    for (const p of this.players) if (ids.has(p.id)) items.push({ id: p.id, x: p.x, y: p.y });
+    for (const eq of this.equipment) if (ids.has(eq.id)) items.push({ id: eq.id, x: eq.x, y: eq.y });
+    for (const s of this.shapes) if (ids.has(s.id)) items.push({ id: s.id, x: s.cx, y: s.cy });
+    for (const t of this.textItems) if (ids.has(t.id)) items.push({ id: t.id, x: t.x, y: t.y });
+    for (const l of this.lines) if (ids.has(l.id)) items.push({ id: l.id, x: (l.x1 + l.x2) / 2, y: (l.y1 + l.y2) / 2 });
+
+    if (items.length < 2) return;
+
+    const deltas = new Map<string, { dx: number; dy: number }>();
+    const action: AlignAction = e.action;
+
+    if (action === 'distribute-h' || action === 'distribute-v') {
+      if (items.length < 3) return;
+      const axis = action === 'distribute-h' ? 'x' : 'y';
+      const sorted = [...items].sort((a, b) => a[axis] - b[axis]);
+      const first = sorted[0][axis];
+      const last = sorted[sorted.length - 1][axis];
+      const step = (last - first) / (sorted.length - 1);
+      for (let i = 0; i < sorted.length; i++) {
+        const target = first + step * i;
+        const d = target - sorted[i][axis];
+        if (axis === 'x') deltas.set(sorted[i].id, { dx: d, dy: 0 });
+        else deltas.set(sorted[i].id, { dx: 0, dy: d });
+      }
+    } else {
+      let target: number;
+      const xs = items.map(i => i.x);
+      const ys = items.map(i => i.y);
+      switch (action) {
+        case 'left':     target = Math.min(...xs); break;
+        case 'right':    target = Math.max(...xs); break;
+        case 'center-h': target = xs.reduce((a, b) => a + b, 0) / xs.length; break;
+        case 'top':      target = Math.min(...ys); break;
+        case 'bottom':   target = Math.max(...ys); break;
+        case 'center-v': target = ys.reduce((a, b) => a + b, 0) / ys.length; break;
+      }
+      const isX = action === 'left' || action === 'right' || action === 'center-h';
+      for (const item of items) {
+        const d = target - (isX ? item.x : item.y);
+        deltas.set(item.id, isX ? { dx: d, dy: 0 } : { dx: 0, dy: d });
+      }
+    }
+
+    this.#pushUndo();
+    this.players = this.players.map(p => {
+      const d = deltas.get(p.id);
+      return d ? { ...p, x: p.x + d.dx, y: p.y + d.dy } : p;
+    });
+    this.equipment = this.equipment.map(eq => {
+      const d = deltas.get(eq.id);
+      return d ? { ...eq, x: eq.x + d.dx, y: eq.y + d.dy } : eq;
+    });
+    this.shapes = this.shapes.map(s => {
+      const d = deltas.get(s.id);
+      return d ? { ...s, cx: s.cx + d.dx, cy: s.cy + d.dy } : s;
+    });
+    this.textItems = this.textItems.map(t => {
+      const d = deltas.get(t.id);
+      return d ? { ...t, x: t.x + d.dx, y: t.y + d.dy } : t;
+    });
+    this.lines = this.lines.map(l => {
+      const d = deltas.get(l.id);
+      return d ? { ...l, x1: l.x1 + d.dx, y1: l.y1 + d.dy, x2: l.x2 + d.dx, y2: l.y2 + d.dy, cx: l.cx + d.dx, cy: l.cy + d.dy } : l;
+    });
+  }
+
+  #onGroupItems(_e: GroupItemsEvent) {
+    const ids = this.selectedIds;
+    if (ids.size < 2) return;
+    this.#pushUndo();
+    const gid = uid('group');
+    this.players = this.players.map(p => ids.has(p.id) ? { ...p, groupId: gid } : p);
+    this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, groupId: gid } : eq);
+    this.shapes = this.shapes.map(s => ids.has(s.id) ? { ...s, groupId: gid } : s);
+    this.textItems = this.textItems.map(t => ids.has(t.id) ? { ...t, groupId: gid } : t);
+    this.lines = this.lines.map(l => ids.has(l.id) ? { ...l, groupId: gid } : l);
+  }
+
+  #onUngroupItems(_e: UngroupItemsEvent) {
+    const ids = this.selectedIds;
+    if (ids.size === 0) return;
+    this.#pushUndo();
+    this.players = this.players.map(p => ids.has(p.id) ? { ...p, groupId: undefined } : p);
+    this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, groupId: undefined } : eq);
+    this.shapes = this.shapes.map(s => ids.has(s.id) ? { ...s, groupId: undefined } : s);
+    this.textItems = this.textItems.map(t => ids.has(t.id) ? { ...t, groupId: undefined } : t);
+    this.lines = this.lines.map(l => ids.has(l.id) ? { ...l, groupId: undefined } : l);
+  }
+
+  #expandSelectionToGroups(ids: Set<string>): Set<string> {
+    const groupIds = new Set<string>();
+    const allItems = [
+      ...this.players, ...this.equipment, ...this.shapes,
+      ...this.textItems, ...this.lines,
+    ];
+    for (const item of allItems) {
+      if (ids.has(item.id) && item.groupId) groupIds.add(item.groupId);
+    }
+    if (groupIds.size === 0) return ids;
+    const expanded = new Set(ids);
+    for (const item of allItems) {
+      if (item.groupId && groupIds.has(item.groupId)) expanded.add(item.id);
+    }
+    return expanded;
+  }
+
   #onShapeUpdate(e: ShapeUpdateEvent) {
     this.#pushUndo();
     const idSet = new Set(e.shapeIds);
@@ -1091,9 +1215,9 @@ export class CoachBoard extends LitElement {
       } else {
         next.add(id);
       }
-      this.selectedIds = next;
+      this.selectedIds = this.#expandSelectionToGroups(next);
     } else if (!this.selectedIds.has(id)) {
-      this.selectedIds = new Set([id]);
+      this.selectedIds = this.#expandSelectionToGroups(new Set([id]));
     }
 
     // Start group drag for all selected items

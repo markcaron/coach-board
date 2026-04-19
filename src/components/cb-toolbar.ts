@@ -90,6 +90,29 @@ export class TextUpdateEvent extends Event {
   }
 }
 
+export type AlignAction = 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom' | 'distribute-h' | 'distribute-v';
+
+export class AlignItemsEvent extends Event {
+  static readonly eventName = 'align-items' as const;
+  constructor(public action: AlignAction) {
+    super(AlignItemsEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
+export class GroupItemsEvent extends Event {
+  static readonly eventName = 'group-items' as const;
+  constructor() {
+    super(GroupItemsEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
+export class UngroupItemsEvent extends Event {
+  static readonly eventName = 'ungroup-items' as const;
+  constructor() {
+    super(UngroupItemsEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
 
 type AnyItem = Player | Equipment | Line | Shape | TextItem;
@@ -130,15 +153,35 @@ type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-c
 export class CbToolbar extends LitElement {
   static styles = css`
     :host {
-      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: start;
+      column-gap: 32px;
+      padding: 8px 12px;
+      background: #16213e;
+      user-select: none;
+    }
+
+    .tools-left {
       display: flex;
       gap: 4px;
       align-items: center;
-      padding: 8px 12px;
-      background: #16213e;
-      border-radius: 10px 10px 0 0;
-      user-select: none;
       flex-wrap: wrap;
+    }
+
+    .tools-right {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .undo-redo {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-shrink: 0;
     }
 
     button {
@@ -272,16 +315,18 @@ export class CbToolbar extends LitElement {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
     }
 
     .player-editor label {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: #aaa;
     }
 
     .number-input {
       width: 32px;
       height: 28px;
+      box-sizing: border-box;
       text-align: center;
       font: bold 0.85rem system-ui, sans-serif;
       color: white;
@@ -302,6 +347,7 @@ export class CbToolbar extends LitElement {
       justify-content: center;
       width: 28px;
       height: 28px;
+      box-sizing: border-box;
       padding: 0;
       background: #0f3460;
       border: 1px solid rgba(255, 255, 255, 0.25);
@@ -354,7 +400,7 @@ export class CbToolbar extends LitElement {
     }
 
     .selection-info {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: #aaa;
     }
 
@@ -418,20 +464,40 @@ export class CbToolbar extends LitElement {
     }
 
     .edit-bar {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      column-gap: 32px;
+      align-items: start;
+      grid-column: 1 / -1;
+      margin: 8px -12px -8px;
+      padding: 6px 12px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      --swatch-border: white;
+    }
+
+    .edit-bar-left {
       display: flex;
       gap: 6px;
       align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .edit-bar-right {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .edit-bar-placeholder {
+      grid-column: 1 / -1;
+      margin: 8px -12px -8px;
       min-height: 40px;
+      box-sizing: border-box;
       padding: 6px 12px;
-      background: white;
-      border-radius: 0 0 8px 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      z-index: 5;
-      --swatch-border: white;
+      background: #1a1a2e;
     }
 
     .edit-bar label {
@@ -470,6 +536,50 @@ export class CbToolbar extends LitElement {
 
     .edit-bar .divider {
       background: rgba(0, 0, 0, 0.15);
+    }
+
+    .align-group {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .group-btns {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .align-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      box-sizing: border-box;
+      padding: 0;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #151515;
+    }
+
+    .align-btn:hover {
+      background: #e0e0e0;
+      border-color: #999;
+    }
+
+    .align-btn:focus-visible {
+      outline: 2px solid #4ea8de;
+      outline-offset: 2px;
+    }
+
+    .align-btn svg {
+      width: 14px;
+      height: 14px;
     }
 
   `;
@@ -615,6 +725,7 @@ export class CbToolbar extends LitElement {
     const t = this.activeTool;
     const selType = this.#selectionType;
     return html`
+      <div class="tools-left">
       <button
         aria-pressed="${t === 'select'}"
         @click="${() => this.#pick('select')}">
@@ -759,8 +870,10 @@ export class CbToolbar extends LitElement {
           <text x="8" y="13" text-anchor="middle" fill="currentColor" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">T</text>
         </svg> Add Text
       </button>
+      </div>
 
-      <span class="spacer"></span>
+      <div class="tools-right">
+      <div class="undo-redo">
       <button class="icon-btn" title="Undo (Cmd+Z)"
               ?disabled="${!this.canUndo}"
               @click="${() => this.dispatchEvent(new UndoEvent())}">
@@ -777,8 +890,8 @@ export class CbToolbar extends LitElement {
           <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
         </svg>
       </button>
+      </div>
       <button class="danger" @click="${() => { this._confirmClear = true; }}">Clear All</button>
-      <span class="divider"></span>
       <button @click="${() => this.dispatchEvent(new SaveSvgEvent())}">
         <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
           <path d="M 3,1 L 3,12 L 8,8 L 13,12 L 13,1 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
@@ -786,18 +899,26 @@ export class CbToolbar extends LitElement {
         </svg>
         Save SVG
       </button>
+      </div>
 
-      ${selType !== 'none' && selType !== 'mixed' ? html`
+      ${selType !== 'none' ? html`
         <div class="edit-bar">
-          ${selType === 'single-player' ? this.#renderSinglePlayerEditor()
-            : selType === 'players' ? this.#renderMultiPlayerEditor()
-            : selType === 'single-cone' || selType === 'cones' ? this.#renderConeEditor()
-            : selType === 'lines' ? this.#renderLineEditor()
-            : selType === 'shapes' ? this.#renderShapeEditor()
-            : selType === 'single-text' || selType === 'texts' ? this.#renderTextEditor()
-            : nothing}
+          <div class="edit-bar-left">
+            ${selType === 'single-player' ? this.#renderSinglePlayerEditor()
+              : selType === 'players' ? this.#renderMultiPlayerEditor()
+              : selType === 'single-cone' || selType === 'cones' ? this.#renderConeEditor()
+              : selType === 'lines' ? this.#renderLineEditor()
+              : selType === 'shapes' ? this.#renderShapeEditor()
+              : selType === 'single-text' || selType === 'texts' ? this.#renderTextEditor()
+              : nothing}
+          </div>
+          ${this.selectedItems.length >= 2 ? html`
+            <div class="edit-bar-right">
+              ${this.#renderAlignmentControls()}
+            </div>
+          ` : nothing}
         </div>
-      ` : nothing}
+      ` : html`<div class="edit-bar-placeholder"></div>`}
 
       ${this._confirmClear ? html`
         <div class="confirm-overlay" @click="${this.#cancelClear}">
@@ -1118,6 +1239,65 @@ export class CbToolbar extends LitElement {
           ` : ''}
         </div>
       </div>
+    `;
+  }
+
+  #renderAlignmentControls() {
+    const count = this.selectedItems.length;
+    const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as any).groupId);
+    return html`
+        <div class="group-btns">
+          <button @click="${() => this.dispatchEvent(new GroupItemsEvent())}">
+            <svg viewBox="0 0 1200 1200" width="14" height="14"><path d="m92.305 184.62c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.316-92.316-92.305-92.316-50.988 0-92.305 41.328-92.305 92.305 0 50.977 41.328 92.316 92.305 92.316zm0 1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.316-92.305 92.305 0 50.988 41.328 92.305 92.305 92.305zm1015.4 0c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.305 92.305 92.305zm0-1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.316-92.305-92.316-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.316 92.305 92.316zm-969.24-46.164h923.07v923.07h-923.07zm992.32-92.305h-1061.5c-23.074 0-23.074 0-23.074 23.074v1061.5c0 23.074 0 23.074 23.074 23.074h1061.5c23.074 0 23.074 0 23.074-23.074l0.003906-1061.5c0-23.074 0-23.074-23.074-23.074zm-438.47 830.77h-369.23v-369.23h369.23zm69.238-461.55h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074l0.003906-507.69c0-23.078 0-23.078-23.078-23.078zm115.38 276.93h-369.23v-369.23h369.23zm69.227-461.53h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074v-507.7c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
+            Group
+          </button>
+          ${hasGroup ? html`
+            <button @click="${() => this.dispatchEvent(new UngroupItemsEvent())}">
+              <svg viewBox="0 0 1200 1200" width="14" height="14"><path d="m369.23 184.62c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.156 46.152 92.305 92.305 92.305zm738.47-738.45c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.156 46.152 92.305 92.305 92.305zm-276.92-461.53c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm-738.47-738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0.003906-92.305 46.141-92.305 92.293 0 46.152 46.152 92.316 92.305 92.316zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm692.32-138.46h-646.16v-646.16h646.15v646.16zm69.227-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074l0.003906-784.62c0-23.078 0-23.078-23.078-23.078zm207.7 461.55h-646.16v-646.16h646.15v646.16zm69.23-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074v-784.62c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
+              Ungroup
+            </button>
+          ` : nothing}
+        </div>
+        <span class="divider"></span>
+        <div class="align-group" title="Align">
+          <button class="align-btn" title="Align left"
+                  @click="${() => this.dispatchEvent(new AlignItemsEvent('left'))}">
+            <svg viewBox="0 0 1200 1200"><path d="m258 330h828v240h-828z" fill="currentColor"/><path d="m258 630h444v240h-444z" fill="currentColor"/><path d="m114 162h84v876h-84z" fill="currentColor"/></svg>
+          </button>
+          <button class="align-btn" title="Align center horizontally"
+                  @click="${() => this.dispatchEvent(new AlignItemsEvent('center-h'))}">
+            <svg viewBox="0 0 1200 1200"><path d="m1014 570v-240h-372v-168h-84v168h-372v240h372v60h-180v240h180v168h84v-168h180v-240h-180v-60z" fill="currentColor"/></svg>
+          </button>
+          <button class="align-btn" title="Align right"
+                  @click="${() => this.dispatchEvent(new AlignItemsEvent('right'))}">
+            <svg viewBox="0 0 1200 1200"><path d="m114 330h828v240h-828z" fill="currentColor"/><path d="m498 630h444v240h-444z" fill="currentColor"/><path d="m1002 162h84v876h-84z" fill="currentColor"/></svg>
+          </button>
+          <button class="align-btn" title="Align top"
+                  @click="${() => this.dispatchEvent(new AlignItemsEvent('top'))}">
+            <svg viewBox="0 0 1200 1200"><path d="m630 258h240v828h-240z" fill="currentColor"/><path d="m330 258h240v444h-240z" fill="currentColor"/><path d="m162 114h876v84h-876z" fill="currentColor"/></svg>
+          </button>
+          <button class="align-btn" title="Align center vertically"
+                  @click="${() => this.dispatchEvent(new AlignItemsEvent('center-v'))}">
+            <svg viewBox="0 0 1200 1200"><path d="m1038 558h-168v-372h-240v372h-60v-180h-240v180h-168v84h168v180h240v-180h60v372h240v-372h168z" fill="currentColor"/></svg>
+          </button>
+          <button class="align-btn" title="Align bottom"
+                  @click="${() => this.dispatchEvent(new AlignItemsEvent('bottom'))}">
+            <svg viewBox="0 0 1200 1200"><path d="m630 114h240v828h-240z" fill="currentColor"/><path d="m330 498h240v444h-240z" fill="currentColor"/><path d="m162 1002h876v84h-876z" fill="currentColor"/></svg>
+          </button>
+        </div>
+        ${count >= 3 ? html`
+          <span class="divider"></span>
+          <div class="align-group" title="Distribute">
+            <button class="align-btn" title="Distribute horizontally"
+                    @click="${() => this.dispatchEvent(new AlignItemsEvent('distribute-h'))}">
+              <svg viewBox="0 0 1600 1600"><path d="M264 216L264 1384L152 1384L152 216L264 216Z" fill="currentColor"/><path d="M1448 216L1448 1384L1336 1384L1336 216L1448 216Z" fill="currentColor"/><path d="M960 504L960 1096L640 1096L640 504L960 504Z" fill="currentColor"/></svg>
+            </button>
+            <button class="align-btn" title="Distribute vertically"
+                    @click="${() => this.dispatchEvent(new AlignItemsEvent('distribute-v'))}">
+              <svg viewBox="0 0 1600 1600"><path d="M216 1336H1384V1448H216V1336Z" fill="currentColor"/><path d="M216 152H1384V264H216V152Z" fill="currentColor"/><path d="M504 640H1096V960H504V640Z" fill="currentColor"/></svg>
+            </button>
+          </div>
+        ` : nothing}
     `;
   }
 
