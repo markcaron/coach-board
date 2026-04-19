@@ -1,5 +1,7 @@
 import { svg } from 'lit';
 
+export type FieldOrientation = 'horizontal' | 'vertical';
+
 /**
  * FIFA international standard pitch dimensions (meters).
  * All SVG coordinates use these values directly via viewBox="0 0 105 68".
@@ -43,6 +45,81 @@ function penaltyArc(spotX: number, boxEdgeX: number, side: 'left' | 'right') {
   return svg`<path
     d="M ${boxEdgeX} ${startY} A ${PENALTY_ARC_R} ${PENALTY_ARC_R} 0 0 ${sweep} ${boxEdgeX} ${endY}"
     fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />`;
+}
+
+function penaltyArcVertical(spotY: number, boxEdgeY: number, side: 'top' | 'bottom') {
+  const dy = Math.abs(boxEdgeY - spotY);
+  const dx = Math.sqrt(PENALTY_ARC_R ** 2 - dy ** 2);
+  const cx = half;
+  const startX = cx - dx;
+  const endX = cx + dx;
+  const sweep = side === 'top' ? 0 : 1;
+  return svg`<path
+    d="M ${startX} ${boxEdgeY} A ${PENALTY_ARC_R} ${PENALTY_ARC_R} 0 0 ${sweep} ${endX} ${boxEdgeY}"
+    fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />`;
+}
+
+export function renderVerticalField() {
+  const W = FIELD_WIDTH;
+  const H = FIELD_LENGTH;
+  const cx = W / 2;
+  const cy = H / 2;
+  const penaltyLeft = (W - PENALTY_AREA_WIDTH) / 2;
+  const goalAreaLeft = (W - GOAL_AREA_WIDTH) / 2;
+  const goalLeft = (W - GOAL_WIDTH) / 2;
+
+  return svg`
+    <g class="field-markings">
+      <rect x="0" y="0" width="${W}" height="${H}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+
+      <line x1="0" y1="${cy}" x2="${W}" y2="${cy}"
+            stroke="white" stroke-width="${LINE_WIDTH}" />
+
+      <circle cx="${cx}" cy="${cy}" r="${CENTER_CIRCLE_R}"
+              fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <circle cx="${cx}" cy="${cy}" r="${SPOT_R}" fill="white" />
+
+      <rect x="${penaltyLeft}" y="0"
+            width="${PENALTY_AREA_WIDTH}" height="${PENALTY_AREA_DEPTH}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <rect x="${goalAreaLeft}" y="0"
+            width="${GOAL_AREA_WIDTH}" height="${GOAL_AREA_DEPTH}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <circle cx="${cx}" cy="${PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="white" />
+      ${penaltyArcVertical(PENALTY_SPOT_DIST, PENALTY_AREA_DEPTH, 'top')}
+      <rect x="${goalLeft}" y="${-GOAL_DEPTH}"
+            width="${GOAL_WIDTH}" height="${GOAL_DEPTH}"
+            fill="url(#goal-net)" stroke="white" stroke-width="${LINE_WIDTH}" />
+
+      <rect x="${penaltyLeft}" y="${H - PENALTY_AREA_DEPTH}"
+            width="${PENALTY_AREA_WIDTH}" height="${PENALTY_AREA_DEPTH}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <rect x="${goalAreaLeft}" y="${H - GOAL_AREA_DEPTH}"
+            width="${GOAL_AREA_WIDTH}" height="${GOAL_AREA_DEPTH}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <circle cx="${cx}" cy="${H - PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="white" />
+      ${penaltyArcVertical(H - PENALTY_SPOT_DIST, H - PENALTY_AREA_DEPTH, 'bottom')}
+      <rect x="${goalLeft}" y="${H}"
+            width="${GOAL_WIDTH}" height="${GOAL_DEPTH}"
+            fill="url(#goal-net)" stroke="white" stroke-width="${LINE_WIDTH}" />
+
+      <path d="M ${CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 0 ${CORNER_ARC_R}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <path d="M ${W - CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${W} ${CORNER_ARC_R}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <path d="M 0 ${H - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 ${CORNER_ARC_R} ${H}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+      <path d="M ${W} ${H - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${W - CORNER_ARC_R} ${H}"
+            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+    </g>
+  `;
+}
+
+export function getFieldDimensions(orientation: FieldOrientation) {
+  return orientation === 'vertical'
+    ? { w: FIELD_WIDTH, h: FIELD_LENGTH }
+    : { w: FIELD_LENGTH, h: FIELD_WIDTH };
 }
 
 export function renderField() {

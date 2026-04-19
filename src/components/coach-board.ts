@@ -3,7 +3,8 @@ import { customElement, state, query } from 'lit/decorators.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team } from '../lib/types.js';
 import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
-import { renderField, FIELD } from '../lib/field.js';
+import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
+import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
@@ -173,6 +174,10 @@ export class CoachBoard extends LitElement {
       max-width: 1100px;
     }
 
+    .svg-wrap.vertical {
+      max-width: 768px;
+    }
+
     svg {
       display: block;
       width: 100%;
@@ -191,6 +196,144 @@ export class CoachBoard extends LitElement {
     svg.tool-draw-shape {
       cursor: crosshair;
     }
+
+    .field-type-bar {
+      display: flex;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .field-type-bar .dropdown-wrap {
+      position: relative;
+    }
+
+    .field-type-bar button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      background: transparent;
+      color: #aaa;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .field-type-bar button:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e0e0e0;
+    }
+
+    .field-type-bar [role="menu"] {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      width: max-content;
+      background: #0f3460;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .field-type-bar [role="menuitem"] {
+      width: 100%;
+      justify-content: flex-start;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: #e0e0e0;
+      gap: 12px;
+    }
+
+    .field-type-bar [role="menuitem"]:hover {
+      background: #1a4a7a;
+    }
+
+    .field-type-bar .caret {
+      display: inline-block;
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid currentColor;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .field-type-bar .caret.open {
+      border-top: none;
+      border-bottom: 5px solid currentColor;
+    }
+
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .confirm-dialog {
+      background: #16213e;
+      border: 1px solid #1a4a7a;
+      border-radius: 10px;
+      padding: 24px 28px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      max-width: 360px;
+    }
+
+    .confirm-dialog p {
+      margin: 0 0 20px;
+      font-size: 0.95rem;
+      color: #e0e0e0;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .confirm-actions button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      background: #0f3460;
+      color: #e0e0e0;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .confirm-actions button:hover {
+      background: #1a4a7a;
+    }
+
+    .confirm-actions .confirm-danger {
+      background: #d43d55;
+      border-color: #d43d55;
+      color: white;
+    }
+
+    .confirm-actions .confirm-danger:hover {
+      background: #b8304a;
+    }
   `;
 
   @state() accessor activeTool: Tool = 'select';
@@ -205,7 +348,10 @@ export class CoachBoard extends LitElement {
   @state() accessor shapeKind: ShapeKind = 'rect';
   @state() accessor shapes: Shape[] = [];
   @state() accessor textItems: TextItem[] = [];
+  @state() accessor fieldOrientation: FieldOrientation = window.innerWidth <= 768 ? 'vertical' : 'horizontal';
   @state() accessor ghost: GhostCursor | null = null;
+  @state() private accessor _pendingOrientation: FieldOrientation | null = null;
+  @state() private accessor _fieldMenuOpen: boolean = false;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
 
@@ -328,6 +474,10 @@ export class CoachBoard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener('keydown', this.#boundKeyDown);
+    const savedOrientation = this.#loadOrientationFromStorage();
+    if (savedOrientation) {
+      this.fieldOrientation = savedOrientation;
+    }
     this.#loadFromStorage();
   }
 
@@ -345,10 +495,11 @@ export class CoachBoard extends LitElement {
   }
 
   render() {
+    const fd = getFieldDimensions(this.fieldOrientation);
     const vbX = -PADDING;
     const vbY = -PADDING;
-    const vbW = FIELD.LENGTH + PADDING * 2;
-    const vbH = FIELD.WIDTH + PADDING * 2;
+    const vbW = fd.w + PADDING * 2;
+    const vbH = fd.h + PADDING * 2;
 
     return html`
       <div class="toolbar-area">
@@ -374,7 +525,7 @@ export class CoachBoard extends LitElement {
       </div>
 
       <div class="field-area">
-        <div class="svg-wrap">
+        <div class="svg-wrap ${this.fieldOrientation === 'vertical' ? 'vertical' : ''}">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="${vbX} ${vbY} ${vbW} ${vbH}"
@@ -388,15 +539,15 @@ export class CoachBoard extends LitElement {
           ${this.#renderDefs()}
 
           <rect x="${-PADDING}" y="${-PADDING}"
-                width="${FIELD.LENGTH + PADDING * 2}"
-                height="${FIELD.WIDTH + PADDING * 2}"
+                width="${fd.w + PADDING * 2}"
+                height="${fd.h + PADDING * 2}"
                 fill="#1a1a2e" />
 
           <rect x="0" y="0"
-                width="${FIELD.LENGTH}" height="${FIELD.WIDTH}"
+                width="${fd.w}" height="${fd.h}"
                 fill="url(#grass-stripes)" rx="0.5" />
 
-          ${renderField()}
+          ${this.fieldOrientation === 'vertical' ? renderVerticalField() : renderField()}
 
           <g class="shapes-layer">
             ${this.shapes.map(s => this.#renderShape(s))}
@@ -450,6 +601,40 @@ export class CoachBoard extends LitElement {
         </svg>
         </div>
       </div>
+
+      <div class="field-type-bar">
+        <div class="dropdown-wrap">
+          <button @click="${this.#toggleFieldMenu}">
+            ${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Field
+            <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
+          </button>
+          ${this._fieldMenuOpen ? html`
+            <div role="menu" aria-label="Field type">
+              <button role="menuitem"
+                      @click="${() => this.#requestOrientation('horizontal')}">
+                Horizontal Field
+              </button>
+              <button role="menuitem"
+                      @click="${() => this.#requestOrientation('vertical')}">
+                Vertical Field
+              </button>
+            </div>
+          ` : nothing}
+        </div>
+      </div>
+
+      ${this._pendingOrientation ? html`
+        <div class="confirm-overlay" @click="${this.#cancelOrientationChange}">
+          <div class="confirm-dialog" @click="${(e: Event) => e.stopPropagation()}">
+            <p>Changing field orientation. What would you like to do with existing items?</p>
+            <div class="confirm-actions">
+              <button @click="${this.#cancelOrientationChange}">Cancel</button>
+              <button @click="${this.#applyOrientationKeep}">Keep items</button>
+              <button class="confirm-danger" @click="${this.#applyOrientationClear}">Clear all</button>
+            </div>
+          </div>
+        </div>
+      ` : nothing}
     `;
   }
 
@@ -1064,6 +1249,101 @@ export class CoachBoard extends LitElement {
     this.shapes = this.shapes.map(s =>
       idSet.has(s.id) ? { ...s, ...e.changes } : s
     );
+  }
+
+  // ── Field orientation ──────────────────────────────────────────
+
+  #toggleFieldMenu() {
+    this._fieldMenuOpen = !this._fieldMenuOpen;
+  }
+
+  #requestOrientation(orientation: FieldOrientation) {
+    this._fieldMenuOpen = false;
+    if (orientation === this.fieldOrientation) return;
+    const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length;
+    if (!hasItems) {
+      this.#applyOrientation(orientation, false);
+    } else {
+      this._pendingOrientation = orientation;
+    }
+  }
+
+  #cancelOrientationChange() {
+    this._pendingOrientation = null;
+  }
+
+  #applyOrientationKeep() {
+    if (!this._pendingOrientation) return;
+    this.#applyOrientation(this._pendingOrientation, true);
+    this._pendingOrientation = null;
+  }
+
+  #applyOrientationClear() {
+    if (!this._pendingOrientation) return;
+    this.#pushUndo();
+    this.players = [];
+    this.lines = [];
+    this.equipment = [];
+    this.shapes = [];
+    this.textItems = [];
+    this.selectedIds = new Set();
+    this.fieldOrientation = this._pendingOrientation;
+    this._pendingOrientation = null;
+    this.#saveOrientationToStorage();
+  }
+
+  #applyOrientation(orientation: FieldOrientation, remap: boolean) {
+    this.#pushUndo();
+    if (remap) {
+      const oldDim = getFieldDimensions(this.fieldOrientation);
+      const toVertical = orientation === 'vertical';
+
+      const rotatePoint = toVertical
+        ? (x: number, y: number) => ({ x: y, y: oldDim.w - x })
+        : (x: number, y: number) => ({ x: oldDim.h - y, y: x });
+      const angleDelta = toVertical ? -90 : 90;
+      const rotateAngle = (a?: number) => a != null ? a + angleDelta : undefined;
+
+      this.players = this.players.map(p => {
+        const r = rotatePoint(p.x, p.y);
+        return { ...p, x: r.x, y: r.y, angle: rotateAngle(p.angle) };
+      });
+      this.equipment = this.equipment.map(eq => {
+        const r = rotatePoint(eq.x, eq.y);
+        return { ...eq, x: r.x, y: r.y, angle: rotateAngle(eq.angle) };
+      });
+      this.shapes = this.shapes.map(s => {
+        const r = rotatePoint(s.cx, s.cy);
+        return { ...s, cx: r.x, cy: r.y, hw: s.hh, hh: s.hw, angle: rotateAngle(s.angle) };
+      });
+      this.textItems = this.textItems.map(t => {
+        const r = rotatePoint(t.x, t.y);
+        return { ...t, x: r.x, y: r.y, angle: rotateAngle(t.angle) };
+      });
+      this.lines = this.lines.map(l => {
+        const r1 = rotatePoint(l.x1, l.y1);
+        const r2 = rotatePoint(l.x2, l.y2);
+        const rc = rotatePoint(l.cx, l.cy);
+        return { ...l, x1: r1.x, y1: r1.y, x2: r2.x, y2: r2.y, cx: rc.x, cy: rc.y };
+      });
+    }
+    this.selectedIds = new Set();
+    this.fieldOrientation = orientation;
+    this.#saveOrientationToStorage();
+  }
+
+  #saveOrientationToStorage() {
+    try {
+      localStorage.setItem('coach-board-orientation', this.fieldOrientation);
+    } catch { /* ignore */ }
+  }
+
+  #loadOrientationFromStorage(): FieldOrientation | null {
+    try {
+      const v = localStorage.getItem('coach-board-orientation');
+      if (v === 'horizontal' || v === 'vertical') return v;
+    } catch { /* ignore */ }
+    return null;
   }
 
   // ── Event handlers ──────────────────────────────────────────────
