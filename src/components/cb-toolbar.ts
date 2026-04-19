@@ -146,7 +146,7 @@ export class CbToolbar extends LitElement {
       align-items: center;
       gap: 6px;
       padding: 6px 14px;
-      border: 1px solid transparent;
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
       background: #0f3460;
       color: #e0e0e0;
@@ -202,7 +202,7 @@ export class CbToolbar extends LitElement {
       min-width: 100%;
       width: max-content;
       background: #0f3460;
-      border: 1px solid #1a4a7a;
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
       padding: 4px;
       display: flex;
@@ -216,6 +216,7 @@ export class CbToolbar extends LitElement {
       width: 100%;
       justify-content: flex-start;
       background: transparent;
+      border: 1px solid transparent;
       border-radius: 4px;
       gap: 12px;
       outline: none;
@@ -285,7 +286,7 @@ export class CbToolbar extends LitElement {
       font: bold 0.85rem system-ui, sans-serif;
       color: white;
       background: #0f3460;
-      border: 1px solid #1a4a7a;
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 4px;
       outline: none;
       padding: 0;
@@ -303,7 +304,7 @@ export class CbToolbar extends LitElement {
       height: 28px;
       padding: 0;
       background: #0f3460;
-      border: 1px solid #1a4a7a;
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 4px;
       cursor: pointer;
     }
@@ -658,7 +659,7 @@ export class CbToolbar extends LitElement {
           aria-controls="menu-equipment"
           @click="${(e: Event) => this.#onTriggerClick('equipment', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('equipment', e)}">
-          <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle"><polygon points="8,1 14.5,4.75 14.5,12.25 8,16 1.5,12.25 1.5,4.75" fill="currentColor" /></svg>
+          <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" style="vertical-align: middle"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor" /></svg>
           Add Equipment <span class="caret"></span>
         </button>
         ${this._openMenu === 'equipment' ? html`
