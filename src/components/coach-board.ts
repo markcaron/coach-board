@@ -712,7 +712,7 @@ export class CoachBoard extends LitElement {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'coach-board.svg';
+    a.download = 'coaching-board.svg';
     a.click();
     URL.revokeObjectURL(url);
   }

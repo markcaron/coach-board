@@ -12,8 +12,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,json,webmanifest}'],
       },
       manifest: {
-        name: 'Coach Board',
-        short_name: 'CoachBoard',
+        name: 'CoachingBoard',
+        short_name: 'CoachingBoard',
         start_url: '/',
         display: 'standalone',
         background_color: '#1a1a2e',

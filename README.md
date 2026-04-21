@@ -1,4 +1,4 @@
-# Coach Board
+# CoachingBoard
 
 A mobile-first soccer coaching tactical board built with [Lit](https://lit.dev/) Web Components and [Vite](https://vite.dev/). Designed for creating tactical diagrams, planning training sessions, and illustrating game strategies. Works offline at the field.
 
