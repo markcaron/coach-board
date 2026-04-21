@@ -20,8 +20,8 @@ function triPoints(cx: number, cy: number, r: number): string {
 }
 
 const BALL_RADIUS = 1.575;
-const CONE_RADIUS = 1.0125;
-const CONE_BORDER = 0.5625;
+const CONE_RADIUS = 0.9;
+const CONE_BORDER = 0.675;
 const GOAL_W = 7.32;
 const GOAL_D = 2;
 const MINI_GOAL_W = 3.66;
@@ -119,15 +119,21 @@ function isRotatable(item: Player | Equipment): boolean {
   return item.kind === 'goal' || item.kind === 'mini-goal';
 }
 
-function renderRotateHandle(hx: number, hy: number, id: string, cornerAngle: number) {
+function renderRotateHandle(hx: number, hy: number, id: string) {
+  const r = 0.875;
   return svg`
-    <g transform="translate(${hx}, ${hy}) rotate(${cornerAngle})"
+    <g transform="translate(${hx}, ${hy})"
        data-kind="rotate" data-id="${id}"
        style="cursor: grab">
-      <circle r="${ROTATE_HANDLE_R + 0.2}" fill="transparent" />
-      <path d="M -0.35,-0.15 A 0.35,0.35 0 1 1 0.15,-0.35"
-            fill="none" stroke="white" stroke-width="0.1" stroke-opacity="0.7" />
-      <polygon points="0.15,-0.35 0.3,-0.15 0.0,-0.22" fill="white" fill-opacity="0.7" />
+      <circle r="${r + 0.6}" fill="transparent" />
+      <path d="M ${-r * 0.5},${-r * 0.866} A ${r},${r} 0 0 1 ${r * 0.866},${r * 0.5}"
+            fill="none" stroke="white" stroke-width="0.275" stroke-opacity="0.85" />
+      <g transform="translate(${-r * 0.5},${-r * 0.866}) rotate(150)">
+        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="white" fill-opacity="0.85" />
+      </g>
+      <g transform="translate(${r * 0.866},${r * 0.5}) rotate(-30)">
+        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="white" fill-opacity="0.85" />
+      </g>
     </g>
   `;
 }
@@ -524,6 +530,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _pendingOrientation: FieldOrientation | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
+  @state() private accessor _rotateHandleId: string | null = null;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
   @query('#orientation-dialog') accessor _orientationDialog!: HTMLDialogElement;
@@ -546,6 +553,8 @@ export class CoachBoard extends LitElement {
       if (saved) this.#requestOrientation(saved);
     }
   };
+  #lastTapTime = 0;
+  #lastTapId: string | null = null;
   #undoStack: Snapshot[] = [];
   #redoStack: Snapshot[] = [];
 
@@ -682,6 +691,9 @@ export class CoachBoard extends LitElement {
         changedProperties.has('equipment') || changedProperties.has('shapes') ||
         changedProperties.has('textItems')) {
       this.#saveToStorage();
+    }
+    if (changedProperties.has('selectedIds') && this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
+      this._rotateHandleId = null;
     }
   }
 
@@ -941,40 +953,40 @@ export class CoachBoard extends LitElement {
                 stroke="white" stroke-width="0.04" opacity="0.3" />
         </pattern>
 
-        <marker id="arrow-end-white" markerWidth="4" markerHeight="4"
-                refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 0.3 L 4 2 L 0 3.7 Z" fill="white" />
+        <marker id="arrow-end-white" markerWidth="6" markerHeight="8"
+                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="white" />
         </marker>
-        <marker id="arrow-end-red" markerWidth="4" markerHeight="4"
-                refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 0.3 L 4 2 L 0 3.7 Z" fill="#d43d55" />
+        <marker id="arrow-end-red" markerWidth="6" markerHeight="8"
+                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="#d43d55" />
         </marker>
-        <marker id="arrow-end-blue" markerWidth="4" markerHeight="4"
-                refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 0.3 L 4 2 L 0 3.7 Z" fill="#4ea8de" />
+        <marker id="arrow-end-blue" markerWidth="6" markerHeight="8"
+                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="#4ea8de" />
         </marker>
-        <marker id="arrow-start-white" markerWidth="4" markerHeight="4"
-                refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-          <path d="M 4 0.3 L 0 2 L 4 3.7 Z" fill="white" />
+        <marker id="arrow-start-white" markerWidth="6" markerHeight="8"
+                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="white" />
         </marker>
-        <marker id="arrow-start-red" markerWidth="4" markerHeight="4"
-                refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-          <path d="M 4 0.3 L 0 2 L 4 3.7 Z" fill="#d43d55" />
+        <marker id="arrow-start-red" markerWidth="6" markerHeight="8"
+                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="#d43d55" />
         </marker>
-        <marker id="arrow-start-blue" markerWidth="4" markerHeight="4"
-                refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-          <path d="M 4 0.3 L 0 2 L 4 3.7 Z" fill="#4ea8de" />
+        <marker id="arrow-start-blue" markerWidth="6" markerHeight="8"
+                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="#4ea8de" />
         </marker>
         ${['#83c2e8', '#e17788', '#f5d379', '#a36cb0', '#808589'].map((c, i) => {
           const name = ['l-blue', 'l-red', 'l-yellow', 'l-purple', 'l-gray'][i];
           return svg`
-            <marker id="arrow-end-${name}" markerWidth="4" markerHeight="4"
-                    refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-              <path d="M 0 0.3 L 4 2 L 0 3.7 Z" fill="${c}" />
+            <marker id="arrow-end-${name}" markerWidth="6" markerHeight="8"
+                    refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+              <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="${c}" />
             </marker>
-            <marker id="arrow-start-${name}" markerWidth="4" markerHeight="4"
-                    refX="2" refY="2" orient="auto" markerUnits="strokeWidth">
-              <path d="M 4 0.3 L 0 2 L 4 3.7 Z" fill="${c}" />
+            <marker id="arrow-start-${name}" markerWidth="6" markerHeight="8"
+                    refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
+              <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="${c}" />
             </marker>
           `;
         })}
@@ -1015,7 +1027,7 @@ export class CoachBoard extends LitElement {
               ${p.label}
             </text>
           ` : nothing}
-          ${singleSelected ? this.#renderCircleRotateHandles(p.id, selR + 0.3) : nothing}
+          ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, selR + 0.3) : nothing}
         </g>
       `;
     }
@@ -1046,24 +1058,18 @@ export class CoachBoard extends LitElement {
     `;
   }
 
+  #shouldShowRotate(id: string, singleSelected: boolean): boolean {
+    if (!singleSelected) return false;
+    if (this._isMobile) return this._rotateHandleId === id;
+    return true;
+  }
+
   #renderCircleRotateHandles(id: string, r: number) {
-    const corners = [
-      { x: -r, y: -r, a: 0 },
-      { x:  r, y: -r, a: 90 },
-      { x:  r, y:  r, a: 180 },
-      { x: -r, y:  r, a: 270 },
-    ];
-    return corners.map(c => renderRotateHandle(c.x, c.y, id, c.a));
+    return renderRotateHandle(r, -r, id);
   }
 
   #renderRectRotateHandles(id: string, x1: number, y1: number, x2: number, y2: number) {
-    const corners = [
-      { x: x1, y: y1, a: 0 },
-      { x: x2, y: y1, a: 90 },
-      { x: x2, y: y2, a: 180 },
-      { x: x1, y: y2, a: 270 },
-    ];
-    return corners.map(c => renderRotateHandle(c.x, c.y, id, c.a));
+    return renderRotateHandle(x2, y1, id);
   }
 
   #renderLine(l: Line) {
@@ -1082,7 +1088,7 @@ export class CoachBoard extends LitElement {
         <path d="${pathD}"
               fill="none" stroke="transparent" stroke-width="${(this._isMobile ? HIT_SLOP_MOBILE : HIT_SLOP) * 2}"
               data-id="${l.id}" data-kind="line-body"
-              style="cursor: pointer" />
+              style="cursor: pointer;${singleSelected ? ' pointer-events: none' : ''}" />
 
         <path d="${pathD}"
               fill="none" stroke="${l.color}" stroke-width="${selected ? '0.45' : '0.3'}"
@@ -1189,7 +1195,7 @@ export class CoachBoard extends LitElement {
                 stroke="white" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
           <line x1="0" y1="${hw}" x2="0" y2="${hw + post}"
                 stroke="white" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
-          ${singleSelected ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
+          ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
         </g>
       `;
     }
@@ -1301,9 +1307,9 @@ export class CoachBoard extends LitElement {
         ` : nothing}
         ${singleSelected ? svg`
           ${this.#renderShapeHandles(s)}
-          ${this.#renderRectRotateHandles(s.id,
+          ${this.#shouldShowRotate(s.id, singleSelected) ? this.#renderRectRotateHandles(s.id,
               -s.hw - pad - 0.5, -s.hh - pad - 0.5,
-               s.hw + pad + 0.5,  s.hh + pad + 0.5)}
+               s.hw + pad + 0.5,  s.hh + pad + 0.5) : nothing}
         ` : nothing}
       </g>
     `;
@@ -1390,7 +1396,7 @@ export class CoachBoard extends LitElement {
               style="pointer-events: none">
           ${t.text}
         </text>
-        ${singleSelected ? this.#renderRectRotateHandles(t.id,
+        ${this.#shouldShowRotate(t.id, singleSelected) ? this.#renderRectRotateHandles(t.id,
             -hw - pad - 0.5, -hh - pad - 0.5,
              hw + pad + 0.5,  hh + pad + 0.5) : nothing}
       </g>
@@ -1793,6 +1799,32 @@ export class CoachBoard extends LitElement {
       return;
     }
 
+    // Double-tap detection for rotate handles on mobile
+    if (this._isMobile) {
+      const now = Date.now();
+      if (this.#lastTapId === id && now - this.#lastTapTime < 300) {
+        this.#lastTapTime = 0;
+        this.#lastTapId = null;
+        let canRotate = false;
+        if (kind === 'player') {
+          const p = this.players.find(p => p.id === id);
+          canRotate = !!p && isRotatable(p);
+        } else if (kind === 'equipment') {
+          const eq = this.equipment.find(eq => eq.id === id);
+          canRotate = !!eq && isRotatable(eq);
+        } else if (kind === 'shape' || kind === 'text') {
+          canRotate = true;
+        }
+        if (canRotate) {
+          this.selectedIds = new Set([id]);
+          this._rotateHandleId = this._rotateHandleId === id ? null : id;
+          return;
+        }
+      }
+      this.#lastTapTime = now;
+      this.#lastTapId = id;
+    }
+
     // Multi-select with modifier keys
     const mod = isModifier(e);
     if (mod) {
@@ -1805,6 +1837,11 @@ export class CoachBoard extends LitElement {
       this.selectedIds = this.#expandSelectionToGroups(next);
     } else if (!this.selectedIds.has(id)) {
       this.selectedIds = this.#expandSelectionToGroups(new Set([id]));
+    }
+
+    // Clear rotate handle if selecting a different item
+    if (this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
+      this._rotateHandleId = null;
     }
 
     // Start group drag for all selected items
