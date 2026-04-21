@@ -229,6 +229,7 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
       z-index: 10;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      padding-top: env(safe-area-inset-top);
     }
 
     .field-area {
@@ -268,6 +269,7 @@ export class CoachBoard extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
       background: var(--pt-bg-primary);
       z-index: 10;
       box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.3);
