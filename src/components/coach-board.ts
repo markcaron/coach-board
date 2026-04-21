@@ -6,7 +6,7 @@ import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, UndoEvent, RedoEvent, SaveSvgEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, UndoEvent, RedoEvent, SaveSvgEvent, DeleteItemsEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -134,8 +134,16 @@ function renderRotateHandle(hx: number, hy: number, id: string, cornerAngle: num
 @customElement('coach-board')
 export class CoachBoard extends LitElement {
   static styles = css`
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     :host {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
       --color-blue: #4ea8de;
       --color-red: #d43d55;
       --color-yellow: #f0c040;
@@ -152,113 +160,108 @@ export class CoachBoard extends LitElement {
       --line-yellow: #f5d379;
       --line-purple: #a36cb0;
       --line-gray: #808589;
-      --field-stripe-light: #2d6a4f;
-      --field-stripe-dark: #276749;
+      --field-stripe-light: var(--pt-field-stripe-light);
+      --field-stripe-dark: var(--pt-field-stripe-dark);
     }
 
     .toolbar-area {
-      position: sticky;
-      top: 0;
+      flex-shrink: 0;
       z-index: 10;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     }
 
     .field-area {
+      flex: 1;
       display: flex;
+      align-items: center;
       justify-content: center;
-      padding: 2rem;
+      overflow: hidden;
+      min-height: 0;
+      padding: 12px;
     }
 
     .svg-wrap {
       position: relative;
       width: 100%;
       max-width: 1100px;
+      height: 100%;
     }
 
     .svg-wrap.vertical {
       max-width: 768px;
     }
 
-    svg {
+    .svg-wrap > svg {
       display: block;
       width: 100%;
-      height: auto;
+      height: 100%;
       cursor: default;
       user-select: none;
     }
 
-    svg.tool-add-player,
-    svg.tool-add-equipment,
-    svg.tool-add-text {
-      cursor: none;
-    }
-
-    svg.tool-draw-line,
-    svg.tool-draw-shape {
-      cursor: crosshair;
-    }
-
-    .field-type-bar {
+    .bottom-bar {
+      flex-shrink: 0;
       display: flex;
-      justify-content: center;
-      padding: 12px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--pt-bg-primary);
+      z-index: 10;
+      box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.3);
+      user-select: none;
+      font-family: system-ui, -apple-system, sans-serif;
     }
 
-    .field-type-bar .dropdown-wrap {
-      position: relative;
+    .bottom-left {
+      display: flex;
+      gap: 4px;
+      align-items: center;
     }
 
-    .field-type-bar button {
+    .bottom-right {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .bottom-bar button {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       padding: 6px 14px;
+      min-height: 44px;
       border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
-      background: transparent;
-      color: #aaa;
+      background: var(--pt-bg-surface);
+      color: var(--pt-text);
       font: inherit;
       font-size: 0.85rem;
       cursor: pointer;
       transition: background 0.15s, border-color 0.15s;
     }
 
-    .field-type-bar button:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: #e0e0e0;
+    .bottom-bar button:hover {
+      background: var(--pt-border);
     }
 
-    .field-type-bar [role="menu"] {
-      position: absolute;
-      bottom: calc(100% + 4px);
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      width: max-content;
-      background: #0f3460;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      padding: 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    .bottom-bar button:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
-    .field-type-bar [role="menuitem"] {
-      width: 100%;
-      justify-content: flex-start;
+    .bottom-bar button.danger {
       background: transparent;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      color: #e0e0e0;
-      gap: 12px;
+      color: var(--pt-danger-light);
+      border-color: var(--pt-danger-light);
     }
 
-    .field-type-bar [role="menuitem"]:hover {
-      background: #1a4a7a;
+    .bottom-bar button.danger:hover {
+      background: rgba(248, 113, 113, 0.1);
     }
 
-    .field-type-bar .caret {
+    .bottom-bar .caret {
       display: inline-block;
       width: 0;
       height: 0;
@@ -269,88 +272,182 @@ export class CoachBoard extends LitElement {
       vertical-align: middle;
     }
 
-    .field-type-bar .caret.open {
+    .bottom-bar .caret.open {
       border-top: none;
       border-bottom: 5px solid currentColor;
     }
 
-    .confirm-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
+    .bottom-bar .btn-text {
+      white-space: nowrap;
+    }
+
+    @media (max-width: 767px) {
+      .bottom-bar .btn-text {
+        display: none;
+      }
+    }
+
+    .svg-wrap > svg.tool-add-player,
+    .svg-wrap > svg.tool-add-equipment,
+    .svg-wrap > svg.tool-add-text {
+      cursor: none;
+    }
+
+    .svg-wrap > svg.tool-draw-line,
+    .svg-wrap > svg.tool-draw-shape {
+      cursor: crosshair;
+    }
+
+    .bottom-bar .dropdown-wrap {
+      position: relative;
+    }
+
+    .bottom-bar [role="menu"] {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 0;
+      z-index: 10;
+      width: max-content;
+      background: var(--pt-bg-surface);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .bottom-bar [role="menuitem"] {
+      width: 100%;
+      justify-content: flex-start;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: var(--pt-text);
+      gap: 12px;
+    }
+
+    .bottom-bar [role="menuitem"]:hover {
+      background: var(--pt-border);
+    }
+
+    dialog:not([open]) {
+      display: none;
+    }
+
+    dialog {
+      background: var(--pt-bg-surface);
+      border: 1px solid var(--pt-border);
+      border-radius: 10px;
+      padding: 0;
+      max-width: 480px;
+      width: calc(100% - 32px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      color: var(--pt-text);
+      display: flex;
+      flex-direction: column;
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+
+    .dialog-header h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: var(--pt-text);
+    }
+
+    .dialog-close {
+      background: transparent;
+      border: none;
+      color: var(--pt-text-muted);
+      cursor: pointer;
+      padding: 10px 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 100;
+      border-radius: 4px;
+      transition: color 0.15s;
+      font: inherit;
     }
 
-    .confirm-dialog {
-      background: #16213e;
-      border: 1px solid #1a4a7a;
-      border-radius: 10px;
-      padding: 24px 28px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-      text-align: center;
-      max-width: 360px;
+    .dialog-close:hover { color: var(--pt-text-white); }
+
+    .dialog-close svg {
+      width: 14px;
+      height: 14px;
     }
 
-    .confirm-dialog p {
-      margin: 0 0 20px;
-      font-size: 0.95rem;
-      color: #e0e0e0;
+    .dialog-body {
+      padding: 20px 16px;
+    }
+
+    .dialog-body p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      line-height: 1.4;
     }
 
     .confirm-actions {
       display: flex;
-      gap: 10px;
-      justify-content: center;
-      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: space-between;
+      margin-top: 32px;
     }
 
     .confirm-actions button {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 18px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      justify-content: center;
+      padding: 8px 20px;
+      min-height: 44px;
+      border: 1px solid transparent;
       border-radius: 6px;
-      background: #0f3460;
-      color: #e0e0e0;
+      background: var(--pt-bg-surface);
+      color: var(--pt-text);
       font: inherit;
       font-size: 0.85rem;
       cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
     }
 
     .confirm-actions button:hover {
-      background: #1a4a7a;
+      background: var(--pt-border);
+    }
+
+    .confirm-actions .cancel-btn {
+      border: 1px solid var(--pt-accent);
+      color: var(--pt-text-white);
+      background: transparent;
+    }
+
+    .confirm-actions .cancel-btn:hover {
+      background: rgba(78, 168, 222, 0.15);
     }
 
     .confirm-actions .confirm-danger {
-      background: #d43d55;
-      border-color: #d43d55;
-      color: white;
+      background: var(--pt-danger);
+      border-color: var(--pt-danger);
+      color: var(--pt-text-white);
     }
 
     .confirm-actions .confirm-danger:hover {
-      background: #b8304a;
+      background: var(--pt-danger-hover);
     }
 
-    .app-footer {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 32px 12px;
-      font-size: 0.75rem;
-      color: rgba(78, 168, 222, 0.6);
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-
-    .app-footer svg {
-      width: 12px;
-      height: 12px;
-      flex-shrink: 0;
-    }
   `;
 
   @state() accessor activeTool: Tool = 'select';
@@ -371,6 +468,8 @@ export class CoachBoard extends LitElement {
   @state() private accessor _fieldMenuOpen: boolean = false;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
+  @query('#orientation-dialog') accessor _orientationDialog!: HTMLDialogElement;
+  @query('#reset-dialog') accessor _resetDialog!: HTMLDialogElement;
 
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -526,7 +625,6 @@ export class CoachBoard extends LitElement {
           .canUndo="${this.#undoStack.length > 0}"
           .canRedo="${this.#redoStack.length > 0}"
           @tool-changed="${this.#onToolChanged}"
-          @clear-all="${this.#onClearAll}"
           @player-update="${this.#onPlayerUpdate}"
           @equipment-update="${this.#onEquipmentUpdate}"
           @line-update="${this.#onLineUpdate}"
@@ -537,7 +635,7 @@ export class CoachBoard extends LitElement {
           @ungroup-items="${this.#onUngroupItems}"
           @undo="${this.#undo}"
           @redo="${this.#redo}"
-          @save-svg="${this.#saveSvg}">
+          @delete-items="${this.#onDeleteItems}">
         </cb-toolbar>
       </div>
 
@@ -558,7 +656,7 @@ export class CoachBoard extends LitElement {
           <rect x="${-PADDING}" y="${-PADDING}"
                 width="${fd.w + PADDING * 2}"
                 height="${fd.h + PADDING * 2}"
-                fill="#1a1a2e" />
+                fill="var(--pt-bg-body)" />
 
           <rect x="0" y="0"
                 width="${fd.w}" height="${fd.h}"
@@ -619,58 +717,114 @@ export class CoachBoard extends LitElement {
         </div>
       </div>
 
-      <div class="field-type-bar">
-        <div class="dropdown-wrap">
-          <button @click="${this.#toggleFieldMenu}">
-            ${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Field
-            <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
+      <div class="bottom-bar">
+        <div class="bottom-left">
+          <div class="dropdown-wrap">
+            <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
+                    title="Field orientation"
+                    @click="${this.#toggleFieldMenu}">
+              <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                ${this.fieldOrientation === 'horizontal'
+                  ? svg`<rect x="1" y="4" width="14" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />`
+                  : svg`<rect x="4" y="1" width="8" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />`}
+              </svg>
+              <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Field</span>
+              <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
+            </button>
+            ${this._fieldMenuOpen ? html`
+              <div role="menu" aria-label="Field orientation">
+                <button role="menuitem"
+                        @click="${() => this.#requestOrientation('horizontal')}">
+                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                    <rect x="1" y="4" width="14" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
+                  </svg>
+                  Horizontal Field
+                </button>
+                <button role="menuitem"
+                        @click="${() => this.#requestOrientation('vertical')}">
+                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                    <rect x="4" y="1" width="8" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
+                  </svg>
+                  Vertical Field
+                </button>
+              </div>
+            ` : nothing}
+          </div>
+          <!-- branding hidden for now -->
+        </div>
+        <div class="bottom-right">
+          <button class="danger" aria-label="Reset all" title="Reset all"
+                  @click="${this.#requestClearAll}">
+            <svg viewBox="0 0 1600 1600" width="18" height="18" style="flex-shrink:0">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M515.399 422.213C594.372 362.859 692.519 327.687 798.799 327.687C1059.49 327.687 1271.12 539.313 1271.12 800.007C1271.12 1060.7 1059.49 1272.33 798.799 1272.33C550.319 1272.33 346.439 1080.03 327.866 836.273C325.22 801.607 351.199 771.347 385.866 768.7C420.532 766.053 450.792 792.033 453.439 826.7C467.075 1005.43 616.612 1146.37 798.799 1146.37C989.959 1146.37 1145.16 991.167 1145.16 799.993C1145.16 608.833 989.959 453.633 798.799 453.633C724.736 453.633 656.066 476.931 599.732 516.607H641.358C676.118 516.607 704.331 544.82 704.331 579.58C704.331 614.345 676.118 642.559 641.358 642.559H452.424C417.627 642.559 389.446 614.376 389.446 579.58V390.647C389.446 355.887 417.659 327.673 452.424 327.673C487.184 327.673 515.398 355.887 515.398 390.647L515.399 422.213Z" fill="currentColor"/>
+            </svg>
+            <span class="btn-text">Reset All</span>
           </button>
-          ${this._fieldMenuOpen ? html`
-            <div role="menu" aria-label="Field type">
-              <button role="menuitem"
-                      @click="${() => this.#requestOrientation('horizontal')}">
-                Horizontal Field
-              </button>
-              <button role="menuitem"
-                      @click="${() => this.#requestOrientation('vertical')}">
-                Vertical Field
-              </button>
-            </div>
-          ` : nothing}
+          <button aria-label="Save SVG" title="Save SVG"
+                  @click="${this.#saveSvg}">
+            <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+              <path d="M 3,1 L 3,12 L 8,8 L 13,12 L 13,1 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+              <line x1="2" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <span class="btn-text">Save SVG</span>
+          </button>
         </div>
       </div>
 
-      <footer class="app-footer">
-        <svg viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="600" cy="600" r="580" fill="currentColor"/>
-          <path fill="#1a1a2e" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z"/>
-        </svg>
-        Coaching Board by Mark Caron
-      </footer>
-
-      ${this._pendingOrientation ? html`
-        <div class="confirm-overlay" @click="${this.#cancelOrientationChange}">
-          <div class="confirm-dialog" @click="${(e: Event) => e.stopPropagation()}">
-            <p>Changing field orientation. What would you like to do with existing items?</p>
-            <div class="confirm-actions">
-              <button @click="${this.#cancelOrientationChange}">Cancel</button>
+      <dialog id="orientation-dialog">
+        <div class="dialog-header">
+          <h2>Change field orientation</h2>
+          <button class="dialog-close" aria-label="Close" @click="${this.#cancelOrientationChange}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>What would you like to do with existing items?</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${this.#cancelOrientationChange}">Cancel</button>
+            <div style="display:flex;gap:8px">
               <button @click="${this.#applyOrientationKeep}">Keep items</button>
               <button class="confirm-danger" @click="${this.#applyOrientationClear}">Clear all</button>
             </div>
           </div>
         </div>
-      ` : nothing}
+      </dialog>
+
+      <dialog id="reset-dialog">
+        <div class="dialog-header">
+          <h2>Reset all</h2>
+          <button class="dialog-close" aria-label="Close" @click="${this.#cancelClearAll}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Are you sure you want to reset all items on the board?</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${this.#cancelClearAll}">Cancel</button>
+            <button class="confirm-danger" @click="${this.#confirmClearAll}">Yes, reset all</button>
+          </div>
+        </div>
+      </dialog>
     `;
   }
 
   #renderDefs() {
+    const vertical = this.fieldOrientation === 'vertical';
     return svg`
       <defs>
-        <pattern id="grass-stripes" width="10" height="68"
-                 patternUnits="userSpaceOnUse">
-          <rect width="5" height="68" fill="var(--field-stripe-light, #2d6a4f)" />
-          <rect x="5" width="5" height="68" fill="var(--field-stripe-dark, #276749)" />
-        </pattern>
+        ${vertical ? svg`
+          <pattern id="grass-stripes" width="68" height="10"
+                   patternUnits="userSpaceOnUse">
+            <rect width="68" height="5" fill="var(--field-stripe-light, #2d6a4f)" />
+            <rect y="5" width="68" height="5" fill="var(--field-stripe-dark, #276749)" />
+          </pattern>
+        ` : svg`
+          <pattern id="grass-stripes" width="10" height="68"
+                   patternUnits="userSpaceOnUse">
+            <rect width="5" height="68" fill="var(--field-stripe-light, #2d6a4f)" />
+            <rect x="5" width="5" height="68" fill="var(--field-stripe-dark, #276749)" />
+          </pattern>
+        `}
 
         <filter id="player-shadow" x="-50%" y="-50%" width="200%" height="200%">
           <feDropShadow dx="0" dy="0.3" stdDeviation="0.4"
@@ -1290,17 +1444,20 @@ export class CoachBoard extends LitElement {
       this.#applyOrientation(orientation, false);
     } else {
       this._pendingOrientation = orientation;
+      requestAnimationFrame(() => this._orientationDialog?.showModal());
     }
   }
 
   #cancelOrientationChange() {
     this._pendingOrientation = null;
+    this._orientationDialog?.close();
   }
 
   #applyOrientationKeep() {
     if (!this._pendingOrientation) return;
     this.#applyOrientation(this._pendingOrientation, true);
     this._pendingOrientation = null;
+    this._orientationDialog?.close();
   }
 
   #applyOrientationClear() {
@@ -1314,7 +1471,24 @@ export class CoachBoard extends LitElement {
     this.selectedIds = new Set();
     this.fieldOrientation = this._pendingOrientation;
     this._pendingOrientation = null;
+    this._orientationDialog?.close();
     this.#saveOrientationToStorage();
+  }
+
+  #requestClearAll() {
+    const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length;
+    if (hasItems) {
+      requestAnimationFrame(() => this._resetDialog?.showModal());
+    }
+  }
+
+  #cancelClearAll() {
+    this._resetDialog?.close();
+  }
+
+  #confirmClearAll() {
+    this._resetDialog?.close();
+    this.#onClearAll(new ClearAllEvent());
   }
 
   #applyOrientation(orientation: FieldOrientation, remap: boolean) {
@@ -1383,6 +1557,18 @@ export class CoachBoard extends LitElement {
     if (e.lineStyle) this.lineStyle = e.lineStyle;
     if (e.equipmentKind) this.equipmentKind = e.equipmentKind;
     if (e.shapeKind) this.shapeKind = e.shapeKind;
+  }
+
+  #onDeleteItems(_e: DeleteItemsEvent) {
+    if (this.selectedIds.size === 0) return;
+    this.#pushUndo();
+    const ids = this.selectedIds;
+    this.players = this.players.filter(p => !ids.has(p.id));
+    this.lines = this.lines.filter(l => !ids.has(l.id));
+    this.equipment = this.equipment.filter(eq => !ids.has(eq.id));
+    this.shapes = this.shapes.filter(s => !ids.has(s.id));
+    this.textItems = this.textItems.filter(t => !ids.has(t.id));
+    this.selectedIds = new Set();
   }
 
   #onClearAll(_e: ClearAllEvent) {

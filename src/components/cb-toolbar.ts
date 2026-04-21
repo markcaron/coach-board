@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle } from '../lib/types.js';
 import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES, TEXT_SIZES } from '../lib/types.js';
@@ -113,6 +113,13 @@ export class UngroupItemsEvent extends Event {
   }
 }
 
+export class DeleteItemsEvent extends Event {
+  static readonly eventName = 'delete-items' as const;
+  constructor() {
+    super(DeleteItemsEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
 
 type AnyItem = Player | Equipment | Line | Shape | TextItem;
@@ -147,19 +154,34 @@ const LINE_STYLES: { label: string; value: LineStyle }[] = [
   { label: 'Run', value: 'dashed' },
 ];
 
-type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color' | 'shape-style' | 'text-size';
+type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping';
 
 @customElement('cb-toolbar')
 export class CbToolbar extends LitElement {
   static styles = css`
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     :host {
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: start;
-      column-gap: 32px;
+      column-gap: 16px;
       padding: 8px 12px;
-      background: #16213e;
+      background: var(--pt-bg-primary);
       user-select: none;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .btn-text {
+      white-space: nowrap;
+    }
+
+    @media (max-width: 767px) {
+      .btn-text {
+        display: none;
+      }
     }
 
     .tools-left {
@@ -187,12 +209,14 @@ export class CbToolbar extends LitElement {
     button {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       padding: 6px 14px;
+      min-height: 44px;
       border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
-      background: #0f3460;
-      color: #e0e0e0;
+      background: var(--pt-bg-surface);
+      color: var(--pt-text);
       font: inherit;
       font-size: 0.85rem;
       cursor: pointer;
@@ -200,18 +224,18 @@ export class CbToolbar extends LitElement {
     }
 
     button:hover {
-      background: #1a4a7a;
+      background: var(--pt-border);
     }
 
     button:focus-visible {
-      outline: 2px solid #4ea8de;
+      outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
     }
 
     button[aria-pressed="true"] {
-      background: #e94560;
-      border-color: #e94560;
-      color: #fff;
+      background: var(--pt-danger);
+      border-color: var(--pt-danger);
+      color: var(--pt-text-white);
     }
 
     .spacer {
@@ -220,12 +244,12 @@ export class CbToolbar extends LitElement {
 
     button.danger {
       background: transparent;
-      color: #e94560;
-      border-color: #e94560;
+      color: var(--pt-danger-light);
+      border-color: var(--pt-danger-light);
     }
 
     button.danger:hover {
-      background: #e9456020;
+      background: rgba(248, 113, 113, 0.1);
     }
 
     .icon {
@@ -244,7 +268,7 @@ export class CbToolbar extends LitElement {
       z-index: 10;
       min-width: 100%;
       width: max-content;
-      background: #0f3460;
+      background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
       padding: 4px;
@@ -269,7 +293,7 @@ export class CbToolbar extends LitElement {
     [role="menuitemradio"]:hover,
     [role="menuitem"]:focus-visible,
     [role="menuitemradio"]:focus-visible {
-      background: #1a4a7a;
+      background: var(--pt-border);
     }
 
     .color-dot {
@@ -306,7 +330,7 @@ export class CbToolbar extends LitElement {
 
     .divider {
       width: 1px;
-      height: 24px;
+      height: 28px;
       background: rgba(255, 255, 255, 0.15);
       margin: 0 4px;
     }
@@ -320,17 +344,16 @@ export class CbToolbar extends LitElement {
 
     .player-editor label {
       font-size: 0.85rem;
-      color: #aaa;
+      color: var(--pt-text-muted);
     }
 
     .number-input {
-      width: 32px;
-      height: 28px;
-      box-sizing: border-box;
+      width: 44px;
+      height: 44px;
       text-align: center;
       font: bold 0.85rem system-ui, sans-serif;
-      color: white;
-      background: #0f3460;
+      color: var(--pt-text-white);
+      background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 4px;
       outline: none;
@@ -338,18 +361,17 @@ export class CbToolbar extends LitElement {
     }
 
     .number-input:focus {
-      border-color: #4ea8de;
+      border-color: var(--pt-accent);
     }
 
     .color-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      box-sizing: border-box;
+      width: 44px;
+      height: 44px;
       padding: 0;
-      background: #0f3460;
+      background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 4px;
       cursor: pointer;
@@ -357,12 +379,12 @@ export class CbToolbar extends LitElement {
 
     .color-btn[aria-haspopup="menu"] {
       width: auto;
-      padding: 0 6px;
-      gap: 4px;
+      padding: 0 12px;
+      gap: 6px;
     }
 
     .color-btn:hover {
-      border-color: #4ea8de;
+      border-color: var(--pt-accent);
     }
 
     .color-swatch {
@@ -380,8 +402,8 @@ export class CbToolbar extends LitElement {
     }
 
     .color-grid [role="menuitemradio"] {
-      width: 32px;
-      height: 32px;
+      width: 44px;
+      height: 44px;
       padding: 0;
       display: flex;
       align-items: center;
@@ -395,84 +417,39 @@ export class CbToolbar extends LitElement {
     }
 
     .color-grid [role="menuitemradio"][aria-checked="true"] {
-      background: #1a4a7a;
-      border-color: white;
+      background: var(--pt-border);
+      border-color: var(--pt-text-white);
     }
 
     .selection-info {
       font-size: 0.85rem;
-      color: #aaa;
+      color: var(--pt-text-muted);
     }
 
     button.icon-btn {
       padding: 6px 8px;
-      min-width: 28px;
+      min-width: 44px;
       justify-content: center;
     }
 
     button:disabled {
-      opacity: 0.3;
+      opacity: 0.35;
       cursor: default;
       pointer-events: none;
-    }
-
-    .confirm-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-
-    .confirm-dialog {
-      background: #16213e;
-      border: 1px solid #1a4a7a;
-      border-radius: 10px;
-      padding: 24px 28px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-      text-align: center;
-      max-width: 320px;
-    }
-
-    .confirm-dialog p {
-      margin: 0 0 20px;
-      font-size: 0.95rem;
-      color: #e0e0e0;
-    }
-
-    .confirm-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-    }
-
-    .confirm-actions button {
-      padding: 8px 18px;
-      font-size: 0.85rem;
-    }
-
-    .confirm-actions .confirm-yes {
-      background: #d43d55;
-      border-color: #d43d55;
-      color: white;
-    }
-
-    .confirm-actions .confirm-yes:hover {
-      background: #b8304a;
     }
 
     .edit-bar {
       display: grid;
       grid-template-columns: 1fr auto;
       column-gap: 32px;
-      align-items: start;
+      align-items: center;
       grid-column: 1 / -1;
       margin: 8px -12px -8px;
-      padding: 6px 12px;
-      background: white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      padding: 8px 12px;
+      min-height: 60px;
+      box-sizing: border-box;
+      background: #1c3a5c;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.3);
       --swatch-border: white;
     }
 
@@ -491,95 +468,152 @@ export class CbToolbar extends LitElement {
       justify-content: flex-end;
     }
 
-    .edit-bar-placeholder {
-      grid-column: 1 / -1;
-      margin: 8px -12px -8px;
-      min-height: 40px;
-      box-sizing: border-box;
-      padding: 6px 12px;
-      background: #1a1a2e;
-    }
-
     .edit-bar label {
-      color: #151515;
+      color: var(--pt-text);
     }
 
     .edit-bar .selection-info {
-      color: #555;
+      color: var(--pt-text-muted);
     }
 
     .edit-bar button:not([role]) {
-      background: #f0f0f0;
-      color: #151515;
-      border-color: #ccc;
+      background: var(--pt-bg-surface);
+      color: var(--pt-text);
+      border-color: rgba(255, 255, 255, 0.25);
     }
 
     .edit-bar button:not([role]):hover {
-      background: #e0e0e0;
-      border-color: #999;
+      background: var(--pt-border);
     }
 
     .edit-bar button:not([role]):focus-visible {
-      outline: 2px solid #4ea8de;
+      outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
     }
 
     .edit-bar .number-input {
-      color: #151515;
-      background: white;
-      border-color: #ccc;
+      color: var(--pt-text-white);
+      background: var(--pt-bg-surface);
+      border-color: rgba(255, 255, 255, 0.25);
     }
 
     .edit-bar .number-input:focus {
-      border-color: #4ea8de;
+      border-color: var(--pt-accent);
     }
 
     .edit-bar .divider {
-      background: rgba(0, 0, 0, 0.15);
+      background: rgba(255, 255, 255, 0.15);
     }
 
-    .align-group {
+    .edit-bar button.danger {
+      background: transparent;
+      color: var(--pt-danger-light);
+      border-color: var(--pt-danger-light);
+    }
+
+    .edit-bar button.danger:hover {
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    .edit-bar-right [role="menu"] {
+      left: auto;
+      right: 0;
+    }
+
+    dialog:not([open]) {
+      display: none;
+    }
+
+    dialog {
+      background: var(--pt-bg-surface);
+      border: 1px solid var(--pt-border);
+      border-radius: 10px;
+      padding: 0;
+      max-width: 480px;
+      width: calc(100% - 32px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      color: var(--pt-text);
       display: flex;
-      gap: 2px;
-      align-items: center;
-      flex-wrap: wrap;
+      flex-direction: column;
     }
 
-    .group-btns {
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .dialog-header {
       display: flex;
-      gap: 4px;
       align-items: center;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
     }
 
-    .align-btn {
-      display: inline-flex;
+    .dialog-header h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: var(--pt-text);
+    }
+
+    .dialog-close {
+      background: transparent;
+      border: none;
+      color: var(--pt-text-muted);
+      cursor: pointer;
+      padding: 10px 14px;
+      display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      box-sizing: border-box;
-      padding: 0;
-      background: #f0f0f0;
-      border: 1px solid #ccc;
       border-radius: 4px;
-      cursor: pointer;
-      color: #151515;
+      transition: color 0.15s;
+      font: inherit;
     }
 
-    .align-btn:hover {
-      background: #e0e0e0;
-      border-color: #999;
-    }
+    .dialog-close:hover { color: var(--pt-text-white); }
 
-    .align-btn:focus-visible {
-      outline: 2px solid #4ea8de;
-      outline-offset: 2px;
-    }
-
-    .align-btn svg {
+    .dialog-close svg {
       width: 14px;
       height: 14px;
+    }
+
+    .dialog-body {
+      padding: 20px 16px;
+    }
+
+    .dialog-body p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      line-height: 1.4;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin-top: 32px;
+    }
+
+    .confirm-actions .cancel-btn {
+      border: 1px solid var(--pt-accent);
+      color: var(--pt-text-white);
+      background: transparent;
+    }
+
+    .confirm-actions .cancel-btn:hover {
+      background: rgba(78, 168, 222, 0.15);
+    }
+
+    .confirm-actions .confirm-danger {
+      background: var(--pt-danger);
+      border-color: var(--pt-danger);
+      color: var(--pt-text-white);
+    }
+
+    .confirm-actions .confirm-danger:hover {
+      background: var(--pt-danger-hover);
     }
 
   `;
@@ -597,7 +631,8 @@ export class CbToolbar extends LitElement {
   accessor canRedo: boolean = false;
 
   @state() private accessor _openMenu: MenuId | null = null;
-  @state() private accessor _confirmClear: boolean = false;
+
+  @query('#delete-dialog') accessor _deleteDialog!: HTMLDialogElement;
 
   get #selectionType(): SelectionType {
     const items = this.selectedItems;
@@ -727,9 +762,11 @@ export class CbToolbar extends LitElement {
     return html`
       <div class="tools-left">
       <button
+        title="Select"
         aria-pressed="${t === 'select'}"
+        aria-label="Select"
         @click="${() => this.#pick('select')}">
-        <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle"><path d="M 2,2 L 2,13 L 5.5,9.5 L 9,14 L 11,13 L 7.5,8.5 L 12,7 Z" fill="currentColor" /></svg> Select
+        <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle"><path d="M 2,2 L 2,13 L 5.5,9.5 L 9,14 L 11,13 L 7.5,8.5 L 12,7 Z" fill="currentColor" /></svg> <span class="btn-text">Select</span>
       </button>
 
       <div class="dropdown-wrap">
@@ -738,9 +775,11 @@ export class CbToolbar extends LitElement {
           aria-haspopup="menu"
           aria-expanded="${this._openMenu === 'player'}"
           aria-controls="menu-player"
+          aria-label="Player"
+          title="Player"
           @click="${(e: Event) => this.#onTriggerClick('player', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('player', e)}">
-          <span class="icon">●</span> Player <span class="caret"></span>
+          <span class="icon">●</span> <span class="btn-text">Player</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'player' ? html`
           <div role="menu" id="menu-player" aria-label="Add Player"
@@ -768,10 +807,12 @@ export class CbToolbar extends LitElement {
           aria-haspopup="menu"
           aria-expanded="${this._openMenu === 'equipment'}"
           aria-controls="menu-equipment"
+          aria-label="Equipment"
+          title="Equipment"
           @click="${(e: Event) => this.#onTriggerClick('equipment', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('equipment', e)}">
           <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" style="vertical-align: middle"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor" /></svg>
-          Equipment <span class="caret"></span>
+          <span class="btn-text">Equipment</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'equipment' ? html`
           <div role="menu" id="menu-equipment" aria-label="Add Equipment"
@@ -823,10 +864,12 @@ export class CbToolbar extends LitElement {
           aria-haspopup="menu"
           aria-expanded="${this._openMenu === 'line'}"
           aria-controls="menu-line"
+          aria-label="Draw"
+          title="Draw"
           @click="${(e: Event) => this.#onTriggerClick('line', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('line', e)}">
           <svg class="icon" viewBox="0 0 12 12" width="12" height="12" style="vertical-align: middle"><line x1="2" y1="10" x2="10" y2="2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
-          Draw <span class="caret"></span>
+          <span class="btn-text">Draw</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'line' ? html`
           <div role="menu" id="menu-line" aria-label="Draw"
@@ -864,17 +907,19 @@ export class CbToolbar extends LitElement {
       </div>
 
       <button
+        title="Text"
         aria-pressed="${t === 'add-text'}"
+        aria-label="Text"
         @click="${() => this.#pick('add-text')}">
         <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
           <text x="8" y="13" text-anchor="middle" fill="currentColor" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">T</text>
-        </svg> Text
+        </svg> <span class="btn-text">Text</span>
       </button>
       </div>
 
       <div class="tools-right">
       <div class="undo-redo">
-      <button class="icon-btn" title="Undo (Cmd+Z)"
+      <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
               ?disabled="${!this.canUndo}"
               @click="${() => this.dispatchEvent(new UndoEvent())}">
         <svg viewBox="0 0 16 16" width="14" height="14">
@@ -882,7 +927,7 @@ export class CbToolbar extends LitElement {
           <path d="M 2,6 L 10,6 A 4,4 0 0 1 10,14 L 7,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
         </svg>
       </button>
-      <button class="icon-btn" title="Redo (Cmd+Shift+Z)"
+      <button class="icon-btn" title="Redo (Cmd+Shift+Z)" aria-label="Redo"
               ?disabled="${!this.canRedo}"
               @click="${() => this.dispatchEvent(new RedoEvent())}">
         <svg viewBox="0 0 16 16" width="14" height="14">
@@ -891,18 +936,10 @@ export class CbToolbar extends LitElement {
         </svg>
       </button>
       </div>
-      <button class="danger" @click="${() => { this._confirmClear = true; }}">Clear All</button>
-      <button @click="${() => this.dispatchEvent(new SaveSvgEvent())}">
-        <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
-          <path d="M 3,1 L 3,12 L 8,8 L 13,12 L 13,1 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-          <line x1="2" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        </svg>
-        Save SVG
-      </button>
       </div>
 
-      ${selType !== 'none' ? html`
-        <div class="edit-bar">
+      <div class="edit-bar">
+        ${selType !== 'none' ? html`
           <div class="edit-bar-left">
             ${selType === 'single-player' ? this.#renderSinglePlayerEditor()
               : selType === 'players' ? this.#renderMultiPlayerEditor()
@@ -912,25 +949,39 @@ export class CbToolbar extends LitElement {
               : selType === 'single-text' || selType === 'texts' ? this.#renderTextEditor()
               : nothing}
           </div>
-          ${this.selectedItems.length >= 2 ? html`
-            <div class="edit-bar-right">
+          <div class="edit-bar-right">
+            <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''}" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''}"
+                    @click="${this.#requestDelete}">
+              <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
+                <path d="m300 393.61 55.172 618.74h489.74l55.078-618.74zm123.14 117.33h75.094v374.76h-75.094zm139.22 0h75.094v374.76h-75.094zm139.55 0h75.094v374.76h-75.094z" fill="currentColor"/>
+                <path d="m410.44 149.95v112.41h-147.89v75h674.9v-75h-147.89v-112.41zm75 75h229.18v37.406h-229.18z" fill="currentColor"/>
+              </svg>
+              <span class="btn-text">Delete</span>
+            </button>
+            ${this.selectedItems.length >= 2 ? html`
+              <span class="divider"></span>
               ${this.#renderAlignmentControls()}
-            </div>
-          ` : nothing}
-        </div>
-      ` : html`<div class="edit-bar-placeholder"></div>`}
+            ` : nothing}
+          </div>
+        ` : nothing}
+      </div>
 
-      ${this._confirmClear ? html`
-        <div class="confirm-overlay" @click="${this.#cancelClear}">
-          <div class="confirm-dialog" @click="${(e: Event) => e.stopPropagation()}">
-            <p>Are you sure you want to clear all?</p>
-            <div class="confirm-actions">
-              <button @click="${this.#cancelClear}">Cancel</button>
-              <button class="confirm-yes" @click="${this.#confirmClear}">Yes, clear all</button>
-            </div>
+      <dialog id="delete-dialog">
+        <div class="dialog-header">
+          <h2>Delete item${this.selectedItems.length > 1 ? 's' : ''}</h2>
+          <button class="dialog-close" aria-label="Close" @click="${this.#cancelDelete}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Are you sure you want to delete ${this.selectedItems.length > 1 ? `these ${this.selectedItems.length} items` : 'this item'}?</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${this.#cancelDelete}">Cancel</button>
+            <button class="confirm-danger" @click="${this.#confirmDelete}">Yes, delete</button>
           </div>
         </div>
-      ` : nothing}
+      </dialog>
+
     `;
   }
 
@@ -973,6 +1024,7 @@ export class CbToolbar extends LitElement {
                 aria-expanded="${this._openMenu === 'color'}"
                 aria-controls="menu-color"
                 aria-label="Player color"
+                title="Player color"
                 @click="${(e: Event) => this.#onTriggerClick('color', e)}"
                 @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('color', e)}">
           ${refPlayer.team === 'a' ? html`
@@ -1021,6 +1073,7 @@ export class CbToolbar extends LitElement {
                   aria-expanded="${this._openMenu === 'cone-color'}"
                   aria-controls="menu-cone-color"
                   aria-label="Cone color"
+                  title="Cone color"
                   @click="${(e: Event) => this.#onTriggerClick('cone-color', e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('cone-color', e)}">
             <svg viewBox="0 0 16 16" width="16" height="16">
@@ -1106,7 +1159,7 @@ export class CbToolbar extends LitElement {
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.color === c.color}"
                         aria-label="${c.name}"
-                        style="width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.color === c.color ? ' background: #1a4a7a; border-color: white;' : ''}"
+                        style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.color === c.color ? ' background: #1a4a7a; border-color: white;' : ''}"
                         @click="${() => this.#changeLineColor(c.color)}">
                   <span class="color-swatch" style="background: ${c.color}"></span>
                 </button>
@@ -1150,6 +1203,7 @@ export class CbToolbar extends LitElement {
                   aria-haspopup="menu"
                   aria-expanded="${this._openMenu === 'shape-style' as any}"
                   aria-label="Shape style"
+                  title="Shape style"
                   @click="${(e: Event) => this.#onTriggerClick('shape-style' as MenuId, e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('shape-style' as MenuId, e)}">
             ${ref.style === 'outline'
@@ -1172,7 +1226,7 @@ export class CbToolbar extends LitElement {
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.style === s.value}"
                         aria-label="${s.name}"
-                        style="width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.style === s.value ? ' background: #1a4a7a; border-color: white;' : ''}"
+                        style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.style === s.value ? ' background: #1a4a7a; border-color: white;' : ''}"
                         @click="${() => this.#changeShapeStyle(s.value)}">
                   ${s.value === 'outline'
                     ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
@@ -1246,58 +1300,97 @@ export class CbToolbar extends LitElement {
     const count = this.selectedItems.length;
     const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as any).groupId);
     return html`
-        <div class="group-btns">
-          <button @click="${() => this.dispatchEvent(new GroupItemsEvent())}">
-            <svg viewBox="0 0 1200 1200" width="14" height="14"><path d="m92.305 184.62c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.316-92.316-92.305-92.316-50.988 0-92.305 41.328-92.305 92.305 0 50.977 41.328 92.316 92.305 92.316zm0 1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.316-92.305 92.305 0 50.988 41.328 92.305 92.305 92.305zm1015.4 0c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.305 92.305 92.305zm0-1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.316-92.305-92.316-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.316 92.305 92.316zm-969.24-46.164h923.07v923.07h-923.07zm992.32-92.305h-1061.5c-23.074 0-23.074 0-23.074 23.074v1061.5c0 23.074 0 23.074 23.074 23.074h1061.5c23.074 0 23.074 0 23.074-23.074l0.003906-1061.5c0-23.074 0-23.074-23.074-23.074zm-438.47 830.77h-369.23v-369.23h369.23zm69.238-461.55h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074l0.003906-507.69c0-23.078 0-23.078-23.078-23.078zm115.38 276.93h-369.23v-369.23h369.23zm69.227-461.53h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074v-507.7c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
-            Group
+        <div class="dropdown-wrap">
+          <button
+            aria-haspopup="menu"
+            aria-expanded="${this._openMenu === 'grouping'}"
+            aria-controls="menu-grouping"
+            aria-label="Grouping"
+            title="Grouping"
+            @click="${(e: Event) => this.#onTriggerClick('grouping', e)}"
+            @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('grouping', e)}">
+            <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m92.305 184.62c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.316-92.316-92.305-92.316-50.988 0-92.305 41.328-92.305 92.305 0 50.977 41.328 92.316 92.305 92.316zm0 1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.316-92.305 92.305 0 50.988 41.328 92.305 92.305 92.305zm1015.4 0c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.305 92.305 92.305zm0-1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.316-92.305-92.316-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.316 92.305 92.316zm-969.24-46.164h923.07v923.07h-923.07zm992.32-92.305h-1061.5c-23.074 0-23.074 0-23.074 23.074v1061.5c0 23.074 0 23.074 23.074 23.074h1061.5c23.074 0 23.074 0 23.074-23.074l0.003906-1061.5c0-23.074 0-23.074-23.074-23.074zm-438.47 830.77h-369.23v-369.23h369.23zm69.238-461.55h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074l0.003906-507.69c0-23.078 0-23.078-23.078-23.078zm115.38 276.93h-369.23v-369.23h369.23zm69.227-461.53h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074v-507.7c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
+            <span class="btn-text">Grouping</span> <span class="caret"></span>
           </button>
-          ${hasGroup ? html`
-            <button @click="${() => this.dispatchEvent(new UngroupItemsEvent())}">
-              <svg viewBox="0 0 1200 1200" width="14" height="14"><path d="m369.23 184.62c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.156 46.152 92.305 92.305 92.305zm738.47-738.45c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.156 46.152 92.305 92.305 92.305zm-276.92-461.53c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm-738.47-738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0.003906-92.305 46.141-92.305 92.293 0 46.152 46.152 92.316 92.305 92.316zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm692.32-138.46h-646.16v-646.16h646.15v646.16zm69.227-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074l0.003906-784.62c0-23.078 0-23.078-23.078-23.078zm207.7 461.55h-646.16v-646.16h646.15v646.16zm69.23-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074v-784.62c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
-              Ungroup
-            </button>
+          ${this._openMenu === 'grouping' ? html`
+            <div role="menu" id="menu-grouping" aria-label="Grouping"
+                 @keydown="${this.#onMenuKeyDown}">
+              <button role="menuitem" tabindex="-1"
+                      @click="${() => { this._openMenu = null; this.dispatchEvent(new GroupItemsEvent()); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m92.305 184.62c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.316-92.316-92.305-92.316-50.988 0-92.305 41.328-92.305 92.305 0 50.977 41.328 92.316 92.305 92.316zm0 1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.316-92.305 92.305 0 50.988 41.328 92.305 92.305 92.305zm1015.4 0c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.305 92.305 92.305zm0-1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.316-92.305-92.316-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.316 92.305 92.316zm-969.24-46.164h923.07v923.07h-923.07zm992.32-92.305h-1061.5c-23.074 0-23.074 0-23.074 23.074v1061.5c0 23.074 0 23.074 23.074 23.074h1061.5c23.074 0 23.074 0 23.074-23.074l0.003906-1061.5c0-23.074 0-23.074-23.074-23.074zm-438.47 830.77h-369.23v-369.23h369.23zm69.238-461.55h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074l0.003906-507.69c0-23.078 0-23.078-23.078-23.078zm115.38 276.93h-369.23v-369.23h369.23zm69.227-461.53h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074v-507.7c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
+                Group
+              </button>
+              ${hasGroup ? html`
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this._openMenu = null; this.dispatchEvent(new UngroupItemsEvent()); }}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m369.23 184.62c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.156 46.152 92.305 92.305 92.305zm738.47-738.45c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.156 46.152 92.305 92.305 92.305zm-276.92-461.53c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm-738.47-738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0.003906-92.305 46.141-92.305 92.293 0 46.152 46.152 92.316 92.305 92.316zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm692.32-138.46h-646.16v-646.16h646.15v646.16zm69.227-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074l0.003906-784.62c0-23.078 0-23.078-23.078-23.078zm207.7 461.55h-646.16v-646.16h646.15v646.16zm69.23-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074v-784.62c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
+                  Ungroup
+                </button>
+              ` : nothing}
+            </div>
           ` : nothing}
         </div>
-        <span class="divider"></span>
-        <div class="align-group" title="Align">
-          <button class="align-btn" title="Align left"
-                  @click="${() => this.dispatchEvent(new AlignItemsEvent('left'))}">
-            <svg viewBox="0 0 1200 1200"><path d="m258 330h828v240h-828z" fill="currentColor"/><path d="m258 630h444v240h-444z" fill="currentColor"/><path d="m114 162h84v876h-84z" fill="currentColor"/></svg>
+
+        <div class="dropdown-wrap">
+          <button
+            aria-haspopup="menu"
+            aria-expanded="${this._openMenu === 'align'}"
+            aria-controls="menu-align"
+            aria-label="Align"
+            title="Align"
+            @click="${(e: Event) => this.#onTriggerClick('align', e)}"
+            @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('align', e)}">
+            <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m258 330h828v240h-828z" fill="currentColor"/><path d="m258 630h444v240h-444z" fill="currentColor"/><path d="m114 162h84v876h-84z" fill="currentColor"/></svg>
+            <span class="btn-text">Align</span> <span class="caret"></span>
           </button>
-          <button class="align-btn" title="Align center horizontally"
-                  @click="${() => this.dispatchEvent(new AlignItemsEvent('center-h'))}">
-            <svg viewBox="0 0 1200 1200"><path d="m1014 570v-240h-372v-168h-84v168h-372v240h372v60h-180v240h180v168h84v-168h180v-240h-180v-60z" fill="currentColor"/></svg>
-          </button>
-          <button class="align-btn" title="Align right"
-                  @click="${() => this.dispatchEvent(new AlignItemsEvent('right'))}">
-            <svg viewBox="0 0 1200 1200"><path d="m114 330h828v240h-828z" fill="currentColor"/><path d="m498 630h444v240h-444z" fill="currentColor"/><path d="m1002 162h84v876h-84z" fill="currentColor"/></svg>
-          </button>
-          <button class="align-btn" title="Align top"
-                  @click="${() => this.dispatchEvent(new AlignItemsEvent('top'))}">
-            <svg viewBox="0 0 1200 1200"><path d="m630 258h240v828h-240z" fill="currentColor"/><path d="m330 258h240v444h-240z" fill="currentColor"/><path d="m162 114h876v84h-876z" fill="currentColor"/></svg>
-          </button>
-          <button class="align-btn" title="Align center vertically"
-                  @click="${() => this.dispatchEvent(new AlignItemsEvent('center-v'))}">
-            <svg viewBox="0 0 1200 1200"><path d="m1038 558h-168v-372h-240v372h-60v-180h-240v180h-168v84h168v180h240v-180h60v372h240v-372h168z" fill="currentColor"/></svg>
-          </button>
-          <button class="align-btn" title="Align bottom"
-                  @click="${() => this.dispatchEvent(new AlignItemsEvent('bottom'))}">
-            <svg viewBox="0 0 1200 1200"><path d="m630 114h240v828h-240z" fill="currentColor"/><path d="m330 498h240v444h-240z" fill="currentColor"/><path d="m162 1002h876v84h-876z" fill="currentColor"/></svg>
-          </button>
+          ${this._openMenu === 'align' ? html`
+            <div role="menu" id="menu-align" aria-label="Align & Distribute"
+                 @keydown="${this.#onMenuKeyDown}">
+              <button role="menuitem" tabindex="-1"
+                      @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('left')); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m258 330h828v240h-828z" fill="currentColor"/><path d="m258 630h444v240h-444z" fill="currentColor"/><path d="m114 162h84v876h-84z" fill="currentColor"/></svg>
+                Align left
+              </button>
+              <button role="menuitem" tabindex="-1"
+                      @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('center-h')); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m1014 570v-240h-372v-168h-84v168h-372v240h372v60h-180v240h180v168h84v-168h180v-240h-180v-60z" fill="currentColor"/></svg>
+                Align center horizontal
+              </button>
+              <button role="menuitem" tabindex="-1"
+                      @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('right')); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m114 330h828v240h-828z" fill="currentColor"/><path d="m498 630h444v240h-444z" fill="currentColor"/><path d="m1002 162h84v876h-84z" fill="currentColor"/></svg>
+                Align right
+              </button>
+              <button role="menuitem" tabindex="-1"
+                      @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('top')); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m630 258h240v828h-240z" fill="currentColor"/><path d="m330 258h240v444h-240z" fill="currentColor"/><path d="m162 114h876v84h-876z" fill="currentColor"/></svg>
+                Align top
+              </button>
+              <button role="menuitem" tabindex="-1"
+                      @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('center-v')); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m1038 558h-168v-372h-240v372h-60v-180h-240v180h-168v84h168v180h240v-180h60v372h240v-372h168z" fill="currentColor"/></svg>
+                Align center vertical
+              </button>
+              <button role="menuitem" tabindex="-1"
+                      @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('bottom')); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m630 114h240v828h-240z" fill="currentColor"/><path d="m330 498h240v444h-240z" fill="currentColor"/><path d="m162 1002h876v84h-876z" fill="currentColor"/></svg>
+                Align bottom
+              </button>
+              ${count >= 3 ? html`
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('distribute-h')); }}">
+                  <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0"><path d="M264 216L264 1384L152 1384L152 216L264 216Z" fill="currentColor"/><path d="M1448 216L1448 1384L1336 1384L1336 216L1448 216Z" fill="currentColor"/><path d="M960 504L960 1096L640 1096L640 504L960 504Z" fill="currentColor"/></svg>
+                  Distribute horizontal
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('distribute-v')); }}">
+                  <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0"><path d="M216 1336H1384V1448H216V1336Z" fill="currentColor"/><path d="M216 152H1384V264H216V152Z" fill="currentColor"/><path d="M504 640H1096V960H504V640Z" fill="currentColor"/></svg>
+                  Distribute vertical
+                </button>
+              ` : nothing}
+            </div>
+          ` : nothing}
         </div>
-        ${count >= 3 ? html`
-          <span class="divider"></span>
-          <div class="align-group" title="Distribute">
-            <button class="align-btn" title="Distribute horizontally"
-                    @click="${() => this.dispatchEvent(new AlignItemsEvent('distribute-h'))}">
-              <svg viewBox="0 0 1600 1600"><path d="M264 216L264 1384L152 1384L152 216L264 216Z" fill="currentColor"/><path d="M1448 216L1448 1384L1336 1384L1336 216L1448 216Z" fill="currentColor"/><path d="M960 504L960 1096L640 1096L640 504L960 504Z" fill="currentColor"/></svg>
-            </button>
-            <button class="align-btn" title="Distribute vertically"
-                    @click="${() => this.dispatchEvent(new AlignItemsEvent('distribute-v'))}">
-              <svg viewBox="0 0 1600 1600"><path d="M216 1336H1384V1448H216V1336Z" fill="currentColor"/><path d="M216 152H1384V264H216V152Z" fill="currentColor"/><path d="M504 640H1096V960H504V640Z" fill="currentColor"/></svg>
-            </button>
-          </div>
-        ` : nothing}
     `;
   }
 
@@ -1349,14 +1442,17 @@ export class CbToolbar extends LitElement {
     this.dispatchEvent(new ToolChangedEvent(tool));
   }
 
-  #cancelClear() {
-    this._confirmClear = false;
+  #requestDelete() {
+    requestAnimationFrame(() => this._deleteDialog?.showModal());
   }
 
-  #confirmClear() {
-    this._confirmClear = false;
-    this._openMenu = null;
-    this.dispatchEvent(new ClearAllEvent());
+  #cancelDelete() {
+    this._deleteDialog?.close();
+  }
+
+  #confirmDelete() {
+    this._deleteDialog?.close();
+    this.dispatchEvent(new DeleteItemsEvent());
   }
 
   #onNumberBlur(e: FocusEvent) {

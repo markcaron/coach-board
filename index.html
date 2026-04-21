@@ -6,6 +6,38 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Coach Board</title>
     <style>
+      :root {
+        --pt-bg-body: #1a1a2e;
+        --pt-bg-primary: #16213e;
+        --pt-bg-surface: #0f3460;
+        --pt-bg-dark: #151515;
+        --pt-bg-warning: #fef3c7;
+
+        --pt-border: #1a4a7a;
+
+        --pt-text: #e0e0e0;
+        --pt-text-muted: #aaa;
+        --pt-text-on-light: #555;
+        --pt-text-white: #fff;
+
+        --pt-accent: #4ea8de;
+        --pt-accent-hover: #3a8fc4;
+
+        --pt-danger: #e94560;
+        --pt-danger-hover: #d13350;
+        --pt-danger-light: #f87171;
+
+        --pt-success: #16a34a;
+        --pt-success-hover: #15803d;
+        --pt-success-light: #86efac;
+
+        --pt-warning: #f0c040;
+        --pt-warning-hover: #d4a830;
+
+        --pt-field-stripe-light: #2d6a4f;
+        --pt-field-stripe-dark: #276749;
+      }
+
       *,
       *::before,
       *::after {
@@ -16,13 +48,14 @@
 
       html, body {
         height: 100%;
-        background: #1a1a2e;
-        color: #e0e0e0;
+        background: var(--pt-bg-body);
+        color: var(--pt-text);
         font-family: system-ui, -apple-system, sans-serif;
       }
 
       body {
         min-height: 100%;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       }
 
       coach-board {
