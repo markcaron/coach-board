@@ -890,10 +890,10 @@ export class CoachBoard extends LitElement {
               <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
                       title="Field orientation"
                       @click="${this.#toggleFieldMenu}">
-                <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                   ${this.fieldOrientation === 'horizontal'
-                    ? svg`<rect x="1" y="4" width="14" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />`
-                    : svg`<rect x="4" y="1" width="8" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />`}
+                    ? svg`<path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>`
+                    : svg`<path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>`}
                 </svg>
                 <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Field</span>
                 <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
@@ -902,15 +902,15 @@ export class CoachBoard extends LitElement {
                 <div role="menu" aria-label="Field orientation">
                   <button role="menuitem"
                           @click="${() => this.#requestOrientation('horizontal')}">
-                    <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
-                      <rect x="1" y="4" width="14" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                      <path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>
                     </svg>
                     Horizontal Field
                   </button>
                   <button role="menuitem"
                           @click="${() => this.#requestOrientation('vertical')}">
-                    <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
-                      <rect x="4" y="1" width="8" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                      <path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>
                     </svg>
                     Vertical Field
                   </button>
