@@ -56,6 +56,8 @@ export interface Player {
   groupId?: string;
 }
 
+export type LineStyle = 'solid' | 'dashed' | 'wavy';
+
 export interface Line {
   id: string;
   x1: number;
@@ -65,7 +67,7 @@ export interface Line {
   cx: number;
   cy: number;
   color: string;
-  style: 'solid' | 'dashed';
+  style: LineStyle;
   arrowStart: boolean;
   arrowEnd: boolean;
   groupId?: string;
@@ -138,5 +140,4 @@ export interface TextItem {
 }
 
 export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text';
-export type LineStyle = 'solid' | 'dashed';
 export type EquipmentKind = 'ball' | 'cone' | 'coach' | 'goal' | 'mini-goal';

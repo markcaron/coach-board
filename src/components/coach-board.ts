@@ -108,6 +108,47 @@ interface Snapshot {
 const MAX_HISTORY = 50;
 const STORAGE_KEY = 'coach-board-state';
 
+function wavyPath(x1: number, y1: number, cx: number, cy: number, x2: number, y2: number, amp = 0.48): string {
+  const sampleCount = 64;
+  const arcLengths: number[] = [0];
+  let prevX = x1, prevY = y1;
+  for (let i = 1; i <= sampleCount; i++) {
+    const t = i / sampleCount;
+    const bx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
+    const by = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
+    arcLengths.push(arcLengths[i - 1] + Math.hypot(bx - prevX, by - prevY));
+    prevX = bx;
+    prevY = by;
+  }
+  const totalLen = arcLengths[sampleCount];
+  const waveLen = 3.5;
+  const waves = Math.max(Math.round(totalLen / waveLen), 1);
+  const tailFrac = 0.06;
+  const waveFrac = 1 - tailFrac;
+  const steps = Math.max(waves * 8, 32);
+
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const bx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
+    const by = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
+    const dx = 2 * (1 - t) * (cx - x1) + 2 * t * (x2 - cx);
+    const dy = 2 * (1 - t) * (cy - y1) + 2 * t * (y2 - cy);
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const waveProg = t < waveFrac ? t / waveFrac : 1;
+    const fade = t < waveFrac ? 1 : 1 - ((t - waveFrac) / tailFrac);
+    const wave = Math.sin(waveProg * waves * 2 * Math.PI) * amp * fade;
+    pts.push({ x: bx + nx * wave, y: by + ny * wave });
+  }
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length; i++) {
+    d += ` L ${pts[i].x} ${pts[i].y}`;
+  }
+  return d;
+}
+
 function isModifier(e: PointerEvent | MouseEvent): boolean {
   return e.shiftKey || e.metaKey || e.ctrlKey;
 }
@@ -143,6 +184,18 @@ export class CoachBoard extends LitElement {
   static styles = css`
     *, *::before, *::after {
       box-sizing: border-box;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     :host {
@@ -403,11 +456,13 @@ export class CoachBoard extends LitElement {
       border: none;
       color: var(--pt-text-muted);
       cursor: pointer;
-      padding: 10px 14px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
+      border-radius: 6px;
       transition: color 0.15s;
       font: inherit;
     }
@@ -455,6 +510,16 @@ export class CoachBoard extends LitElement {
 
     .confirm-actions button:hover {
       background: var(--pt-border);
+    }
+
+    .confirm-actions button:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .dialog-close:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .confirm-actions .cancel-btn {
@@ -876,7 +941,7 @@ export class CoachBoard extends LitElement {
       <dialog id="orientation-dialog">
         <div class="dialog-header">
           <h2>Change field orientation</h2>
-          <button class="dialog-close" aria-label="Close" @click="${this.#cancelOrientationChange}">
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${this.#cancelOrientationChange}">
             <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
           </button>
         </div>
@@ -895,7 +960,7 @@ export class CoachBoard extends LitElement {
       <dialog id="reset-dialog">
         <div class="dialog-header">
           <h2>Reset all</h2>
-          <button class="dialog-close" aria-label="Close" @click="${this.#cancelClearAll}">
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${this.#cancelClearAll}">
             <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
           </button>
         </div>
@@ -1075,7 +1140,10 @@ export class CoachBoard extends LitElement {
   #renderLine(l: Line) {
     const selected = this.selectedIds.has(l.id);
     const singleSelected = selected && this.selectedIds.size === 1;
-    const pathD = `M ${l.x1} ${l.y1} Q ${l.cx} ${l.cy} ${l.x2} ${l.y2}`;
+    const curveD = `M ${l.x1} ${l.y1} Q ${l.cx} ${l.cy} ${l.x2} ${l.y2}`;
+    const visibleD = l.style === 'wavy'
+      ? wavyPath(l.x1, l.y1, l.cx, l.cy, l.x2, l.y2)
+      : curveD;
     const MARKER_MAP: Record<string, string> = {
       '#d43d55': 'red', '#4ea8de': 'blue',
       '#83c2e8': 'l-blue', '#e17788': 'l-red',
@@ -1085,12 +1153,12 @@ export class CoachBoard extends LitElement {
 
     return svg`
       <g class="line" data-id="${l.id}">
-        <path d="${pathD}"
+        <path d="${curveD}"
               fill="none" stroke="transparent" stroke-width="${(this._isMobile ? HIT_SLOP_MOBILE : HIT_SLOP) * 2}"
               data-id="${l.id}" data-kind="line-body"
               style="cursor: pointer;${singleSelected ? ' pointer-events: none' : ''}" />
 
-        <path d="${pathD}"
+        <path d="${visibleD}"
               fill="none" stroke="${l.color}" stroke-width="${selected ? '0.45' : '0.3'}"
               stroke-dasharray="${l.style === 'dashed' ? '1,0.6' : 'none'}"
               marker-start="${l.arrowStart ? `url(#arrow-start-${markerColor})` : ''}"
@@ -1123,6 +1191,17 @@ export class CoachBoard extends LitElement {
 
   #renderDrawPreview() {
     const d = this.#draw!;
+    const mx = (d.x1 + d.x2) / 2;
+    const my = (d.y1 + d.y2) / 2;
+    if (this.lineStyle === 'wavy') {
+      const pathD = wavyPath(d.x1, d.y1, mx, my, d.x2, d.y2);
+      return svg`
+        <path d="${pathD}"
+              fill="none" stroke="white" stroke-width="0.25"
+              marker-end="url(#arrow-end-white)"
+              style="pointer-events: none" />
+      `;
+    }
     const dashAttr = this.lineStyle === 'dashed' ? '0.8,0.4' : 'none';
     return svg`
       <line x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}"

@@ -1,4 +1,4 @@
-import { LitElement, html, css, nothing } from 'lit';
+import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle } from '../lib/types.js';
@@ -152,6 +152,7 @@ const TEAMS: { label: string; color: string; team: Team }[] = [
 const LINE_STYLES: { label: string; value: LineStyle }[] = [
   { label: 'Pass / Shot', value: 'solid' },
   { label: 'Run', value: 'dashed' },
+  { label: 'Dribble', value: 'wavy' },
 ];
 
 type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping';
@@ -163,10 +164,22 @@ export class CbToolbar extends LitElement {
       box-sizing: border-box;
     }
 
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     :host {
       display: block;
       padding: 8px 12px;
-      background: var(--pt-bg-primary);
+      background: #1c3a5c;
       user-select: none;
       font-family: system-ui, -apple-system, sans-serif;
     }
@@ -317,14 +330,25 @@ export class CbToolbar extends LitElement {
       margin: 0 4px;
     }
 
-    .player-editor {
+    .edit-fields {
+      border: none;
+      margin: 0;
+      padding: 0;
       display: inline-flex;
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
     }
 
-    .player-editor label {
+    .edit-fields > legend {
+      float: left;
+      padding: 0;
+      margin-right: 6px;
+      font-size: 0.85rem;
+      color: var(--pt-text);
+    }
+
+    .edit-fields label {
       font-size: 0.85rem;
       color: var(--pt-text-muted);
     }
@@ -337,13 +361,13 @@ export class CbToolbar extends LitElement {
       color: var(--pt-text-white);
       background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 4px;
-      outline: none;
+      border-radius: 6px;
       padding: 0;
     }
 
-    .number-input:focus {
-      border-color: var(--pt-accent);
+    .number-input:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .color-btn {
@@ -355,7 +379,7 @@ export class CbToolbar extends LitElement {
       padding: 0;
       background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
     }
 
@@ -408,6 +432,21 @@ export class CbToolbar extends LitElement {
       color: var(--pt-text-muted);
     }
 
+    .count-badge {
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 10px;
+      background: var(--pt-accent);
+      color: var(--pt-text-white);
+      font-size: 0.7rem;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
     button.icon-btn {
       padding: 6px 8px;
       min-width: 44px;
@@ -428,10 +467,11 @@ export class CbToolbar extends LitElement {
       grid-column: 1 / -1;
       margin: 8px -12px -8px;
       padding: 8px 12px;
-      min-height: 60px;
+      min-height: 61px;
       box-sizing: border-box;
-      background: #1c3a5c;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.3);
+      background: var(--pt-bg-primary);
+      border-top: 1px solid var(--pt-bg-body);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       --swatch-border: white;
     }
 
@@ -479,8 +519,9 @@ export class CbToolbar extends LitElement {
       border-color: rgba(255, 255, 255, 0.25);
     }
 
-    .edit-bar .number-input:focus {
-      border-color: var(--pt-accent);
+    .edit-bar .number-input:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .edit-bar .divider {
@@ -489,12 +530,12 @@ export class CbToolbar extends LitElement {
 
     .edit-bar button.danger {
       background: transparent;
-      color: var(--pt-danger-light);
-      border-color: var(--pt-danger-light);
+      color: var(--pt-danger-lightest);
+      border-color: var(--pt-danger-lightest);
     }
 
     .edit-bar button.danger:hover {
-      background: rgba(248, 113, 113, 0.1);
+      background: rgba(251, 138, 138, 0.1);
     }
 
     .edit-bar-right [role="menu"] {
@@ -544,11 +585,13 @@ export class CbToolbar extends LitElement {
       border: none;
       color: var(--pt-text-muted);
       cursor: pointer;
-      padding: 10px 14px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
+      border-radius: 6px;
       transition: color 0.15s;
       font: inherit;
     }
@@ -855,9 +898,9 @@ export class CbToolbar extends LitElement {
                       @click="${() => this.#pickLine(s.value)}">
                 <span class="line-preview-wrap">
                   <svg viewBox="0 0 32 12" xmlns="http://www.w3.org/2000/svg">
-                    <line x1="2" y1="6" x2="22" y2="6"
-                          stroke="#e0e0e0" stroke-width="2"
-                          stroke-dasharray="${s.value === 'dashed' ? '4,3' : 'none'}" />
+                    ${s.value === 'wavy'
+                      ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="#e0e0e0" stroke-width="2" />`
+                      : svg`<line x1="2" y1="6" x2="22" y2="6" stroke="#e0e0e0" stroke-width="2" stroke-dasharray="${s.value === 'dashed' ? '4,3' : 'none'}" />`}
                     <polygon points="20,2 28,6 20,10" fill="#e0e0e0" />
                   </svg>
                 </span>
@@ -924,7 +967,7 @@ export class CbToolbar extends LitElement {
       <dialog id="delete-dialog">
         <div class="dialog-header">
           <h2>Delete item${this.selectedItems.length > 1 ? 's' : ''}</h2>
-          <button class="dialog-close" aria-label="Close" @click="${this.#cancelDelete}">
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${this.#cancelDelete}">
             <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
           </button>
         </div>
@@ -943,8 +986,8 @@ export class CbToolbar extends LitElement {
   #renderSinglePlayerEditor() {
     const p = this.#singlePlayer!;
     return html`
-      <div class="player-editor">
-        <label>Edit player:</label>
+      <fieldset class="edit-fields">
+        <legend>Edit player</legend>
         <label>#</label>
         <input class="number-input"
                type="text"
@@ -955,7 +998,7 @@ export class CbToolbar extends LitElement {
                @keydown="${this.#onNumberKeyDown}"
                @pointerdown="${(e: Event) => e.stopPropagation()}" />
         ${this.#renderPlayerColorBtn(p)}
-      </div>
+      </fieldset>
     `;
   }
 
@@ -963,11 +1006,10 @@ export class CbToolbar extends LitElement {
     const players = this.#selectedPlayers;
     const firstPlayer = players[0];
     return html`
-      <div class="player-editor">
-        <label>Edit player:</label>
-        <span class="selection-info">${players.length} selected</span>
+      <fieldset class="edit-fields">
+        <legend>Edit players <span class="count-badge">${players.length}</span></legend>
         ${this.#renderPlayerColorBtn(firstPlayer)}
-      </div>
+      </fieldset>
     `;
   }
 
@@ -1019,9 +1061,8 @@ export class CbToolbar extends LitElement {
     const cones = this.#selectedCones;
     const refCone = cones[0];
     return html`
-      <div class="player-editor">
-        <label>Edit cone:</label>
-        ${cones.length > 1 ? html`<span class="selection-info">${cones.length} selected</span>` : nothing}
+      <fieldset class="edit-fields">
+        <legend>Edit ${cones.length > 1 ? 'cones' : 'cone'}${cones.length > 1 ? html` <span class="count-badge">${cones.length}</span>` : nothing}</legend>
         <div class="dropdown-wrap">
           <button class="color-btn"
                   aria-haspopup="menu"
@@ -1053,21 +1094,23 @@ export class CbToolbar extends LitElement {
             </div>
           ` : ''}
         </div>
-      </div>
+      </fieldset>
     `;
   }
 
   #renderLineEditor() {
     const lines = this.#selectedLines;
     const ref = lines[0];
-    const isSolid = ref.style === 'solid';
+    const style = ref.style;
+    const nextStyle: LineStyle = style === 'solid' ? 'dashed' : style === 'dashed' ? 'wavy' : 'solid';
+    const styleLabel = style === 'solid' ? 'Pass/Shot' : style === 'dashed' ? 'Run' : 'Dribble';
+    const nextLabel = nextStyle === 'solid' ? 'Pass/Shot' : nextStyle === 'dashed' ? 'Run' : 'Dribble';
     const hasStart = ref.arrowStart;
     const hasEnd = ref.arrowEnd;
     const ids = lines.map(l => l.id);
     return html`
-      <div class="player-editor">
-        <label>Edit line:</label>
-        ${lines.length > 1 ? html`<span class="selection-info">${lines.length} selected</span>` : nothing}
+      <fieldset class="edit-fields">
+        <legend>Edit ${lines.length > 1 ? 'lines' : 'line'}${lines.length > 1 ? html` <span class="count-badge">${lines.length}</span>` : nothing}</legend>
         <button class="color-btn" title="Arrow on start"
                 aria-pressed="${hasStart}"
                 aria-label="Arrow on start"
@@ -1077,13 +1120,13 @@ export class CbToolbar extends LitElement {
             <polygon points="8,3 2,6 8,9" fill="${hasStart ? 'currentColor' : '#ccc'}" />
           </svg>
         </button>
-        <button class="color-btn" title="${isSolid ? 'Switch to dashed' : 'Switch to solid'}"
-                aria-label="${isSolid ? 'Switch to dashed line' : 'Switch to solid line'}"
-                @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { style: isSolid ? 'dashed' : 'solid' }))}">
+        <button class="color-btn" title="${styleLabel} — switch to ${nextLabel}"
+                aria-label="${styleLabel} line style — switch to ${nextLabel}"
+                @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { style: nextStyle }))}">
           <svg viewBox="0 0 20 12" width="20" height="12">
-            <line x1="2" y1="6" x2="18" y2="6"
-                  stroke="currentColor" stroke-width="2.5"
-                  stroke-dasharray="${isSolid ? 'none' : '3,2'}" />
+            ${style === 'wavy'
+              ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="currentColor" stroke-width="2.5" />`
+              : svg`<line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2.5" stroke-dasharray="${style === 'dashed' ? '3,2' : 'none'}" />`}
           </svg>
         </button>
         <button class="color-btn" title="Arrow on end"
@@ -1114,7 +1157,7 @@ export class CbToolbar extends LitElement {
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.color === c.color}"
                         aria-label="${c.name}"
-                        style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.color === c.color ? ' background: #1a4a7a; border-color: white;' : ''}"
+                        style="width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.color === c.color ? ' background: var(--pt-border); border-color: white;' : ''}"
                         @click="${() => this.#changeLineColor(c.color)}">
                   <span class="color-swatch" style="background: ${c.color}"></span>
                 </button>
@@ -1122,7 +1165,7 @@ export class CbToolbar extends LitElement {
             </div>
           ` : ''}
         </div>
-      </div>
+      </fieldset>
     `;
   }
 
@@ -1148,11 +1191,13 @@ export class CbToolbar extends LitElement {
     const shapes = this.#selectedShapes;
     const ref = shapes[0];
     const allSameKind = shapes.every(s => s.kind === ref.kind);
-    const kindLabel = allSameKind ? (ref.kind === 'rect' ? 'rectangle' : 'ellipse') : 'shape';
+    const single = shapes.length === 1;
+    const kindLabel = allSameKind
+      ? (ref.kind === 'rect' ? (single ? 'rectangle' : 'rectangles') : (single ? 'ellipse' : 'ellipses'))
+      : (single ? 'shape' : 'shapes');
     return html`
-      <div class="player-editor">
-        <label>Edit ${kindLabel}:</label>
-        ${shapes.length > 1 ? html`<span class="selection-info">${shapes.length} selected</span>` : nothing}
+      <fieldset class="edit-fields">
+        <legend>Edit ${kindLabel}${shapes.length > 1 ? html` <span class="count-badge">${shapes.length}</span>` : nothing}</legend>
         <div class="dropdown-wrap">
           <button class="color-btn"
                   aria-haspopup="menu"
@@ -1181,7 +1226,7 @@ export class CbToolbar extends LitElement {
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.style === s.value}"
                         aria-label="${s.name}"
-                        style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.style === s.value ? ' background: #1a4a7a; border-color: white;' : ''}"
+                        style="width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px;${ref.style === s.value ? ' background: var(--pt-border); border-color: white;' : ''}"
                         @click="${() => this.#changeShapeStyle(s.value)}">
                   ${s.value === 'outline'
                     ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
@@ -1194,7 +1239,7 @@ export class CbToolbar extends LitElement {
             </div>
           ` : ''}
         </div>
-      </div>
+      </fieldset>
     `;
   }
 
@@ -1205,11 +1250,11 @@ export class CbToolbar extends LitElement {
     const currentLabel = TEXT_SIZES.find(s => s.value === currentSize)?.label ?? 'M';
     const ids = texts.map(t => t.id);
     return html`
-      <div class="player-editor">
+      <fieldset class="edit-fields">
         ${texts.length > 1
-          ? html`<span class="selection-info">${texts.length} texts</span>`
+          ? html`<legend>Edit texts <span class="count-badge">${texts.length}</span></legend>`
           : html`
-            <label>Edit text:</label>
+            <legend>Edit text</legend>
             <input class="number-input" style="width: 100px; text-align: left; padding: 0 6px;"
                    type="text"
                    aria-label="Text content"
@@ -1247,7 +1292,7 @@ export class CbToolbar extends LitElement {
             </div>
           ` : ''}
         </div>
-      </div>
+      </fieldset>
     `;
   }
 
@@ -1366,7 +1411,7 @@ export class CbToolbar extends LitElement {
   }
 
   #onTextSave() {
-    const input = this.renderRoot.querySelector('.player-editor .number-input') as HTMLInputElement | null;
+    const input = this.renderRoot.querySelector('.edit-fields .number-input') as HTMLInputElement | null;
     if (input) input.blur();
   }
 
