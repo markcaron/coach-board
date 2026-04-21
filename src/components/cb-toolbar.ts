@@ -334,18 +334,18 @@ export class CbToolbar extends LitElement {
       border: none;
       margin: 0;
       padding: 0;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 6px;
-      flex-wrap: wrap;
     }
 
     .edit-fields > legend {
-      float: left;
       padding: 0;
       margin-right: 6px;
       font-size: 0.85rem;
       color: var(--pt-text);
+      white-space: nowrap;
+      float: left;
     }
 
     .edit-fields label {
@@ -462,7 +462,7 @@ export class CbToolbar extends LitElement {
     .edit-bar {
       display: grid;
       grid-template-columns: 1fr auto;
-      column-gap: 32px;
+      column-gap: 12px;
       align-items: center;
       grid-column: 1 / -1;
       margin: 8px -12px -8px;
@@ -479,15 +479,15 @@ export class CbToolbar extends LitElement {
       display: flex;
       gap: 6px;
       align-items: center;
-      flex-wrap: wrap;
+      min-width: 0;
     }
 
     .edit-bar-right {
       display: flex;
       gap: 6px;
       align-items: center;
-      flex-wrap: wrap;
       justify-content: flex-end;
+      flex-shrink: 0;
     }
 
     .edit-bar label {
