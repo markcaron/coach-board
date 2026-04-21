@@ -30,6 +30,7 @@ const GOAL_LINE_W = 0.18;
 const CONTROL_HANDLE_R = 1.2;
 const ROTATE_HANDLE_R = 0.75;
 const HIT_SLOP = 1.8;
+const HIT_SLOP_MOBILE = 3.0;
 const PADDING = 4;
 
 type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side';
@@ -989,7 +990,7 @@ export class CoachBoard extends LitElement {
     const angle = p.angle ?? 0;
 
     if (isTriangle) {
-      const textOff = PLAYER_RADIUS * 0.07;
+      const textOff = -PLAYER_RADIUS * 0.03;
       const selR = PLAYER_RADIUS + 0.6;
       return svg`
         <g data-id="${p.id}" data-kind="player"
@@ -1079,7 +1080,7 @@ export class CoachBoard extends LitElement {
     return svg`
       <g class="line" data-id="${l.id}">
         <path d="${pathD}"
-              fill="none" stroke="transparent" stroke-width="${HIT_SLOP * 2}"
+              fill="none" stroke="transparent" stroke-width="${(this._isMobile ? HIT_SLOP_MOBILE : HIT_SLOP) * 2}"
               data-id="${l.id}" data-kind="line-body"
               style="cursor: pointer" />
 
