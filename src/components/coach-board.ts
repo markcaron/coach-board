@@ -6,12 +6,12 @@ import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, UndoEvent, RedoEvent, SaveSvgEvent, DeleteItemsEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
 
-const PLAYER_RADIUS = 1.6;
+const PLAYER_RADIUS = 2.4;
 const TEXT_FONT_SIZE = 2;
 
 function triPoints(cx: number, cy: number, r: number): string {
@@ -19,17 +19,17 @@ function triPoints(cx: number, cy: number, r: number): string {
   return `${cx},${cy - h} ${cx - h * 0.866},${cy + h * 0.5} ${cx + h * 0.866},${cy + h * 0.5}`;
 }
 
-const BALL_RADIUS = 1.05;
-const CONE_RADIUS = 0.675;
-const CONE_BORDER = 0.375;
+const BALL_RADIUS = 1.575;
+const CONE_RADIUS = 1.0125;
+const CONE_BORDER = 0.5625;
 const GOAL_W = 7.32;
 const GOAL_D = 2;
 const MINI_GOAL_W = 3.66;
 const MINI_GOAL_D = 1;
 const GOAL_LINE_W = 0.18;
-const CONTROL_HANDLE_R = 0.8;
-const ROTATE_HANDLE_R = 0.5;
-const HIT_SLOP = 1.2;
+const CONTROL_HANDLE_R = 1.2;
+const ROTATE_HANDLE_R = 0.75;
+const HIT_SLOP = 1.8;
 const PADDING = 4;
 
 type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side';
@@ -144,6 +144,7 @@ export class CoachBoard extends LitElement {
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
+      overscroll-behavior: none;
       --color-blue: #4ea8de;
       --color-red: #d43d55;
       --color-yellow: #f0c040;
@@ -197,13 +198,14 @@ export class CoachBoard extends LitElement {
       height: 100%;
       cursor: default;
       user-select: none;
+      touch-action: none;
     }
 
     .bottom-bar {
       flex-shrink: 0;
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      justify-content: space-between;
       gap: 8px;
       padding: 8px 12px;
       background: var(--pt-bg-primary);
@@ -217,12 +219,20 @@ export class CoachBoard extends LitElement {
       display: flex;
       gap: 4px;
       align-items: center;
+      justify-self: start;
+    }
+
+    .bottom-center {
+      display: flex;
+      align-items: center;
+      justify-self: center;
     }
 
     .bottom-right {
       display: flex;
       gap: 4px;
       align-items: center;
+      justify-self: end;
     }
 
     .bottom-bar button {
@@ -249,6 +259,17 @@ export class CoachBoard extends LitElement {
     .bottom-bar button:focus-visible {
       outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
+    }
+
+    .bottom-bar button.icon-btn {
+      padding: 6px 8px;
+      min-width: 44px;
+    }
+
+    .bottom-bar button:disabled {
+      opacity: 0.35;
+      cursor: default;
+      pointer-events: none;
     }
 
     .bottom-bar button.danger {
@@ -305,7 +326,8 @@ export class CoachBoard extends LitElement {
     .bottom-bar [role="menu"] {
       position: absolute;
       bottom: calc(100% + 4px);
-      left: 0;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 10;
       width: max-content;
       background: var(--pt-bg-surface);
@@ -674,8 +696,6 @@ export class CoachBoard extends LitElement {
         <cb-toolbar
           .activeTool="${this.activeTool}"
           .selectedItems="${this.#selectedItems}"
-          .canUndo="${this.#undoStack.length > 0}"
-          .canRedo="${this.#redoStack.length > 0}"
           @tool-changed="${this.#onToolChanged}"
           @player-update="${this.#onPlayerUpdate}"
           @equipment-update="${this.#onEquipmentUpdate}"
@@ -685,8 +705,6 @@ export class CoachBoard extends LitElement {
           @align-items="${this.#onAlignItems}"
           @group-items="${this.#onGroupItems}"
           @ungroup-items="${this.#onUngroupItems}"
-          @undo="${this.#undo}"
-          @redo="${this.#redo}"
           @delete-items="${this.#onDeleteItems}">
         </cb-toolbar>
       </div>
@@ -771,6 +789,24 @@ export class CoachBoard extends LitElement {
 
       <div class="bottom-bar">
         <div class="bottom-left">
+          <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
+                  ?disabled="${this.#undoStack.length === 0}"
+                  @click="${this.#undo}">
+            <svg viewBox="0 0 16 16" width="14" height="14">
+              <path d="M 5,3 L 2,6 L 5,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M 2,6 L 10,6 A 4,4 0 0 1 10,14 L 7,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+          <button class="icon-btn" title="Redo (Cmd+Shift+Z)" aria-label="Redo"
+                  ?disabled="${this.#redoStack.length === 0}"
+                  @click="${this.#redo}">
+            <svg viewBox="0 0 16 16" width="14" height="14">
+              <path d="M 11,3 L 14,6 L 11,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div class="bottom-center">
           ${!this._isMobile ? html`
             <div class="dropdown-wrap">
               <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
@@ -953,7 +989,7 @@ export class CoachBoard extends LitElement {
     const angle = p.angle ?? 0;
 
     if (isTriangle) {
-      const textOff = -PLAYER_RADIUS * 0.15;
+      const textOff = PLAYER_RADIUS * 0.07;
       const selR = PLAYER_RADIUS + 0.6;
       return svg`
         <g data-id="${p.id}" data-kind="player"
@@ -971,7 +1007,7 @@ export class CoachBoard extends LitElement {
           ${p.label ? svg`
             <text x="0" y="${textOff}"
                   text-anchor="middle" dominant-baseline="central"
-                  fill="${textColor}" font-size="1.4" font-weight="bold"
+                  fill="${textColor}" font-size="1.9" font-weight="bold"
                   font-family="system-ui, sans-serif"
                   transform="rotate(${-angle}, 0, ${textOff})"
                   style="pointer-events: none">
@@ -999,7 +1035,7 @@ export class CoachBoard extends LitElement {
         ${p.label ? svg`
           <text x="${p.x}" y="${p.y}"
                 text-anchor="middle" dominant-baseline="central"
-                fill="${textColor}" font-size="1.4" font-weight="bold"
+                fill="${textColor}" font-size="1.9" font-weight="bold"
                 font-family="system-ui, sans-serif"
                 style="pointer-events: none">
             ${p.label}
@@ -1169,7 +1205,7 @@ export class CoachBoard extends LitElement {
                 style="cursor: pointer" />
         <text x="${eq.x}" y="${eq.y}"
               text-anchor="middle" dominant-baseline="central"
-              fill="white" font-size="1.4" font-weight="bold"
+              fill="white" font-size="1.9" font-weight="bold"
               font-family="system-ui, sans-serif"
               style="pointer-events: none">C</text>
       </g>
@@ -1223,7 +1259,7 @@ export class CoachBoard extends LitElement {
                 stroke-dasharray="0.4,0.3" />
         <text x="${x}" y="${y}"
               text-anchor="middle" dominant-baseline="central"
-              fill="white" font-size="1.4" font-weight="bold"
+              fill="white" font-size="1.9" font-weight="bold"
               font-family="system-ui, sans-serif">C</text>
       </g>
     `;

@@ -164,10 +164,7 @@ export class CbToolbar extends LitElement {
     }
 
     :host {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: start;
-      column-gap: 16px;
+      display: block;
       padding: 8px 12px;
       background: var(--pt-bg-primary);
       user-select: none;
@@ -189,21 +186,6 @@ export class CbToolbar extends LitElement {
       gap: 4px;
       align-items: center;
       flex-wrap: wrap;
-    }
-
-    .tools-right {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .undo-redo {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-      flex-shrink: 0;
     }
 
     button {
@@ -624,12 +606,6 @@ export class CbToolbar extends LitElement {
   @property({ attribute: false })
   accessor selectedItems: AnyItem[] = [];
 
-  @property({ type: Boolean })
-  accessor canUndo: boolean = false;
-
-  @property({ type: Boolean })
-  accessor canRedo: boolean = false;
-
   @state() private accessor _openMenu: MenuId | null = null;
 
   @query('#delete-dialog') accessor _deleteDialog!: HTMLDialogElement;
@@ -913,29 +889,8 @@ export class CbToolbar extends LitElement {
         @click="${() => this.#pick('add-text')}">
         <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
           <text x="8" y="13" text-anchor="middle" fill="currentColor" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">T</text>
-        </svg> <span class="btn-text">Text</span>
+        </svg> Text
       </button>
-      </div>
-
-      <div class="tools-right">
-      <div class="undo-redo">
-      <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
-              ?disabled="${!this.canUndo}"
-              @click="${() => this.dispatchEvent(new UndoEvent())}">
-        <svg viewBox="0 0 16 16" width="14" height="14">
-          <path d="M 5,3 L 2,6 L 5,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M 2,6 L 10,6 A 4,4 0 0 1 10,14 L 7,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-        </svg>
-      </button>
-      <button class="icon-btn" title="Redo (Cmd+Shift+Z)" aria-label="Redo"
-              ?disabled="${!this.canRedo}"
-              @click="${() => this.dispatchEvent(new RedoEvent())}">
-        <svg viewBox="0 0 16 16" width="14" height="14">
-          <path d="M 11,3 L 14,6 L 11,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-        </svg>
-      </button>
-      </div>
       </div>
 
       <div class="edit-bar">
