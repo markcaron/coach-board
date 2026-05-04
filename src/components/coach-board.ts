@@ -2,7 +2,7 @@ import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme } from '../lib/types.js';
-import { getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
+import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
@@ -15,12 +15,12 @@ const PLAYER_RADIUS = 2.4;
 const TEXT_FONT_SIZE = 2;
 
 const WHITE_THEME = {
-  fieldBg: '#ffffff',
-  fieldArea: '#f0f0f0',
-  fieldLine: '#bbb',
-  fieldNet: '#999',
-  text: '#222',
-  selection: '#2563eb',
+  fieldBg: COLORS.fieldBgWhite,
+  fieldArea: COLORS.fieldAreaWhite,
+  fieldLine: COLORS.fieldLineWhite,
+  fieldNet: COLORS.fieldNetWhite,
+  text: COLORS.fieldTextWhite,
+  selection: COLORS.fieldSelWhite,
 } as const;
 
 function triPoints(cx: number, cy: number, r: number): string {
@@ -37,7 +37,7 @@ const MINI_GOAL_W = 3.66;
 const MINI_GOAL_D = 1;
 const POPUP_GOAL_W = 3;
 const POPUP_GOAL_D = 1.5;
-const POPUP_GOAL_COLOR = '#f0c040';
+const POPUP_GOAL_COLOR = COLORS.popupGoal;
 const GOAL_LINE_W = 0.18;
 const CONTROL_HANDLE_R = 1.2;
 const ROTATE_HANDLE_R = 0.75;
@@ -217,22 +217,22 @@ export class CoachBoard extends LitElement {
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
-      --color-blue: #4ea8de;
-      --color-red: #d43d55;
-      --color-yellow: #f0c040;
-      --color-purple: #7b2d8e;
-      --color-light-gray: #adb5bd;
-      --color-dark-gray: #495057;
-      --cone-chartreuse: #7fff00;
-      --cone-neon-orange: #ff6b1a;
-      --cone-bright-pink: #ff3ea5;
-      --cone-bright-blue: #00bfff;
-      --line-white: #ffffff;
-      --line-blue: #83c2e8;
-      --line-red: #e17788;
-      --line-yellow: #f5d379;
-      --line-purple: #a36cb0;
-      --line-gray: #808589;
+      --color-blue: var(--pt-color-blue-400);
+      --color-red: var(--pt-color-red-400);
+      --color-yellow: var(--pt-color-yellow-400);
+      --color-purple: var(--pt-color-purple-600);
+      --color-light-gray: var(--pt-color-gray-200);
+      --color-dark-gray: var(--pt-color-gray-600);
+      --cone-chartreuse: var(--pt-color-chartreuse-400);
+      --cone-neon-orange: var(--pt-color-orange-400);
+      --cone-bright-pink: var(--pt-color-pink-400);
+      --cone-bright-blue: var(--pt-color-blue-200);
+      --line-white: var(--pt-color-white);
+      --line-blue: var(--pt-color-blue-300);
+      --line-red: var(--pt-color-red-300);
+      --line-yellow: var(--pt-color-yellow-300);
+      --line-purple: var(--pt-color-purple-300);
+      --line-gray: var(--pt-color-gray-350);
       --field-stripe-light: var(--pt-field-stripe-light);
       --field-stripe-dark: var(--pt-field-stripe-dark);
     }
@@ -581,7 +581,7 @@ export class CoachBoard extends LitElement {
     }
 
     .confirm-actions .confirm-success:hover {
-      background: #116b33;
+      background: var(--pt-success-btn-hover);
     }
 
     .confirm-actions .confirm-danger {
@@ -625,7 +625,7 @@ export class CoachBoard extends LitElement {
   @state() accessor lines: Line[] = [];
   @state() accessor equipment: Equipment[] = [];
   @state() accessor selectedIds: Set<string> = new Set();
-  @state() accessor playerColor: string = '#4ea8de';
+  @state() accessor playerColor: string = COLORS.playerBlue;
   @state() accessor playerTeam: Team = 'a';
   @state() accessor lineStyle: LineStyle = 'solid';
   @state() accessor equipmentKind: EquipmentKind = 'ball';
@@ -746,7 +746,7 @@ export class CoachBoard extends LitElement {
     svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
     svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
     svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
-    svgClone.querySelectorAll('[stroke="#ffd166"]').forEach(el => el.remove());
+    svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
     svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
 
     const serializer = new XMLSerializer();
@@ -1045,14 +1045,14 @@ export class CoachBoard extends LitElement {
         ${vertical ? svg`
           <pattern id="grass-stripes" width="68" height="13.125"
                    patternUnits="userSpaceOnUse">
-            <rect width="68" height="6.5625" fill="var(--field-stripe-light, #2d6a4f)" />
-            <rect y="6.5625" width="68" height="6.5625" fill="var(--field-stripe-dark, #276749)" />
+            <rect width="68" height="6.5625" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
+            <rect y="6.5625" width="68" height="6.5625" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
           </pattern>
         ` : svg`
           <pattern id="grass-stripes" width="13.125" height="68"
                    patternUnits="userSpaceOnUse">
-            <rect width="6.5625" height="68" fill="var(--field-stripe-light, #2d6a4f)" />
-            <rect x="6.5625" width="6.5625" height="68" fill="var(--field-stripe-dark, #276749)" />
+            <rect width="6.5625" height="68" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
+            <rect x="6.5625" width="6.5625" height="68" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
           </pattern>
         `}
 
@@ -1068,45 +1068,25 @@ export class CoachBoard extends LitElement {
 
         <pattern id="goal-net" width="0.5" height="0.5"
                  patternUnits="userSpaceOnUse">
-          <rect width="0.5" height="0.5" fill="${this.fieldTheme === 'white' ? '#eee' : '#ddd'}" fill-opacity="${this.fieldTheme === 'white' ? '0.6' : '0.15'}" />
+          <rect width="0.5" height="0.5" fill="${this.fieldTheme === 'white' ? COLORS.previewStroke : COLORS.fieldLineWhite}" fill-opacity="${this.fieldTheme === 'white' ? '0.6' : '0.15'}" />
           <line x1="0" y1="0" x2="0.5" y2="0.5"
                 stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldNet : 'white'}" stroke-width="0.04" opacity="${this.fieldTheme === 'white' ? '0.5' : '0.3'}" />
           <line x1="0.5" y1="0" x2="0" y2="0.5"
                 stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldNet : 'white'}" stroke-width="0.04" opacity="${this.fieldTheme === 'white' ? '0.5' : '0.3'}" />
         </pattern>
 
-        <marker id="arrow-end-white" markerWidth="6" markerHeight="8"
-                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="white" />
-        </marker>
-        <marker id="arrow-end-red" markerWidth="6" markerHeight="8"
-                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="#d43d55" />
-        </marker>
-        <marker id="arrow-end-blue" markerWidth="6" markerHeight="8"
-                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="#4ea8de" />
-        </marker>
-        <marker id="arrow-start-white" markerWidth="6" markerHeight="8"
-                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-          <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="white" />
-        </marker>
-        <marker id="arrow-start-red" markerWidth="6" markerHeight="8"
-                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-          <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="#d43d55" />
-        </marker>
-        <marker id="arrow-start-blue" markerWidth="6" markerHeight="8"
-                refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-          <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="#4ea8de" />
-        </marker>
-        ${['#83c2e8', '#e17788', '#f5d379', '#a36cb0', '#808589'].map((c, i) => {
-          const name = ['l-blue', 'l-red', 'l-yellow', 'l-purple', 'l-gray'][i];
+        ${[...new Set([
+          'white', COLORS.playerRed, COLORS.playerBlue,
+          COLORS.lineBlue, COLORS.lineRed, COLORS.lineYellow, COLORS.linePurple, COLORS.lineGray,
+          COLORS.lineBlack, COLORS.lineBlueW, COLORS.lineRedW, COLORS.lineYellowW, COLORS.linePurpleW, COLORS.playerYellowW,
+        ])].map(c => {
+          const safeId = c.replace('#', '');
           return svg`
-            <marker id="arrow-end-${name}" markerWidth="6" markerHeight="8"
+            <marker id="arrow-end-${safeId}" markerWidth="6" markerHeight="8"
                     refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
               <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="${c}" />
             </marker>
-            <marker id="arrow-start-${name}" markerWidth="6" markerHeight="8"
+            <marker id="arrow-start-${safeId}" markerWidth="6" markerHeight="8"
                     refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
               <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="${c}" />
             </marker>
@@ -1201,12 +1181,7 @@ export class CoachBoard extends LitElement {
     const visibleD = l.style === 'wavy'
       ? wavyPath(l.x1, l.y1, l.cx, l.cy, l.x2, l.y2)
       : curveD;
-    const MARKER_MAP: Record<string, string> = {
-      '#d43d55': 'red', '#4ea8de': 'blue',
-      '#83c2e8': 'l-blue', '#e17788': 'l-red',
-      '#f5d379': 'l-yellow', '#a36cb0': 'l-purple', '#808589': 'l-gray',
-    };
-    const markerColor = MARKER_MAP[l.color] ?? 'white';
+    const markerColor = l.color === 'white' ? 'white' : l.color.replace('#', '');
 
     return svg`
       <g class="line" data-id="${l.id}">
@@ -1232,14 +1207,14 @@ export class CoachBoard extends LitElement {
                   data-id="${l.id}" data-kind="line-end"
                   style="cursor: grab" />
           <circle cx="${l.cx}" cy="${l.cy}" r="${CONTROL_HANDLE_R}"
-                  fill="#ffd166" fill-opacity="0.7" stroke="#ffd166" stroke-width="0.1"
+                  fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
                   data-id="${l.id}" data-kind="line-control"
                   style="cursor: grab" />
           <line x1="${l.x1}" y1="${l.y1}" x2="${l.cx}" y2="${l.cy}"
-                stroke="#ffd166" stroke-width="0.1" stroke-dasharray="0.4,0.3"
+                stroke="${COLORS.annotation}" stroke-width="0.1" stroke-dasharray="0.4,0.3"
                 style="pointer-events: none" />
           <line x1="${l.x2}" y1="${l.y2}" x2="${l.cx}" y2="${l.cy}"
-                stroke="#ffd166" stroke-width="0.1" stroke-dasharray="0.4,0.3"
+                stroke="${COLORS.annotation}" stroke-width="0.1" stroke-dasharray="0.4,0.3"
                 style="pointer-events: none" />
         ` : nothing}
       </g>
@@ -1248,22 +1223,24 @@ export class CoachBoard extends LitElement {
 
   #renderDrawPreview() {
     const d = this.#draw!;
+    const previewColor = this.fieldTheme === 'white' ? WHITE_THEME.text : 'white';
+    const previewMarkerId = previewColor === 'white' ? 'white' : previewColor.replace('#', '');
     const mx = (d.x1 + d.x2) / 2;
     const my = (d.y1 + d.y2) / 2;
     if (this.lineStyle === 'wavy') {
       const pathD = wavyPath(d.x1, d.y1, mx, my, d.x2, d.y2);
       return svg`
         <path d="${pathD}"
-              fill="none" stroke="white" stroke-width="0.25"
-              marker-end="url(#arrow-end-white)"
+              fill="none" stroke="${previewColor}" stroke-width="0.25"
+              marker-end="url(#arrow-end-${previewMarkerId})"
               style="pointer-events: none" />
       `;
     }
     const dashAttr = this.lineStyle === 'dashed' ? '0.8,0.4' : 'none';
     return svg`
       <line x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}"
-            stroke="white" stroke-width="0.25" stroke-dasharray="${dashAttr}"
-            marker-end="url(#arrow-end-white)"
+            stroke="${previewColor}" stroke-width="0.25" stroke-dasharray="${dashAttr}"
+            marker-end="url(#arrow-end-${previewMarkerId})"
             style="pointer-events: none" />
     `;
   }
@@ -1285,13 +1262,13 @@ export class CoachBoard extends LitElement {
                   filter="url(#player-shadow)"
                   style="cursor: pointer" />
           <g transform="scale(${s}) translate(-600, -600)" style="pointer-events: none">
-            <path fill="#333" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
+            <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
           </g>
         </g>
       `;
     }
     if (eq.kind === 'cone') {
-      const coneColor = eq.color ?? '#7fff00';
+      const coneColor = eq.color ?? COLORS.coneChartreuse;
       return svg`
         <g data-id="${eq.id}" data-kind="equipment">
           ${selected ? svg`
@@ -1300,7 +1277,7 @@ export class CoachBoard extends LitElement {
                     stroke-dasharray="0.4,0.25" />
           ` : nothing}
           <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_RADIUS}"
-                  fill="#222" stroke="${coneColor}" stroke-width="${CONE_BORDER}"
+                  fill="${COLORS.equipmentBody}" stroke="${coneColor}" stroke-width="${CONE_BORDER}"
                   style="cursor: pointer" />
         </g>
       `;
@@ -1369,7 +1346,7 @@ export class CoachBoard extends LitElement {
                   stroke-dasharray="0.5,0.3" />
         ` : nothing}
         <circle cx="${eq.x}" cy="${eq.y}" r="${PLAYER_RADIUS}"
-                fill="#151515" stroke="white" stroke-width="0.15"
+                fill="${COLORS.coachBg}" stroke="white" stroke-width="0.15"
                 filter="url(#player-shadow)"
                 style="cursor: pointer" />
         <text x="${eq.x}" y="${eq.y}"
@@ -1391,7 +1368,7 @@ export class CoachBoard extends LitElement {
            style="pointer-events: none">
           <circle r="${BALL_RADIUS}" fill="white" stroke="white" stroke-width="0.225" />
           <g transform="scale(${s}) translate(-600, -600)">
-            <path fill="#333" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
+            <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
           </g>
         </g>
       `;
@@ -1399,7 +1376,7 @@ export class CoachBoard extends LitElement {
     if (this.equipmentKind === 'cone') {
       return svg`
         <circle cx="${x}" cy="${y}" r="${CONE_RADIUS}"
-                fill="#222" fill-opacity="0.5" stroke="#7fff00" stroke-width="${CONE_BORDER}"
+                fill="${COLORS.equipmentBody}" fill-opacity="0.5" stroke="${COLORS.coneChartreuse}" stroke-width="${CONE_BORDER}"
                 stroke-dasharray="0.3,0.2" opacity="0.5"
                 style="pointer-events: none" />
       `;
@@ -1436,7 +1413,7 @@ export class CoachBoard extends LitElement {
     return svg`
       <g opacity="0.5" style="pointer-events: none">
         <circle cx="${x}" cy="${y}" r="${PLAYER_RADIUS}"
-                fill="#151515" stroke="white" stroke-width="0.15"
+                fill="${COLORS.coachBg}" stroke="white" stroke-width="0.15"
                 stroke-dasharray="0.4,0.3" />
         <text x="${x}" y="${y}"
               text-anchor="middle" dominant-baseline="central"
@@ -1513,7 +1490,7 @@ export class CoachBoard extends LitElement {
       `)}
       ${sides.map(c => svg`
         <rect x="${c.x - hr * 0.7}" y="${c.y - hr * 0.7}" width="${hr * 1.4}" height="${hr * 1.4}"
-              fill="#4ea8de" fill-opacity="0.7" stroke="white" stroke-width="0.08"
+              fill="${COLORS.accent}" fill-opacity="0.7" stroke="white" stroke-width="0.08"
               data-id="${s.id}" data-kind="shape-side" data-handle="${c.h}"
               style="cursor: ${c.h === 'n' || c.h === 's' ? 'ns-resize' : 'ew-resize'}" />
       `)}
@@ -1526,14 +1503,15 @@ export class CoachBoard extends LitElement {
     let hh = Math.abs(d.curY - d.startY) / 2;
     const cx = (d.startX + d.curX) / 2;
     const cy = (d.startY + d.curY) / 2;
+    const previewColor = this.fieldTheme === 'white' ? COLORS.shapeStrokeGray : 'white';
     return svg`
       <g transform="translate(${cx}, ${cy})" style="pointer-events: none">
         ${d.kind === 'rect'
           ? svg`<rect x="${-hw}" y="${-hh}" width="${hw * 2}" height="${hh * 2}"
-                      fill="none" stroke="white" stroke-width="0.15"
+                      fill="none" stroke="${previewColor}" stroke-width="0.15"
                       stroke-dasharray="0.5,0.3" />`
           : svg`<ellipse rx="${hw}" ry="${hh}"
-                         fill="none" stroke="white" stroke-width="0.15"
+                         fill="none" stroke="${previewColor}" stroke-width="0.15"
                          stroke-dasharray="0.5,0.3" />`
         }
       </g>

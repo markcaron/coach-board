@@ -1,5 +1,105 @@
 export type FieldTheme = 'green' | 'white';
 
+export const COLORS = {
+  bgBody: '#1a1a2e',
+  bgPrimary: '#16213e',
+  bgSurface: '#0f3460',
+  bgDark: '#151515',
+  bgToolbar: '#1c3a5c',
+  border: '#1a4a7a',
+
+  text: '#e0e0e0',
+  textMuted: '#aaa',
+  textOnLight: '#555',
+  textWhite: '#fff',
+
+  accent: '#4ea8de',
+  accentHover: '#3a8fc4',
+
+  danger: '#e94560',
+  dangerHover: '#d13350',
+  dangerLight: '#f87171',
+  dangerLightest: '#fb8a8a',
+
+  success: '#16a34a',
+  successHover: '#15803d',
+  successLight: '#86efac',
+  successBtnHover: '#116b33',
+
+  warning: '#f0c040',
+  warningHover: '#d4a830',
+  bgWarning: '#fef3c7',
+
+  btnPrimary: '#2563eb',
+  btnPrimaryHover: '#1d4ed8',
+
+  fieldStripeLight: '#2d6a4f',
+  fieldStripeDark: '#276749',
+
+  fieldBgWhite: '#ffffff',
+  fieldAreaWhite: '#f0f0f0',
+  fieldLineWhite: '#bbb',
+  fieldNetWhite: '#999',
+  fieldTextWhite: '#222222',
+  fieldSelWhite: '#2563eb',
+
+  playerBlue: '#4ea8de',
+  playerRed: '#d43d55',
+  playerYellow: '#f0c040',
+  playerPurple: '#7b2d8e',
+  playerLightGray: '#adb5bd',
+  playerDarkGray: '#495057',
+  playerTextDark: '#151515',
+  playerTextLight: '#ffffff',
+
+  playerBlueW: '#2e86c1',
+  playerRedW: '#d43d55',
+  playerYellowW: '#c9a020',
+  playerPurpleW: '#7b2d8e',
+  playerLightGrayW: '#6c757d',
+  playerDarkGrayW: '#495057',
+
+  coneChartreuse: '#7fff00',
+  coneNeonOrange: '#ff6b1a',
+  coneBrightPink: '#ff3ea5',
+  coneBrightBlue: '#00bfff',
+
+  coneChartreuseW: '#5cb800',
+  coneNeonOrangeW: '#ff6b1a',
+  coneBrightPinkW: '#ff3ea5',
+  coneBrightBlueW: '#0099d6',
+
+  lineWhite: '#ffffff',
+  lineBlue: '#83c2e8',
+  lineRed: '#e17788',
+  lineYellow: '#f5d379',
+  linePurple: '#a36cb0',
+  lineGray: '#808589',
+
+  lineBlack: '#222222',
+  lineBlueW: '#2e86c1',
+  lineRedW: '#c4233a',
+  lineYellowW: '#b8940a',
+  linePurpleW: '#7b2d8e',
+  lineGrayW: '#808589',
+
+  shapeFillBlue: '#4ea8de',
+  shapeFillPink: '#e87da0',
+  shapeFillYellow: '#f0c040',
+  shapeStrokeGray: '#999',
+
+  ballDetail: '#333',
+  equipmentBody: '#222',
+  coachBg: '#151515',
+  annotation: '#ffd166',
+  popupGoal: '#f0c040',
+
+  inactiveArrow: '#ccc',
+  previewStroke: '#e0e0e0',
+  white: '#ffffff',
+  black: '#222222',
+} as const;
+
 export interface PlayerColor {
   name: string;
   color: string;
@@ -7,27 +107,27 @@ export interface PlayerColor {
 }
 
 export const PLAYER_COLORS: PlayerColor[] = [
-  { name: 'Blue',       color: '#4ea8de', text: '#151515' },
-  { name: 'Red',        color: '#d43d55', text: '#ffffff' },
-  { name: 'Yellow',     color: '#f0c040', text: '#151515' },
-  { name: 'Purple',     color: '#7b2d8e', text: '#ffffff' },
-  { name: 'Light Gray', color: '#adb5bd', text: '#151515' },
-  { name: 'Dark Gray',  color: '#495057', text: '#ffffff' },
+  { name: 'Blue',       color: COLORS.playerBlue,      text: COLORS.playerTextDark },
+  { name: 'Red',        color: COLORS.playerRed,       text: COLORS.playerTextLight },
+  { name: 'Yellow',     color: COLORS.playerYellow,    text: COLORS.playerTextDark },
+  { name: 'Purple',     color: COLORS.playerPurple,    text: COLORS.playerTextLight },
+  { name: 'Light Gray', color: COLORS.playerLightGray, text: COLORS.playerTextDark },
+  { name: 'Dark Gray',  color: COLORS.playerDarkGray,  text: COLORS.playerTextLight },
 ];
 
 export const PLAYER_COLORS_WHITE: PlayerColor[] = [
-  { name: 'Blue',       color: '#2e86c1', text: '#ffffff' },
-  { name: 'Red',        color: '#d43d55', text: '#ffffff' },
-  { name: 'Yellow',     color: '#c9a020', text: '#ffffff' },
-  { name: 'Purple',     color: '#7b2d8e', text: '#ffffff' },
-  { name: 'Light Gray', color: '#6c757d', text: '#ffffff' },
-  { name: 'Dark Gray',  color: '#495057', text: '#ffffff' },
+  { name: 'Blue',       color: COLORS.playerBlueW,      text: COLORS.playerTextLight },
+  { name: 'Red',        color: COLORS.playerRedW,       text: COLORS.playerTextLight },
+  { name: 'Yellow',     color: COLORS.playerYellowW,    text: COLORS.playerTextLight },
+  { name: 'Purple',     color: COLORS.playerPurpleW,    text: COLORS.playerTextLight },
+  { name: 'Light Gray', color: COLORS.playerLightGrayW, text: COLORS.playerTextLight },
+  { name: 'Dark Gray',  color: COLORS.playerDarkGrayW,  text: COLORS.playerTextLight },
 ];
 
 export function getTextColor(fillColor: string): string {
   return PLAYER_COLORS.find(c => c.color === fillColor)?.text
     ?? PLAYER_COLORS_WHITE.find(c => c.color === fillColor)?.text
-    ?? '#ffffff';
+    ?? COLORS.playerTextLight;
 }
 
 export function getPlayerColors(theme: FieldTheme): PlayerColor[] {
@@ -40,17 +140,17 @@ export interface ConeColor {
 }
 
 export const CONE_COLORS: ConeColor[] = [
-  { name: 'Chartreuse',  color: '#7fff00' },
-  { name: 'Neon Orange', color: '#ff6b1a' },
-  { name: 'Bright Pink', color: '#ff3ea5' },
-  { name: 'Bright Blue', color: '#00bfff' },
+  { name: 'Chartreuse',  color: COLORS.coneChartreuse },
+  { name: 'Neon Orange', color: COLORS.coneNeonOrange },
+  { name: 'Bright Pink', color: COLORS.coneBrightPink },
+  { name: 'Bright Blue', color: COLORS.coneBrightBlue },
 ];
 
 export const CONE_COLORS_WHITE: ConeColor[] = [
-  { name: 'Chartreuse',  color: '#5cb800' },
-  { name: 'Neon Orange', color: '#ff6b1a' },
-  { name: 'Bright Pink', color: '#ff3ea5' },
-  { name: 'Bright Blue', color: '#0099d6' },
+  { name: 'Chartreuse',  color: COLORS.coneChartreuseW },
+  { name: 'Neon Orange', color: COLORS.coneNeonOrangeW },
+  { name: 'Bright Pink', color: COLORS.coneBrightPinkW },
+  { name: 'Bright Blue', color: COLORS.coneBrightBlueW },
 ];
 
 export function getConeColors(theme: FieldTheme): ConeColor[] {
@@ -63,21 +163,21 @@ export interface LineColor {
 }
 
 export const LINE_COLORS: LineColor[] = [
-  { name: 'White',  color: '#ffffff' },
-  { name: 'Blue',   color: '#83c2e8' },
-  { name: 'Red',    color: '#e17788' },
-  { name: 'Yellow', color: '#f5d379' },
-  { name: 'Purple', color: '#a36cb0' },
-  { name: 'Gray',   color: '#808589' },
+  { name: 'White',  color: COLORS.lineWhite },
+  { name: 'Blue',   color: COLORS.lineBlue },
+  { name: 'Red',    color: COLORS.lineRed },
+  { name: 'Yellow', color: COLORS.lineYellow },
+  { name: 'Purple', color: COLORS.linePurple },
+  { name: 'Gray',   color: COLORS.lineGray },
 ];
 
 export const LINE_COLORS_WHITE: LineColor[] = [
-  { name: 'Black',  color: '#222222' },
-  { name: 'Blue',   color: '#2e86c1' },
-  { name: 'Red',    color: '#c4233a' },
-  { name: 'Yellow', color: '#b8940a' },
-  { name: 'Purple', color: '#7b2d8e' },
-  { name: 'Gray',   color: '#808589' },
+  { name: 'Black',  color: COLORS.lineBlack },
+  { name: 'Blue',   color: COLORS.lineBlueW },
+  { name: 'Red',    color: COLORS.lineRedW },
+  { name: 'Yellow', color: COLORS.lineYellowW },
+  { name: 'Purple', color: COLORS.linePurpleW },
+  { name: 'Gray',   color: COLORS.lineGrayW },
 ];
 
 export function getLineColors(theme: FieldTheme): LineColor[] {
@@ -140,17 +240,17 @@ export interface ShapeStyleDef {
 export const SHAPE_STYLES: ShapeStyleDef[] = [
   { name: 'White Outline', value: 'outline',     fill: 'transparent', fillOpacity: 0, stroke: 'white', strokeWidth: 0.18 },
   { name: 'White Dashed',  value: 'dashed',      fill: 'transparent', fillOpacity: 0, stroke: 'white', strokeWidth: 0.18, strokeDasharray: '0.6,0.4' },
-  { name: 'Blue Fill',     value: 'fill-blue',   fill: '#4ea8de', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
-  { name: 'Pink Fill',     value: 'fill-red',    fill: '#e87da0', fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
-  { name: 'Yellow Fill',   value: 'fill-yellow',  fill: '#f0c040', fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
+  { name: 'Blue Fill',     value: 'fill-blue',   fill: COLORS.shapeFillBlue, fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
+  { name: 'Pink Fill',     value: 'fill-red',    fill: COLORS.shapeFillPink, fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
+  { name: 'Yellow Fill',   value: 'fill-yellow', fill: COLORS.shapeFillYellow, fillOpacity: 0.2, stroke: 'none', strokeWidth: 0 },
 ];
 
 export const SHAPE_STYLES_WHITE: ShapeStyleDef[] = [
-  { name: 'Gray Outline',  value: 'outline',     fill: 'transparent', fillOpacity: 0, stroke: '#999', strokeWidth: 0.18 },
-  { name: 'Gray Dashed',   value: 'dashed',      fill: 'transparent', fillOpacity: 0, stroke: '#999', strokeWidth: 0.18, strokeDasharray: '0.6,0.4' },
-  { name: 'Blue Fill',     value: 'fill-blue',   fill: '#4ea8de', fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
-  { name: 'Pink Fill',     value: 'fill-red',    fill: '#e87da0', fillOpacity: 0.3, stroke: 'none', strokeWidth: 0 },
-  { name: 'Yellow Fill',   value: 'fill-yellow', fill: '#f0c040', fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
+  { name: 'Gray Outline',  value: 'outline',     fill: 'transparent', fillOpacity: 0, stroke: COLORS.shapeStrokeGray, strokeWidth: 0.18 },
+  { name: 'Gray Dashed',   value: 'dashed',      fill: 'transparent', fillOpacity: 0, stroke: COLORS.shapeStrokeGray, strokeWidth: 0.18, strokeDasharray: '0.6,0.4' },
+  { name: 'Blue Fill',     value: 'fill-blue',   fill: COLORS.shapeFillBlue, fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
+  { name: 'Pink Fill',     value: 'fill-red',    fill: COLORS.shapeFillPink, fillOpacity: 0.3, stroke: 'none', strokeWidth: 0 },
+  { name: 'Yellow Fill',   value: 'fill-yellow', fill: COLORS.shapeFillYellow, fillOpacity: 0.25, stroke: 'none', strokeWidth: 0 },
 ];
 
 export function getShapeStyles(theme: FieldTheme): ShapeStyleDef[] {

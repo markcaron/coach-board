@@ -2,7 +2,7 @@ import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle, FieldTheme } from '../lib/types.js';
-import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES, TEXT_SIZES, getPlayerColors, getConeColors, getLineColors, getShapeStyles } from '../lib/types.js';
+import { COLORS, PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES, TEXT_SIZES, getPlayerColors, getConeColors, getLineColors, getShapeStyles } from '../lib/types.js';
 
 export class ToolChangedEvent extends Event {
   static readonly eventName = 'tool-changed' as const;
@@ -145,13 +145,13 @@ function isTextItem(item: AnyItem): item is TextItem {
 }
 
 const TEAMS_GREEN: { label: string; color: string; team: Team }[] = [
-  { label: 'Team A', color: '#4ea8de', team: 'a' },
-  { label: 'Team B', color: '#d43d55', team: 'b' },
+  { label: 'Team A', color: COLORS.playerBlue, team: 'a' },
+  { label: 'Team B', color: COLORS.playerRed, team: 'b' },
 ];
 
 const TEAMS_WHITE: { label: string; color: string; team: Team }[] = [
-  { label: 'Team A', color: '#2e86c1', team: 'a' },
-  { label: 'Team B', color: '#d43d55', team: 'b' },
+  { label: 'Team A', color: COLORS.playerBlueW, team: 'a' },
+  { label: 'Team B', color: COLORS.playerRedW, team: 'b' },
 ];
 
 const LINE_STYLES: { label: string; value: LineStyle }[] = [
@@ -184,7 +184,7 @@ export class CbToolbar extends LitElement {
     :host {
       display: block;
       padding: 8px 12px;
-      background: #1c3a5c;
+      background: var(--pt-bg-toolbar);
       user-select: none;
       font-family: system-ui, -apple-system, sans-serif;
     }
@@ -525,15 +525,15 @@ export class CbToolbar extends LitElement {
     }
 
     .edit-bar button.save-btn {
-      background: #2563eb;
-      border-color: #2563eb;
+      background: var(--pt-btn-primary);
+      border-color: var(--pt-btn-primary);
       color: var(--pt-text-white);
       font-weight: bold;
     }
 
     .edit-bar button.save-btn:hover {
-      background: #1d4ed8;
-      border-color: #1d4ed8;
+      background: var(--pt-btn-primary-hover);
+      border-color: var(--pt-btn-primary-hover);
     }
 
     .edit-bar button:not([role]):hover {
@@ -874,19 +874,19 @@ export class CbToolbar extends LitElement {
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('ball')}">
               <svg viewBox="0 0 1200 1200" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
                 <circle cx="600" cy="600" r="560" fill="white" />
-                <path fill="#333" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
+                <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
               </svg>
               Ball
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('cone')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="5" fill="#222" stroke="#7fff00" stroke-width="3" />
+                <circle cx="8" cy="8" r="5" fill="${COLORS.equipmentBody}" stroke="${COLORS.coneChartreuse}" stroke-width="3" />
               </svg>
               Cone
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('coach')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="7" fill="#151515" stroke="white" stroke-width="0.8" />
+                <circle cx="8" cy="8" r="7" fill="${COLORS.coachBg}" stroke="white" stroke-width="0.8" />
                 <text x="8" y="8" text-anchor="middle" dominant-baseline="central"
                       fill="white" font-size="8" font-weight="bold" font-family="system-ui, sans-serif">C</text>
               </svg>
@@ -910,9 +910,9 @@ export class CbToolbar extends LitElement {
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('popup-goal')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <path d="M 6,3 A 5,5 0 0 1 6,13" fill="none" stroke="#f0c040" stroke-width="1.2"
+                <path d="M 6,3 A 5,5 0 0 1 6,13" fill="none" stroke="${COLORS.popupGoal}" stroke-width="1.2"
                       stroke-dasharray="1.5,1" />
-                <line x1="6" y1="3" x2="6" y2="13" stroke="#f0c040" stroke-width="1.2" stroke-dasharray="none" />
+                <line x1="6" y1="3" x2="6" y2="13" stroke="${COLORS.popupGoal}" stroke-width="1.2" stroke-dasharray="none" />
               </svg>
               Pop-up Goal
             </button>
@@ -942,9 +942,9 @@ export class CbToolbar extends LitElement {
                 <span class="line-preview-wrap">
                   <svg viewBox="0 0 32 12" xmlns="http://www.w3.org/2000/svg">
                     ${s.value === 'wavy'
-                      ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="#e0e0e0" stroke-width="2" />`
-                      : svg`<line x1="2" y1="6" x2="22" y2="6" stroke="#e0e0e0" stroke-width="2" stroke-dasharray="${s.value === 'dashed' ? '4,3' : 'none'}" />`}
-                    <polygon points="20,2 28,6 20,10" fill="#e0e0e0" />
+                      ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />`
+                      : svg`<line x1="2" y1="6" x2="22" y2="6" stroke="${COLORS.previewStroke}" stroke-width="2" stroke-dasharray="${s.value === 'dashed' ? '4,3' : 'none'}" />`}
+                    <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
                   </svg>
                 </span>
                 ${s.label}
@@ -953,14 +953,14 @@ export class CbToolbar extends LitElement {
             <button role="menuitem" tabindex="-1"
                     @click="${() => this.#pickShape('rect')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <rect x="2" y="3" width="12" height="10" fill="none" stroke="#e0e0e0" stroke-width="1.2" rx="0.5" />
+                <rect x="2" y="3" width="12" height="10" fill="none" stroke="${COLORS.previewStroke}" stroke-width="1.2" rx="0.5" />
               </svg>
               Rectangle
             </button>
             <button role="menuitem" tabindex="-1"
                     @click="${() => this.#pickShape('ellipse')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <ellipse cx="8" cy="8" rx="7" ry="5" fill="none" stroke="#e0e0e0" stroke-width="1.2" />
+                <ellipse cx="8" cy="8" rx="7" ry="5" fill="none" stroke="${COLORS.previewStroke}" stroke-width="1.2" />
               </svg>
               Ellipse
             </button>
@@ -1116,7 +1116,7 @@ export class CbToolbar extends LitElement {
                   @click="${(e: Event) => this.#onTriggerClick('cone-color', e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('cone-color', e)}">
             <svg viewBox="0 0 16 16" width="16" height="16">
-              <circle cx="8" cy="8" r="5" fill="#222" stroke="${refCone.color ?? '#7fff00'}" stroke-width="3" />
+              <circle cx="8" cy="8" r="5" fill="${COLORS.equipmentBody}" stroke="${refCone.color ?? COLORS.coneChartreuse}" stroke-width="3" />
             </svg>
             <span class="caret"></span>
           </button>
@@ -1126,11 +1126,11 @@ export class CbToolbar extends LitElement {
                  @keydown="${this.#onMenuKeyDown}">
               ${getConeColors(this.fieldTheme).map(c => html`
                 <button role="menuitemradio" tabindex="-1"
-                        aria-checked="${(refCone.color ?? '#7fff00') === c.color}"
+                        aria-checked="${(refCone.color ?? COLORS.coneChartreuse) === c.color}"
                         aria-label="${c.name}"
                         @click="${() => this.#changeConeColor(c.color)}">
                   <svg viewBox="0 0 20 20" width="20" height="20">
-                    <circle cx="10" cy="10" r="6" fill="#222" stroke="${c.color}" stroke-width="3.5" />
+                    <circle cx="10" cy="10" r="6" fill="${COLORS.equipmentBody}" stroke="${c.color}" stroke-width="3.5" />
                   </svg>
                 </button>
               `)}
@@ -1160,7 +1160,7 @@ export class CbToolbar extends LitElement {
                 @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowStart: !hasStart }))}">
           <svg viewBox="0 0 20 12" width="20" height="12">
             <line x1="8" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2" />
-            <polygon points="8,3 2,6 8,9" fill="${hasStart ? 'currentColor' : '#ccc'}" />
+            <polygon points="8,3 2,6 8,9" fill="${hasStart ? 'currentColor' : COLORS.inactiveArrow}" />
           </svg>
         </button>
         <button class="color-btn" title="${styleLabel} — switch to ${nextLabel}"
@@ -1178,7 +1178,7 @@ export class CbToolbar extends LitElement {
                 @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowEnd: !hasEnd }))}">
           <svg viewBox="0 0 20 12" width="20" height="12">
             <line x1="2" y1="6" x2="12" y2="6" stroke="currentColor" stroke-width="2" />
-            <polygon points="12,3 18,6 12,9" fill="${hasEnd ? 'currentColor' : '#ccc'}" />
+            <polygon points="12,3 18,6 12,9" fill="${hasEnd ? 'currentColor' : COLORS.inactiveArrow}" />
           </svg>
         </button>
         <div class="dropdown-wrap">
@@ -1254,9 +1254,9 @@ export class CbToolbar extends LitElement {
               : ref.style === 'dashed'
               ? html`<span class="color-swatch" style="background: transparent; border: 2px dashed var(--swatch-border, white);"></span>`
               : html`<span class="color-swatch" style="background: ${
-                  ref.style === 'fill-blue' ? '#4ea8de'
-                  : ref.style === 'fill-red' ? '#d43d55'
-                  : '#f0c040'
+                  ref.style === 'fill-blue' ? COLORS.shapeFillBlue
+                  : ref.style === 'fill-red' ? COLORS.playerRed
+                  : COLORS.shapeFillYellow
                 }; opacity: 0.6;"></span>`
             }
             <span class="caret"></span>
