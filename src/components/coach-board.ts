@@ -6,7 +6,7 @@ import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, ge
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -638,6 +638,8 @@ export class CoachBoard extends LitElement {
   @state() private accessor _pendingOrientation: FieldOrientation | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
+  @state() private accessor _multiSelect: boolean = false;
+  @state() private accessor _menuOpen: boolean = false;
   @state() private accessor _rotateHandleId: string | null = null;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
@@ -742,6 +744,7 @@ export class CoachBoard extends LitElement {
   }
 
   #saveSvg() {
+    this._menuOpen = false;
     const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
     svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
     svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
@@ -758,6 +761,49 @@ export class CoachBoard extends LitElement {
     a.download = 'coaching-board.svg';
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  #savePng() {
+    this._menuOpen = false;
+    const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+    svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+    svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+    svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+    const vb = this.svgEl.viewBox.baseVal;
+    const scale = 10;
+    const w = vb.width * scale;
+    const h = vb.height * scale;
+
+    svgClone.setAttribute('width', String(w));
+    svgClone.setAttribute('height', String(h));
+
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svgClone);
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(svgUrl);
+      canvas.toBlob(blob => {
+        if (!blob) return;
+        const pngUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = pngUrl;
+        a.download = 'coaching-board.png';
+        a.click();
+        URL.revokeObjectURL(pngUrl);
+      }, 'image/png');
+    };
+    img.src = svgUrl;
   }
 
   get #selColor(): string {
@@ -823,7 +869,9 @@ export class CoachBoard extends LitElement {
           .activeTool="${this.activeTool}"
           .selectedItems="${this.#selectedItems}"
           .fieldTheme="${this.fieldTheme}"
+          .multiSelect="${this._multiSelect}"
           @tool-changed="${this.#onToolChanged}"
+          @multi-select-toggle="${this.#onMultiSelectToggle}"
           @player-update="${this.#onPlayerUpdate}"
           @equipment-update="${this.#onEquipmentUpdate}"
           @line-update="${this.#onLineUpdate}"
@@ -984,14 +1032,34 @@ export class CoachBoard extends LitElement {
             </svg>
             <span class="btn-text">Reset All</span>
           </button>
-          <button aria-label="Save SVG" title="Save SVG"
-                  @click="${this.#saveSvg}">
-            <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
-              <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
-              <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
-            </svg>
-            <span class="btn-text">Save SVG</span>
-          </button>
+          <div class="dropdown-wrap">
+            <button aria-label="Menu" title="Menu"
+                    @click="${() => { this._menuOpen = !this._menuOpen; }}">
+              <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
+                <path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z" fill="currentColor" fill-rule="evenodd"/>
+              </svg>
+            </button>
+            ${this._menuOpen ? html`
+              <div role="menu" aria-label="Options" style="right: 0; left: auto; transform: none;">
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#saveSvg}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                    <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
+                    <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
+                  </svg>
+                  Save as SVG
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#savePng}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                    <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
+                    <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
+                  </svg>
+                  Save as PNG
+                </button>
+              </div>
+            ` : nothing}
+          </div>
         </div>
       </div>
 
@@ -1045,14 +1113,14 @@ export class CoachBoard extends LitElement {
         ${vertical ? svg`
           <pattern id="grass-stripes" width="68" height="13.125"
                    patternUnits="userSpaceOnUse">
-            <rect width="68" height="6.5625" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
-            <rect y="6.5625" width="68" height="6.5625" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
+            <rect width="68" height="6.6125" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
+            <rect y="6.5125" width="68" height="6.6125" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
           </pattern>
         ` : svg`
           <pattern id="grass-stripes" width="13.125" height="68"
                    patternUnits="userSpaceOnUse">
-            <rect width="6.5625" height="68" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
-            <rect x="6.5625" width="6.5625" height="68" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
+            <rect width="6.6125" height="68" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
+            <rect x="6.5125" width="6.6125" height="68" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
           </pattern>
         `}
 
@@ -1878,12 +1946,21 @@ export class CoachBoard extends LitElement {
     this.activeTool = e.tool;
     this.selectedIds = new Set();
     this.ghost = null;
+    this._multiSelect = false;
 
     if (e.playerColor) this.playerColor = e.playerColor;
     if (e.playerTeam) this.playerTeam = e.playerTeam;
     if (e.lineStyle) this.lineStyle = e.lineStyle;
     if (e.equipmentKind) this.equipmentKind = e.equipmentKind;
     if (e.shapeKind) this.shapeKind = e.shapeKind;
+  }
+
+  #onMultiSelectToggle(_e: MultiSelectToggleEvent) {
+    this._multiSelect = !this._multiSelect;
+    if (this._multiSelect && this.activeTool !== 'select') {
+      this.activeTool = 'select';
+      this.ghost = null;
+    }
   }
 
   #onDeleteItems(_e: DeleteItemsEvent) {
@@ -1975,9 +2052,12 @@ export class CoachBoard extends LitElement {
       return;
     }
 
+    this._menuOpen = false;
+
     const hit = resolveHit(e.target);
     if (!hit) {
       this.selectedIds = new Set();
+      this._multiSelect = false;
       return;
     }
 
@@ -2050,8 +2130,8 @@ export class CoachBoard extends LitElement {
       this.#lastTapId = id;
     }
 
-    // Multi-select with modifier keys
-    const mod = isModifier(e);
+    // Multi-select with modifier keys or toggle mode
+    const mod = isModifier(e) || this._multiSelect;
     if (mod) {
       const next = new Set(this.selectedIds);
       if (next.has(id)) {

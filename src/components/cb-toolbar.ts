@@ -120,6 +120,13 @@ export class DeleteItemsEvent extends Event {
   }
 }
 
+export class MultiSelectToggleEvent extends Event {
+  static readonly eventName = 'multi-select-toggle' as const;
+  constructor() {
+    super(MultiSelectToggleEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
 
 type AnyItem = Player | Equipment | Line | Shape | TextItem;
@@ -684,6 +691,9 @@ export class CbToolbar extends LitElement {
   @property({ attribute: false })
   accessor selectedItems: AnyItem[] = [];
 
+  @property({ type: Boolean })
+  accessor multiSelect: boolean = false;
+
   @state() private accessor _openMenu: MenuId | null = null;
 
   @query('#delete-dialog') accessor _deleteDialog!: HTMLDialogElement;
@@ -820,7 +830,18 @@ export class CbToolbar extends LitElement {
         aria-pressed="${t === 'select'}"
         aria-label="Select"
         @click="${() => this.#pick('select')}">
-        <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle"><path d="M 2,2 L 2,13 L 5.5,9.5 L 9,14 L 11,13 L 7.5,8.5 L 12,7 Z" fill="currentColor" /></svg> <span class="btn-text">Select</span>
+        <svg class="icon" viewBox="0 0 1600 1600" width="21" height="21" style="vertical-align: middle"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor" /></svg> <span class="btn-text">Select</span>
+      </button>
+
+      <button
+        title="Multi-select"
+        aria-pressed="${this.multiSelect}"
+        aria-label="Multi-select"
+        @click="${() => this.dispatchEvent(new MultiSelectToggleEvent())}">
+        <svg class="icon" viewBox="0 0 1600 1600" width="21" height="21" style="vertical-align: middle">
+          <path d="M87.5712 346.734C84.8837 339.234 92.1337 331.796 99.8212 334.608L469.249 467.508L647.075 961.824L471.447 1365.05C468.322 1372.3 456.822 1373.61 453.385 1363.61L87.5712 346.734Z" fill="currentColor"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M1506.44 616.688C1514.62 619.625 1514.87 631.063 1507.06 634.437L1056.63 830.624L860.447 1281.05C857.322 1288.3 845.822 1289.61 842.384 1279.61L476.571 262.733C473.884 255.233 481.134 247.796 488.821 250.608L1506.44 616.688Z" fill="currentColor"/>
+        </svg>
       </button>
 
       <div class="dropdown-wrap">
@@ -973,9 +994,7 @@ export class CbToolbar extends LitElement {
         aria-pressed="${t === 'add-text'}"
         aria-label="Text"
         @click="${() => this.#pick('add-text')}">
-        <svg class="icon" viewBox="0 0 16 16" width="14" height="14" style="vertical-align: middle">
-          <text x="8" y="13" text-anchor="middle" fill="currentColor" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">T</text>
-        </svg> Text
+        Text
       </button>
       </div>
 
