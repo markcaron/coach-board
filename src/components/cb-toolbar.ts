@@ -276,6 +276,7 @@ export class CbToolbar extends LitElement {
       z-index: 10;
       min-width: 100%;
       width: max-content;
+      max-width: calc(100vw - 24px);
       background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
@@ -747,6 +748,16 @@ export class CbToolbar extends LitElement {
   #openDropdown(menu: MenuId) {
     this._openMenu = menu;
     this.updateComplete.then(() => {
+      const menuEl = this.renderRoot.querySelector('[role="menu"]') as HTMLElement | null;
+      if (menuEl) {
+        menuEl.style.left = '0';
+        menuEl.style.right = 'auto';
+        const rect = menuEl.getBoundingClientRect();
+        if (rect.right > window.innerWidth - 12) {
+          menuEl.style.left = 'auto';
+          menuEl.style.right = '0';
+        }
+      }
       const firstItem = this.renderRoot.querySelector('[role="menu"] [role="menuitem"], [role="menu"] [role="menuitemradio"]') as HTMLElement | null;
       firstItem?.focus();
     });

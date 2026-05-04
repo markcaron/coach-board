@@ -39,8 +39,8 @@ const POPUP_GOAL_W = 3;
 const POPUP_GOAL_D = 1.5;
 const POPUP_GOAL_COLOR = COLORS.popupGoal;
 const GOAL_LINE_W = 0.18;
-const CONTROL_HANDLE_R = 1.2;
-const ROTATE_HANDLE_R = 0.75;
+const CONTROL_HANDLE_R = 1.6;
+const ROTATE_HANDLE_R = 0.875;
 const HIT_SLOP = 1.8;
 const HIT_SLOP_MOBILE = 3.0;
 const PADDING = 4;
@@ -919,25 +919,33 @@ export class CoachBoard extends LitElement {
             : renderField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')}
 
           <g class="shapes-layer">
-            ${this.shapes.map(s => this.#renderShape(s))}
+            ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
             ${this.#shapeDraw ? this.#renderShapeDrawPreview() : nothing}
           </g>
 
           <g class="lines-layer">
-            ${this.lines.map(l => this.#renderLine(l))}
+            ${this.lines.filter(l => !this.selectedIds.has(l.id)).map(l => this.#renderLine(l))}
             ${this.#draw ? this.#renderDrawPreview() : nothing}
           </g>
 
           <g class="players-layer">
-            ${this.players.map(p => this.#renderPlayer(p))}
+            ${this.players.filter(p => !this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
           </g>
 
           <g class="equipment-layer">
-            ${this.equipment.map(eq => this.#renderEquipment(eq))}
+            ${this.equipment.filter(eq => !this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
           </g>
 
           <g class="text-layer">
-            ${this.textItems.map(t => this.#renderTextItem(t))}
+            ${this.textItems.filter(t => !this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
+          </g>
+
+          <g class="selected-layer">
+            ${this.shapes.filter(s => this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
+            ${this.lines.filter(l => this.selectedIds.has(l.id)).map(l => this.#renderLine(l))}
+            ${this.players.filter(p => this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
+            ${this.equipment.filter(eq => this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
+            ${this.textItems.filter(t => this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
           </g>
 
           ${this.activeTool === 'add-player' && this.ghost
@@ -1549,7 +1557,8 @@ export class CoachBoard extends LitElement {
   }
 
   #renderShapeHandles(s: Shape) {
-    const hr = 0.35;
+    const hr = 0.5;
+    const hitR = 1.0;
     const corners = [
       { x: -s.hw, y: -s.hh, h: 'nw' },
       { x:  s.hw, y: -s.hh, h: 'ne' },
@@ -1564,16 +1573,22 @@ export class CoachBoard extends LitElement {
     ];
     return svg`
       ${corners.map(c => svg`
-        <rect x="${c.x - hr}" y="${c.y - hr}" width="${hr * 2}" height="${hr * 2}"
-              fill="${this.#selColor}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
+        <rect x="${c.x - hitR}" y="${c.y - hitR}" width="${hitR * 2}" height="${hitR * 2}"
+              fill="transparent"
               data-id="${s.id}" data-kind="shape-corner" data-handle="${c.h}"
               style="cursor: nwse-resize" />
+        <rect x="${c.x - hr}" y="${c.y - hr}" width="${hr * 2}" height="${hr * 2}"
+              fill="${this.#selColor}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
+              style="pointer-events: none" />
       `)}
       ${sides.map(c => svg`
-        <rect x="${c.x - hr * 0.7}" y="${c.y - hr * 0.7}" width="${hr * 1.4}" height="${hr * 1.4}"
-              fill="${COLORS.accent}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
+        <rect x="${c.x - hitR}" y="${c.y - hitR}" width="${hitR * 2}" height="${hitR * 2}"
+              fill="transparent"
               data-id="${s.id}" data-kind="shape-side" data-handle="${c.h}"
               style="cursor: ${c.h === 'n' || c.h === 's' ? 'ns-resize' : 'ew-resize'}" />
+        <rect x="${c.x - hr * 0.7}" y="${c.y - hr * 0.7}" width="${hr * 1.4}" height="${hr * 1.4}"
+              fill="${COLORS.accent}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
+              style="pointer-events: none" />
       `)}
     `;
   }
