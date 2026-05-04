@@ -292,7 +292,7 @@ export class CbToolbar extends LitElement {
       justify-content: flex-start;
       background: transparent;
       border: 1px solid transparent;
-      border-radius: 4px;
+      border-radius: 2px;
       gap: 12px;
       outline: none;
     }

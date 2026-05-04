@@ -447,7 +447,7 @@ export class CoachBoard extends LitElement {
       justify-content: flex-start;
       background: transparent;
       border: 1px solid transparent;
-      border-radius: 4px;
+      border-radius: 2px;
       color: var(--pt-text);
       gap: 12px;
     }
@@ -653,6 +653,11 @@ export class CoachBoard extends LitElement {
   #draw: DrawState | null = null;
   #shapeDraw: ShapeDrawState | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
+  #onDocClickForMenu = (e: PointerEvent) => {
+    if (this._menuOpen && !e.composedPath().includes(this.renderRoot.querySelector('.bottom-right .dropdown-wrap') as EventTarget)) {
+      this._menuOpen = false;
+    }
+  };
   #mobileQuery = window.matchMedia('(max-width: 768px)');
   #onMobileChange = (e: MediaQueryListEvent) => {
     this._isMobile = e.matches;
@@ -825,6 +830,7 @@ export class CoachBoard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener('keydown', this.#boundKeyDown);
+    document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
     this._isMobile = this.#mobileQuery.matches;
     if (this._isMobile) {
@@ -842,6 +848,7 @@ export class CoachBoard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('keydown', this.#boundKeyDown);
+    document.removeEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
   }
 
@@ -1034,13 +1041,17 @@ export class CoachBoard extends LitElement {
           </button>
           <div class="dropdown-wrap">
             <button aria-label="Menu" title="Menu"
-                    @click="${() => { this._menuOpen = !this._menuOpen; }}">
+                    aria-haspopup="menu"
+                    aria-expanded="${this._menuOpen}"
+                    @click="${this.#toggleMenu}"
+                    @keydown="${this.#onMenuBtnKeyDown}">
               <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
                 <path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z" fill="currentColor" fill-rule="evenodd"/>
               </svg>
             </button>
             ${this._menuOpen ? html`
-              <div role="menu" aria-label="Options" style="right: 0; left: auto; transform: none;">
+              <div role="menu" aria-label="Options" style="right: 0; left: auto; transform: none;"
+                   @keydown="${this.#onMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${this.#saveSvg}">
                   <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
@@ -1753,6 +1764,65 @@ export class CoachBoard extends LitElement {
     this.shapes = this.shapes.map(s =>
       idSet.has(s.id) ? { ...s, ...e.changes } : s
     );
+  }
+
+  // ── Hamburger menu ────────────────────────────────────────────
+
+  #toggleMenu() {
+    this._menuOpen = !this._menuOpen;
+    if (this._menuOpen) {
+      this.updateComplete.then(() => {
+        const first = this.renderRoot.querySelector('[role="menu"][aria-label="Options"] [role="menuitem"]') as HTMLElement | null;
+        first?.focus();
+      });
+    }
+  }
+
+  #closeMenu() {
+    if (!this._menuOpen) return;
+    this._menuOpen = false;
+    const trigger = this.renderRoot.querySelector('[aria-haspopup="menu"][aria-label="Menu"]') as HTMLElement | null;
+    trigger?.focus();
+  }
+
+  #onMenuBtnKeyDown(e: KeyboardEvent) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!this._menuOpen) this.#toggleMenu();
+    }
+  }
+
+  #onMenuKeyDown(e: KeyboardEvent) {
+    const items = Array.from(
+      (e.currentTarget as HTMLElement).querySelectorAll('[role="menuitem"]')
+    ) as HTMLElement[];
+    const current = items.indexOf(e.target as HTMLElement);
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        items[(current + 1) % items.length]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        items[(current - 1 + items.length) % items.length]?.focus();
+        break;
+      case 'Home':
+        e.preventDefault();
+        items[0]?.focus();
+        break;
+      case 'End':
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        this.#closeMenu();
+        break;
+      case 'Tab':
+        this._menuOpen = false;
+        break;
+    }
   }
 
   // ── Field orientation ──────────────────────────────────────────
