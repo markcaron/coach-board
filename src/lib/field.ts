@@ -35,7 +35,7 @@ const centerX = FIELD_LENGTH / 2;
  * It's the arc of the penalty-spot circle (r = 9.15 m)
  * that falls outside the penalty box.
  */
-function penaltyArc(spotX: number, boxEdgeX: number, side: 'left' | 'right') {
+function penaltyArc(spotX: number, boxEdgeX: number, side: 'left' | 'right', lineColor = 'white') {
   const dx = Math.abs(boxEdgeX - spotX);
   const dy = Math.sqrt(PENALTY_ARC_R ** 2 - dx ** 2);
   const cy = half;
@@ -44,10 +44,10 @@ function penaltyArc(spotX: number, boxEdgeX: number, side: 'left' | 'right') {
   const sweep = side === 'left' ? 1 : 0;
   return svg`<path
     d="M ${boxEdgeX} ${startY} A ${PENALTY_ARC_R} ${PENALTY_ARC_R} 0 0 ${sweep} ${boxEdgeX} ${endY}"
-    fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />`;
+    fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />`;
 }
 
-function penaltyArcVertical(spotY: number, boxEdgeY: number, side: 'top' | 'bottom') {
+function penaltyArcVertical(spotY: number, boxEdgeY: number, side: 'top' | 'bottom', lineColor = 'white') {
   const dy = Math.abs(boxEdgeY - spotY);
   const dx = Math.sqrt(PENALTY_ARC_R ** 2 - dy ** 2);
   const cx = half;
@@ -56,10 +56,10 @@ function penaltyArcVertical(spotY: number, boxEdgeY: number, side: 'top' | 'bott
   const sweep = side === 'top' ? 0 : 1;
   return svg`<path
     d="M ${startX} ${boxEdgeY} A ${PENALTY_ARC_R} ${PENALTY_ARC_R} 0 0 ${sweep} ${endX} ${boxEdgeY}"
-    fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />`;
+    fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />`;
 }
 
-export function renderVerticalField() {
+export function renderVerticalField(lineColor = 'white') {
   const W = FIELD_WIDTH;
   const H = FIELD_LENGTH;
   const cx = W / 2;
@@ -71,47 +71,47 @@ export function renderVerticalField() {
   return svg`
     <g class="field-markings">
       <rect x="0" y="0" width="${W}" height="${H}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <line x1="0" y1="${cy}" x2="${W}" y2="${cy}"
-            stroke="white" stroke-width="${LINE_WIDTH}" />
+            stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <circle cx="${cx}" cy="${cy}" r="${CENTER_CIRCLE_R}"
-              fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
-      <circle cx="${cx}" cy="${cy}" r="${SPOT_R}" fill="white" />
+              fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
+      <circle cx="${cx}" cy="${cy}" r="${SPOT_R}" fill="${lineColor}" />
 
       <rect x="${penaltyLeft}" y="0"
             width="${PENALTY_AREA_WIDTH}" height="${PENALTY_AREA_DEPTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <rect x="${goalAreaLeft}" y="0"
             width="${GOAL_AREA_WIDTH}" height="${GOAL_AREA_DEPTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
-      <circle cx="${cx}" cy="${PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="white" />
-      ${penaltyArcVertical(PENALTY_SPOT_DIST, PENALTY_AREA_DEPTH, 'top')}
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
+      <circle cx="${cx}" cy="${PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="${lineColor}" />
+      ${penaltyArcVertical(PENALTY_SPOT_DIST, PENALTY_AREA_DEPTH, 'top', lineColor)}
       <rect x="${goalLeft}" y="${-GOAL_DEPTH}"
             width="${GOAL_WIDTH}" height="${GOAL_DEPTH}"
-            fill="url(#goal-net)" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="url(#goal-net)" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <rect x="${penaltyLeft}" y="${H - PENALTY_AREA_DEPTH}"
             width="${PENALTY_AREA_WIDTH}" height="${PENALTY_AREA_DEPTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <rect x="${goalAreaLeft}" y="${H - GOAL_AREA_DEPTH}"
             width="${GOAL_AREA_WIDTH}" height="${GOAL_AREA_DEPTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
-      <circle cx="${cx}" cy="${H - PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="white" />
-      ${penaltyArcVertical(H - PENALTY_SPOT_DIST, H - PENALTY_AREA_DEPTH, 'bottom')}
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
+      <circle cx="${cx}" cy="${H - PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="${lineColor}" />
+      ${penaltyArcVertical(H - PENALTY_SPOT_DIST, H - PENALTY_AREA_DEPTH, 'bottom', lineColor)}
       <rect x="${goalLeft}" y="${H}"
             width="${GOAL_WIDTH}" height="${GOAL_DEPTH}"
-            fill="url(#goal-net)" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="url(#goal-net)" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <path d="M ${CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 0 ${CORNER_ARC_R}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <path d="M ${W - CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${W} ${CORNER_ARC_R}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <path d="M 0 ${H - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 ${CORNER_ARC_R} ${H}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <path d="M ${W} ${H - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${W - CORNER_ARC_R} ${H}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
     </g>
   `;
 }
@@ -122,81 +122,66 @@ export function getFieldDimensions(orientation: FieldOrientation) {
     : { w: FIELD_LENGTH, h: FIELD_WIDTH };
 }
 
-export function renderField() {
+export function renderField(lineColor = 'white') {
   return svg`
     <g class="field-markings">
-      <!-- Pitch outline -->
       <rect x="0" y="0"
             width="${FIELD_LENGTH}" height="${FIELD_WIDTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- Halfway line -->
       <line x1="${centerX}" y1="0"
             x2="${centerX}" y2="${FIELD_WIDTH}"
-            stroke="white" stroke-width="${LINE_WIDTH}" />
+            stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- Center circle -->
       <circle cx="${centerX}" cy="${half}"
               r="${CENTER_CIRCLE_R}"
-              fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+              fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- Center spot -->
       <circle cx="${centerX}" cy="${half}"
-              r="${SPOT_R}" fill="white" />
+              r="${SPOT_R}" fill="${lineColor}" />
 
-      <!-- LEFT penalty area -->
       <rect x="0" y="${penaltyTop}"
             width="${PENALTY_AREA_DEPTH}" height="${PENALTY_AREA_WIDTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- LEFT goal area -->
       <rect x="0" y="${goalAreaTop}"
             width="${GOAL_AREA_DEPTH}" height="${GOAL_AREA_WIDTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- LEFT penalty spot -->
       <circle cx="${PENALTY_SPOT_DIST}" cy="${half}"
-              r="${SPOT_R}" fill="white" />
+              r="${SPOT_R}" fill="${lineColor}" />
 
-      <!-- LEFT penalty arc -->
-      ${penaltyArc(PENALTY_SPOT_DIST, PENALTY_AREA_DEPTH, 'left')}
+      ${penaltyArc(PENALTY_SPOT_DIST, PENALTY_AREA_DEPTH, 'left', lineColor)}
 
-      <!-- LEFT goal -->
       <rect x="${-GOAL_DEPTH}" y="${goalTop}"
             width="${GOAL_DEPTH}" height="${GOAL_WIDTH}"
-            fill="url(#goal-net)" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="url(#goal-net)" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- RIGHT penalty area -->
       <rect x="${FIELD_LENGTH - PENALTY_AREA_DEPTH}" y="${penaltyTop}"
             width="${PENALTY_AREA_DEPTH}" height="${PENALTY_AREA_WIDTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- RIGHT goal area -->
       <rect x="${FIELD_LENGTH - GOAL_AREA_DEPTH}" y="${goalAreaTop}"
             width="${GOAL_AREA_DEPTH}" height="${GOAL_AREA_WIDTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- RIGHT penalty spot -->
       <circle cx="${FIELD_LENGTH - PENALTY_SPOT_DIST}" cy="${half}"
-              r="${SPOT_R}" fill="white" />
+              r="${SPOT_R}" fill="${lineColor}" />
 
-      <!-- RIGHT penalty arc -->
-      ${penaltyArc(FIELD_LENGTH - PENALTY_SPOT_DIST, FIELD_LENGTH - PENALTY_AREA_DEPTH, 'right')}
+      ${penaltyArc(FIELD_LENGTH - PENALTY_SPOT_DIST, FIELD_LENGTH - PENALTY_AREA_DEPTH, 'right', lineColor)}
 
-      <!-- RIGHT goal -->
       <rect x="${FIELD_LENGTH}" y="${goalTop}"
             width="${GOAL_DEPTH}" height="${GOAL_WIDTH}"
-            fill="url(#goal-net)" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="url(#goal-net)" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <!-- Corner arcs -->
       <path d="M ${CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 0 ${CORNER_ARC_R}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <path d="M ${FIELD_LENGTH - CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${FIELD_LENGTH} ${CORNER_ARC_R}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <path d="M 0 ${FIELD_WIDTH - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 ${CORNER_ARC_R} ${FIELD_WIDTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       <path d="M ${FIELD_LENGTH} ${FIELD_WIDTH - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${FIELD_LENGTH - CORNER_ARC_R} ${FIELD_WIDTH}"
-            fill="none" stroke="white" stroke-width="${LINE_WIDTH}" />
+            fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
     </g>
   `;
 }

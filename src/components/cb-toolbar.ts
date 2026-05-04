@@ -1,8 +1,8 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 
-import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle } from '../lib/types.js';
-import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES, TEXT_SIZES } from '../lib/types.js';
+import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle, FieldTheme } from '../lib/types.js';
+import { PLAYER_COLORS, CONE_COLORS, LINE_COLORS, SHAPE_STYLES, TEXT_SIZES, getPlayerColors, getConeColors, getLineColors, getShapeStyles } from '../lib/types.js';
 
 export class ToolChangedEvent extends Event {
   static readonly eventName = 'tool-changed' as const;
@@ -144,8 +144,13 @@ function isTextItem(item: AnyItem): item is TextItem {
   return 'text' in item;
 }
 
-const TEAMS: { label: string; color: string; team: Team }[] = [
+const TEAMS_GREEN: { label: string; color: string; team: Team }[] = [
   { label: 'Team A', color: '#4ea8de', team: 'a' },
+  { label: 'Team B', color: '#d43d55', team: 'b' },
+];
+
+const TEAMS_WHITE: { label: string; color: string; team: Team }[] = [
+  { label: 'Team A', color: '#2e86c1', team: 'a' },
   { label: 'Team B', color: '#d43d55', team: 'b' },
 ];
 
@@ -189,7 +194,8 @@ export class CbToolbar extends LitElement {
     }
 
     @media (max-width: 767px) {
-      .btn-text {
+      .btn-text,
+      .hide-mobile {
         display: none;
       }
     }
@@ -348,6 +354,20 @@ export class CbToolbar extends LitElement {
       float: left;
     }
 
+    @media (max-width: 767px) {
+      .edit-fields > legend {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    }
+
     .edit-fields label {
       font-size: 0.85rem;
       color: var(--pt-text-muted);
@@ -504,6 +524,18 @@ export class CbToolbar extends LitElement {
       border-color: rgba(255, 255, 255, 0.25);
     }
 
+    .edit-bar button.save-btn {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: var(--pt-text-white);
+      font-weight: bold;
+    }
+
+    .edit-bar button.save-btn:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+    }
+
     .edit-bar button:not([role]):hover {
       background: var(--pt-border);
     }
@@ -645,6 +677,9 @@ export class CbToolbar extends LitElement {
 
   @property({ type: String, reflect: true })
   accessor activeTool: Tool = 'select';
+
+  @property({ type: String })
+  accessor fieldTheme: FieldTheme = 'green';
 
   @property({ attribute: false })
   accessor selectedItems: AnyItem[] = [];
@@ -803,7 +838,7 @@ export class CbToolbar extends LitElement {
         ${this._openMenu === 'player' ? html`
           <div role="menu" id="menu-player" aria-label="Add Player"
                @keydown="${this.#onMenuKeyDown}">
-            ${TEAMS.map((t, i) => html`
+            ${(this.fieldTheme === 'white' ? TEAMS_WHITE : TEAMS_GREEN).map((t, i) => html`
               <button role="menuitem" tabindex="-1"
                       @click="${() => this.#pickPlayer(t.color, t.team)}">
                 ${i === 0 ? html`
@@ -872,6 +907,14 @@ export class CbToolbar extends LitElement {
                 <line x1="4" y1="4" x2="4" y2="12" stroke="white" stroke-width="1.2" stroke-dasharray="none" />
               </svg>
               Mini Goal
+            </button>
+            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('popup-goal')}">
+              <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <path d="M 6,3 A 5,5 0 0 1 6,13" fill="none" stroke="#f0c040" stroke-width="1.2"
+                      stroke-dasharray="1.5,1" />
+                <line x1="6" y1="3" x2="6" y2="13" stroke="#f0c040" stroke-width="1.2" stroke-dasharray="none" />
+              </svg>
+              Pop-up Goal
             </button>
           </div>
         ` : ''}
@@ -1037,7 +1080,7 @@ export class CbToolbar extends LitElement {
           <div role="menu" id="menu-color" aria-label="Player color"
                class="color-grid"
                @keydown="${this.#onMenuKeyDown}">
-            ${PLAYER_COLORS.map(c => html`
+            ${getPlayerColors(this.fieldTheme).map(c => html`
               <button role="menuitemradio" tabindex="-1"
                       aria-checked="${refPlayer.color === c.color}"
                       aria-label="${c.name}"
@@ -1081,7 +1124,7 @@ export class CbToolbar extends LitElement {
             <div role="menu" id="menu-cone-color" aria-label="Cone color"
                  class="color-grid" style="grid-template-columns: repeat(2, 1fr);"
                  @keydown="${this.#onMenuKeyDown}">
-              ${CONE_COLORS.map(c => html`
+              ${getConeColors(this.fieldTheme).map(c => html`
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${(refCone.color ?? '#7fff00') === c.color}"
                         aria-label="${c.name}"
@@ -1153,7 +1196,7 @@ export class CbToolbar extends LitElement {
             <div role="menu" id="menu-line-color" aria-label="Line color"
                  style="flex-direction: row; gap: 4px; padding: 6px;"
                  @keydown="${this.#onMenuKeyDown}">
-              ${LINE_COLORS.map(c => html`
+              ${getLineColors(this.fieldTheme).map(c => html`
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.color === c.color}"
                         aria-label="${c.name}"
@@ -1222,7 +1265,7 @@ export class CbToolbar extends LitElement {
             <div role="menu" aria-label="Shape style"
                  style="flex-direction: row; gap: 4px; padding: 6px;"
                  @keydown="${this.#onMenuKeyDown}">
-              ${SHAPE_STYLES.map(s => html`
+              ${getShapeStyles(this.fieldTheme).map(s => html`
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.style === s.value}"
                         aria-label="${s.name}"
@@ -1262,10 +1305,10 @@ export class CbToolbar extends LitElement {
                    @blur="${this.#onTextBlur}"
                    @keydown="${this.#onTextKeyDown}"
                    @pointerdown="${(e: Event) => e.stopPropagation()}" />
-            <button @click="${this.#onTextSave}">Save</button>
+            <button class="save-btn" @click="${this.#onTextSave}">Save</button>
           `}
         <span class="divider"></span>
-        <label>Font size:</label>
+        <label class="hide-mobile">Font size:</label>
         <div class="dropdown-wrap">
           <button class="color-btn"
                   aria-haspopup="menu"

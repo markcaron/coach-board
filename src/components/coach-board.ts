@@ -1,8 +1,8 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
-import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team } from '../lib/types.js';
-import { getTextColor, SHAPE_STYLES } from '../lib/types.js';
+import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme } from '../lib/types.js';
+import { getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
@@ -13,6 +13,15 @@ import './cb-toolbar.js';
 
 const PLAYER_RADIUS = 2.4;
 const TEXT_FONT_SIZE = 2;
+
+const WHITE_THEME = {
+  fieldBg: '#ffffff',
+  fieldArea: '#f0f0f0',
+  fieldLine: '#bbb',
+  fieldNet: '#999',
+  text: '#222',
+  selection: '#2563eb',
+} as const;
 
 function triPoints(cx: number, cy: number, r: number): string {
   const h = r * 1.32;
@@ -26,6 +35,9 @@ const GOAL_W = 7.32;
 const GOAL_D = 2;
 const MINI_GOAL_W = 3.66;
 const MINI_GOAL_D = 1;
+const POPUP_GOAL_W = 3;
+const POPUP_GOAL_D = 1.5;
+const POPUP_GOAL_COLOR = '#f0c040';
 const GOAL_LINE_W = 0.18;
 const CONTROL_HANDLE_R = 1.2;
 const ROTATE_HANDLE_R = 0.75;
@@ -157,10 +169,10 @@ function rad2deg(r: number): number { return r * 180 / Math.PI; }
 
 function isRotatable(item: Player | Equipment): boolean {
   if ('team' in item) return item.team === 'a';
-  return item.kind === 'goal' || item.kind === 'mini-goal';
+  return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal';
 }
 
-function renderRotateHandle(hx: number, hy: number, id: string) {
+function renderRotateHandle(hx: number, hy: number, id: string, color = 'white') {
   const r = 0.875;
   return svg`
     <g transform="translate(${hx}, ${hy})"
@@ -168,12 +180,12 @@ function renderRotateHandle(hx: number, hy: number, id: string) {
        style="cursor: grab">
       <circle r="${r + 0.6}" fill="transparent" />
       <path d="M ${-r * 0.5},${-r * 0.866} A ${r},${r} 0 0 1 ${r * 0.866},${r * 0.5}"
-            fill="none" stroke="white" stroke-width="0.275" stroke-opacity="0.85" />
+            fill="none" stroke="${color}" stroke-width="0.275" stroke-opacity="0.85" />
       <g transform="translate(${-r * 0.5},${-r * 0.866}) rotate(150)">
-        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="white" fill-opacity="0.85" />
+        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="${color}" fill-opacity="0.85" />
       </g>
       <g transform="translate(${r * 0.866},${r * 0.5}) rotate(-30)">
-        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="white" fill-opacity="0.85" />
+        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="${color}" fill-opacity="0.85" />
       </g>
     </g>
   `;
@@ -240,6 +252,12 @@ export class CoachBoard extends LitElement {
       overflow: hidden;
       min-height: 0;
       padding: 12px;
+      background: var(--pt-bg-body);
+      transition: background 0.2s;
+    }
+
+    .field-area.theme-white {
+      background: var(--pt-field-area-white);
     }
 
     .svg-wrap {
@@ -286,6 +304,7 @@ export class CoachBoard extends LitElement {
 
     .bottom-center {
       display: flex;
+      gap: 8px;
       align-items: center;
       justify-self: center;
     }
@@ -342,6 +361,27 @@ export class CoachBoard extends LitElement {
 
     .bottom-bar button.danger:hover {
       background: rgba(248, 113, 113, 0.1);
+    }
+
+    .theme-select {
+      background: var(--pt-bg-surface);
+      color: var(--pt-text);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      min-height: 44px;
+      padding: 6px 26px 6px 10px;
+      font: inherit;
+      font-size: 0.85rem;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ccc'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      cursor: pointer;
+    }
+
+    .theme-select:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .bottom-bar .caret {
@@ -593,6 +633,7 @@ export class CoachBoard extends LitElement {
   @state() accessor shapes: Shape[] = [];
   @state() accessor textItems: TextItem[] = [];
   @state() accessor fieldOrientation: FieldOrientation = window.innerWidth <= 768 ? 'vertical' : 'horizontal';
+  @state() accessor fieldTheme: FieldTheme = 'green';
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _pendingOrientation: FieldOrientation | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
@@ -719,6 +760,10 @@ export class CoachBoard extends LitElement {
     URL.revokeObjectURL(url);
   }
 
+  get #selColor(): string {
+    return this.fieldTheme === 'white' ? WHITE_THEME.selection : 'white';
+  }
+
   get #selectedItems(): Array<Player | Equipment | Line | Shape | TextItem> {
     const ids = this.selectedIds;
     if (ids.size === 0) return [];
@@ -744,6 +789,7 @@ export class CoachBoard extends LitElement {
         this.fieldOrientation = savedOrientation;
       }
     }
+    this.#loadThemeFromStorage();
     this.#loadFromStorage();
   }
 
@@ -776,6 +822,7 @@ export class CoachBoard extends LitElement {
         <cb-toolbar
           .activeTool="${this.activeTool}"
           .selectedItems="${this.#selectedItems}"
+          .fieldTheme="${this.fieldTheme}"
           @tool-changed="${this.#onToolChanged}"
           @player-update="${this.#onPlayerUpdate}"
           @equipment-update="${this.#onEquipmentUpdate}"
@@ -789,7 +836,7 @@ export class CoachBoard extends LitElement {
         </cb-toolbar>
       </div>
 
-      <div class="field-area">
+      <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
         <div class="svg-wrap ${this.fieldOrientation === 'vertical' ? 'vertical' : ''}">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -806,13 +853,15 @@ export class CoachBoard extends LitElement {
           <rect x="${-PADDING}" y="${-PADDING}"
                 width="${fd.w + PADDING * 2}"
                 height="${fd.h + PADDING * 2}"
-                fill="var(--pt-bg-body)" />
+                fill="${this.fieldTheme === 'white' ? 'white' : 'var(--pt-bg-body)'}" />
 
           <rect x="0" y="0"
                 width="${fd.w}" height="${fd.h}"
-                fill="url(#grass-stripes)" rx="0.5" />
+                fill="${this.fieldTheme === 'white' ? 'white' : 'url(#grass-stripes)'}" rx="0.5" />
 
-          ${this.fieldOrientation === 'vertical' ? renderVerticalField() : renderField()}
+          ${this.fieldOrientation === 'vertical'
+            ? renderVerticalField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')
+            : renderField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')}
 
           <g class="shapes-layer">
             ${this.shapes.map(s => this.#renderShape(s))}
@@ -857,7 +906,7 @@ export class CoachBoard extends LitElement {
             ? svg`
               <text x="${this.ghost.x}" y="${this.ghost.y}"
                     text-anchor="middle" dominant-baseline="central"
-                    fill="white" fill-opacity="0.5" font-size="${TEXT_FONT_SIZE}"
+                    fill="${this.fieldTheme === 'white' ? WHITE_THEME.text : 'white'}" fill-opacity="0.5" font-size="${TEXT_FONT_SIZE}"
                     font-family="system-ui, sans-serif"
                     style="pointer-events: none">
                 T
@@ -887,6 +936,12 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="bottom-center">
+          <label class="visually-hidden" for="field-theme-select">Field theme</label>
+          <select id="field-theme-select" class="theme-select"
+                  @change="${this.#onThemeChange}">
+            <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
+            <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
+          </select>
           ${!this._isMobile ? html`
             <div class="dropdown-wrap">
               <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
@@ -931,9 +986,9 @@ export class CoachBoard extends LitElement {
           </button>
           <button aria-label="Save SVG" title="Save SVG"
                   @click="${this.#saveSvg}">
-            <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
-              <path d="M 3,1 L 3,12 L 8,8 L 13,12 L 13,1 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-              <line x1="2" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+              <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
+              <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
             </svg>
             <span class="btn-text">Save SVG</span>
           </button>
@@ -1002,22 +1057,22 @@ export class CoachBoard extends LitElement {
         `}
 
         <filter id="player-shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="0.3" stdDeviation="0.4"
-                        flood-color="#000" flood-opacity="0.5" />
+          <feDropShadow dx="0" dy="${this.fieldTheme === 'white' ? '0.15' : '0.3'}" stdDeviation="${this.fieldTheme === 'white' ? '0.2' : '0.4'}"
+                        flood-color="#000" flood-opacity="${this.fieldTheme === 'white' ? '0.15' : '0.5'}" />
         </filter>
 
         <filter id="text-shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="0.15" stdDeviation="0.25"
-                        flood-color="#000" flood-opacity="0.35" />
+          <feDropShadow dx="0" dy="${this.fieldTheme === 'white' ? '0.08' : '0.15'}" stdDeviation="${this.fieldTheme === 'white' ? '0.12' : '0.25'}"
+                        flood-color="#000" flood-opacity="${this.fieldTheme === 'white' ? '0.1' : '0.35'}" />
         </filter>
 
         <pattern id="goal-net" width="0.5" height="0.5"
                  patternUnits="userSpaceOnUse">
-          <rect width="0.5" height="0.5" fill="#ddd" fill-opacity="0.15" />
+          <rect width="0.5" height="0.5" fill="${this.fieldTheme === 'white' ? '#eee' : '#ddd'}" fill-opacity="${this.fieldTheme === 'white' ? '0.6' : '0.15'}" />
           <line x1="0" y1="0" x2="0.5" y2="0.5"
-                stroke="white" stroke-width="0.04" opacity="0.3" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldNet : 'white'}" stroke-width="0.04" opacity="${this.fieldTheme === 'white' ? '0.5' : '0.3'}" />
           <line x1="0.5" y1="0" x2="0" y2="0.5"
-                stroke="white" stroke-width="0.04" opacity="0.3" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldNet : 'white'}" stroke-width="0.04" opacity="${this.fieldTheme === 'white' ? '0.5' : '0.3'}" />
         </pattern>
 
         <marker id="arrow-end-white" markerWidth="6" markerHeight="8"
@@ -1076,7 +1131,7 @@ export class CoachBoard extends LitElement {
            transform="translate(${p.x}, ${p.y}) rotate(${angle})">
           ${selected ? svg`
             <polygon points="${triPoints(0, 0, selR)}"
-                     fill="none" stroke="white" stroke-width="0.2"
+                     fill="none" stroke="${this.#selColor}" stroke-width="0.2"
                      stroke-linejoin="round" stroke-dasharray="0.5,0.3" />
           ` : nothing}
           <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
@@ -1105,7 +1160,7 @@ export class CoachBoard extends LitElement {
          data-kind="player">
         ${selected ? svg`
           <circle cx="${p.x}" cy="${p.y}" r="${PLAYER_RADIUS + 0.4}"
-                   fill="none" stroke="white" stroke-width="0.2"
+                   fill="none" stroke="${this.#selColor}" stroke-width="0.2"
                    stroke-dasharray="0.5,0.3" />
         ` : nothing}
         <circle cx="${p.x}" cy="${p.y}" r="${PLAYER_RADIUS}"
@@ -1132,11 +1187,11 @@ export class CoachBoard extends LitElement {
   }
 
   #renderCircleRotateHandles(id: string, r: number) {
-    return renderRotateHandle(r, -r, id);
+    return renderRotateHandle(r, -r, id, this.#selColor);
   }
 
   #renderRectRotateHandles(id: string, x1: number, y1: number, x2: number, y2: number) {
-    return renderRotateHandle(x2, y1, id);
+    return renderRotateHandle(x2, y1, id, this.#selColor);
   }
 
   #renderLine(l: Line) {
@@ -1223,7 +1278,7 @@ export class CoachBoard extends LitElement {
         <g data-id="${eq.id}" data-kind="equipment"
            transform="translate(${eq.x}, ${eq.y})">
           ${selected ? svg`
-            <circle r="${BALL_RADIUS + 0.4}" fill="none" stroke="white" stroke-width="0.15"
+            <circle r="${BALL_RADIUS + 0.4}" fill="none" stroke="${this.#selColor}" stroke-width="0.15"
                     stroke-dasharray="0.4,0.25" />
           ` : nothing}
           <circle r="${BALL_RADIUS}" fill="white" stroke="white" stroke-width="0.225"
@@ -1241,12 +1296,38 @@ export class CoachBoard extends LitElement {
         <g data-id="${eq.id}" data-kind="equipment">
           ${selected ? svg`
             <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_RADIUS + CONE_BORDER + 0.15}"
-                    fill="none" stroke="white" stroke-width="0.15"
+                    fill="none" stroke="${this.#selColor}" stroke-width="0.15"
                     stroke-dasharray="0.4,0.25" />
           ` : nothing}
           <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_RADIUS}"
                   fill="#222" stroke="${coneColor}" stroke-width="${CONE_BORDER}"
                   style="cursor: pointer" />
+        </g>
+      `;
+    }
+    if (eq.kind === 'popup-goal') {
+      const hw = POPUP_GOAL_W / 2;
+      const d = POPUP_GOAL_D;
+      const pad = 0.5;
+      const angle = eq.angle ?? 0;
+      const rx1 = -pad;
+      const ry1 = -hw - pad;
+      const rx2 = d + pad;
+      const ry2 = hw + pad;
+      return svg`
+        <g data-id="${eq.id}" data-kind="equipment"
+           transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
+          ${selected ? svg`
+            <rect x="${rx1}" y="${ry1}" width="${rx2 - rx1}" height="${ry2 - ry1}"
+                  fill="none" stroke="${this.#selColor}" stroke-width="0.15"
+                  stroke-dasharray="0.5,0.3" rx="0.2" />
+          ` : nothing}
+          <path d="M 0,${-hw} A ${hw},${hw} 0 0 1 0,${hw}"
+                fill="url(#goal-net)" stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25"
+                style="cursor: pointer" />
+          <line x1="0" y1="${-hw}" x2="0" y2="${hw}"
+                stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" style="pointer-events: none" />
+          ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
         </g>
       `;
     }
@@ -1266,16 +1347,16 @@ export class CoachBoard extends LitElement {
            transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
           ${selected ? svg`
             <rect x="${rx1}" y="${ry1}" width="${rx2 - rx1}" height="${ry2 - ry1}"
-                  fill="none" stroke="white" stroke-width="0.15"
+                  fill="none" stroke="${this.#selColor}" stroke-width="0.15"
                   stroke-dasharray="0.5,0.3" rx="0.2" />
           ` : nothing}
           <rect x="0" y="${-hw}" width="${d}" height="${w}"
-                fill="url(#goal-net)" stroke="white" stroke-width="${GOAL_LINE_W}"
+                fill="url(#goal-net)" stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}"
                 style="cursor: pointer" />
           <line x1="0" y1="${-hw}" x2="0" y2="${-hw - post}"
-                stroke="white" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
           <line x1="0" y1="${hw}" x2="0" y2="${hw + post}"
-                stroke="white" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
           ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
         </g>
       `;
@@ -1284,7 +1365,7 @@ export class CoachBoard extends LitElement {
       <g data-id="${eq.id}" data-kind="equipment">
         ${selected ? svg`
           <circle cx="${eq.x}" cy="${eq.y}" r="${PLAYER_RADIUS + 0.4}"
-                  fill="none" stroke="white" stroke-width="0.2"
+                  fill="none" stroke="${this.#selColor}" stroke-width="0.2"
                   stroke-dasharray="0.5,0.3" />
         ` : nothing}
         <circle cx="${eq.x}" cy="${eq.y}" r="${PLAYER_RADIUS}"
@@ -1332,11 +1413,23 @@ export class CoachBoard extends LitElement {
         <g transform="translate(${x}, ${y})" opacity="0.5"
            style="pointer-events: none">
           <rect x="0" y="${-hw}" width="${d}" height="${w}"
-                fill="url(#goal-net)" stroke="white" stroke-width="${GOAL_LINE_W}" />
+                fill="url(#goal-net)" stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" />
           <line x1="0" y1="${-hw}" x2="0" y2="${-hw - post}"
-                stroke="white" stroke-width="${GOAL_LINE_W}" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" />
           <line x1="0" y1="${hw}" x2="0" y2="${hw + post}"
-                stroke="white" stroke-width="${GOAL_LINE_W}" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" />
+        </g>
+      `;
+    }
+    if (this.equipmentKind === 'popup-goal') {
+      const hw = POPUP_GOAL_W / 2;
+      return svg`
+        <g transform="translate(${x}, ${y})" opacity="0.5"
+           style="pointer-events: none">
+          <path d="M 0,${-hw} A ${hw},${hw} 0 0 1 0,${hw}"
+                fill="url(#goal-net)" stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" />
+          <line x1="0" y1="${-hw}" x2="0" y2="${hw}"
+                stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" />
         </g>
       `;
     }
@@ -1354,7 +1447,8 @@ export class CoachBoard extends LitElement {
   }
 
   #getShapeVisuals(style: ShapeStyle) {
-    const def = SHAPE_STYLES.find(s => s.value === style) ?? SHAPE_STYLES[0];
+    const styles = getShapeStyles(this.fieldTheme);
+    const def = styles.find(s => s.value === style) ?? styles[0];
     return def;
   }
 
@@ -1383,7 +1477,7 @@ export class CoachBoard extends LitElement {
         ${selected ? svg`
           <rect x="${-s.hw - pad}" y="${-s.hh - pad}"
                 width="${(s.hw + pad) * 2}" height="${(s.hh + pad) * 2}"
-                fill="none" stroke="white" stroke-width="0.12"
+                fill="none" stroke="${this.#selColor}" stroke-width="0.12"
                 stroke-dasharray="0.5,0.3" rx="0.2" />
         ` : nothing}
         ${singleSelected ? svg`
@@ -1466,14 +1560,14 @@ export class CoachBoard extends LitElement {
         ${selected ? svg`
           <rect x="${-hw - pad}" y="${-hh - pad}"
                 width="${(hw + pad) * 2}" height="${(hh + pad) * 2}"
-                fill="none" stroke="white" stroke-width="0.12"
+                fill="none" stroke="${this.#selColor}" stroke-width="0.12"
                 stroke-dasharray="0.5,0.3" rx="0.2" />
         ` : nothing}
         <text x="0" y="0"
               text-anchor="middle" dominant-baseline="central"
-              fill="white" font-size="${fs}"
+              fill="${this.fieldTheme === 'white' ? WHITE_THEME.text : 'white'}" font-size="${fs}"
               font-family="system-ui, sans-serif"
-              filter="url(#text-shadow)"
+              filter="${this.fieldTheme === 'white' ? '' : 'url(#text-shadow)'}"
               style="pointer-events: none">
           ${t.text}
         </text>
@@ -1726,6 +1820,66 @@ export class CoachBoard extends LitElement {
       if (v === 'horizontal' || v === 'vertical') return v;
     } catch { /* ignore */ }
     return null;
+  }
+
+  #saveThemeToStorage() {
+    try {
+      localStorage.setItem('coach-board-theme', this.fieldTheme);
+    } catch { /* ignore */ }
+  }
+
+  #loadThemeFromStorage() {
+    try {
+      const v = localStorage.getItem('coach-board-theme');
+      if (v === 'green' || v === 'white') this.fieldTheme = v;
+    } catch { /* ignore */ }
+  }
+
+  #onThemeChange(e: Event) {
+    const newTheme = (e.target as HTMLSelectElement).value as FieldTheme;
+    const oldTheme = this.fieldTheme;
+    if (newTheme === oldTheme) return;
+    this.#remapColors(oldTheme, newTheme);
+    this.fieldTheme = newTheme;
+    this.#saveThemeToStorage();
+  }
+
+  #remapColors(from: FieldTheme, to: FieldTheme) {
+    const fromPlayers = getPlayerColors(from);
+    const toPlayers = getPlayerColors(to);
+    const fromCones = getConeColors(from);
+    const toCones = getConeColors(to);
+    const fromLines = getLineColors(from);
+    const toLines = getLineColors(to);
+
+    const playerMap = new Map<string, string>();
+    for (let i = 0; i < fromPlayers.length && i < toPlayers.length; i++) {
+      playerMap.set(fromPlayers[i].color, toPlayers[i].color);
+    }
+    const coneMap = new Map<string, string>();
+    for (let i = 0; i < fromCones.length && i < toCones.length; i++) {
+      coneMap.set(fromCones[i].color, toCones[i].color);
+    }
+    const lineMap = new Map<string, string>();
+    for (let i = 0; i < fromLines.length && i < toLines.length; i++) {
+      lineMap.set(fromLines[i].color, toLines[i].color);
+    }
+
+    this.players = this.players.map(p => {
+      const newColor = playerMap.get(p.color);
+      return newColor ? { ...p, color: newColor } : p;
+    });
+    this.equipment = this.equipment.map(eq => {
+      if (eq.kind === 'cone' && eq.color) {
+        const newColor = coneMap.get(eq.color);
+        return newColor ? { ...eq, color: newColor } : eq;
+      }
+      return eq;
+    });
+    this.lines = this.lines.map(l => {
+      const newColor = lineMap.get(l.color);
+      return newColor ? { ...l, color: newColor } : l;
+    });
   }
 
   // ── Event handlers ──────────────────────────────────────────────
