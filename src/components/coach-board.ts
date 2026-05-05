@@ -1287,9 +1287,11 @@ export class CoachBoard extends LitElement {
         this.fieldOrientation = savedOrientation;
       }
     }
-    const isSharedUrl = /^\/s\//.test(window.location.pathname) || window.location.hash.startsWith('#board=');
-    this.#loadThemeFromStorage();
-    if (!isSharedUrl) this.#loadFromStorage();
+    const isSharedUrl = /^\/s\//.test(window.location.pathname);
+    if (!isSharedUrl) {
+      this.#loadThemeFromStorage();
+      this.#loadFromStorage();
+    }
     this.#loadFromUrl();
   }
 
@@ -3023,6 +3025,8 @@ export class CoachBoard extends LitElement {
     this.#onClearAll(new ClearAllEvent());
   }
 
+  // Supports both directions, but currently only called for horizontal→vertical
+  // (mobile forces vertical). Also used by #applyOrientation for manual changes.
   #rotateLoadedData(targetOrientation: FieldOrientation) {
     const oldDim = getFieldDimensions(this.fieldOrientation);
     const toVertical = targetOrientation === 'vertical';
@@ -3073,54 +3077,7 @@ export class CoachBoard extends LitElement {
 
   #applyOrientation(orientation: FieldOrientation, remap: boolean) {
     this.#pushUndo();
-    if (remap) {
-      const oldDim = getFieldDimensions(this.fieldOrientation);
-      const toVertical = orientation === 'vertical';
-
-      const rotatePoint = toVertical
-        ? (x: number, y: number) => ({ x: y, y: oldDim.w - x })
-        : (x: number, y: number) => ({ x: oldDim.h - y, y: x });
-      const angleDelta = toVertical ? -90 : 90;
-      const rotateAngle = (a?: number) => a != null ? a + angleDelta : undefined;
-
-      this.players = this.players.map(p => {
-        const r = rotatePoint(p.x, p.y);
-        return { ...p, x: r.x, y: r.y, angle: rotateAngle(p.angle) };
-      });
-      this.equipment = this.equipment.map(eq => {
-        const r = rotatePoint(eq.x, eq.y);
-        return { ...eq, x: r.x, y: r.y, angle: rotateAngle(eq.angle) };
-      });
-      this.shapes = this.shapes.map(s => {
-        const r = rotatePoint(s.cx, s.cy);
-        return { ...s, cx: r.x, cy: r.y, hw: s.hh, hh: s.hw, angle: rotateAngle(s.angle) };
-      });
-      this.textItems = this.textItems.map(t => {
-        const r = rotatePoint(t.x, t.y);
-        return { ...t, x: r.x, y: r.y, angle: rotateAngle(t.angle) };
-      });
-      this.lines = this.lines.map(l => {
-        const r1 = rotatePoint(l.x1, l.y1);
-        const r2 = rotatePoint(l.x2, l.y2);
-        const rc = rotatePoint(l.cx, l.cy);
-        return { ...l, x1: r1.x, y1: r1.y, x2: r2.x, y2: r2.y, cx: rc.x, cy: rc.y };
-      });
-
-      this.animationFrames = this.animationFrames.map(frame => {
-        const newPositions: Record<string, { x: number; y: number }> = {};
-        for (const [id, pos] of Object.entries(frame.positions)) {
-          const r = rotatePoint(pos.x, pos.y);
-          newPositions[id] = { x: r.x, y: r.y };
-        }
-        const newTrails: Record<string, { cp1x: number; cp1y: number; cp2x: number; cp2y: number }> = {};
-        for (const [id, trail] of Object.entries(frame.trails)) {
-          const r1 = rotatePoint(trail.cp1x, trail.cp1y);
-          const r2 = rotatePoint(trail.cp2x, trail.cp2y);
-          newTrails[id] = { cp1x: r1.x, cp1y: r1.y, cp2x: r2.x, cp2y: r2.y };
-        }
-        return { ...frame, positions: newPositions, trails: newTrails };
-      });
-    }
+    if (remap) this.#rotateLoadedData(orientation);
     this.selectedIds = new Set();
     this.fieldOrientation = orientation;
     this.#saveOrientationToStorage();

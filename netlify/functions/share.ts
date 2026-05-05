@@ -8,12 +8,15 @@ const TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 const RATE_WINDOW_MS = 60_000; // 1 minute
 const RATE_MAX_POSTS = 10; // max POSTs per window per IP
 
+// Per-instance only; serverless horizontal scaling means the effective
+// limit is ~10×N where N is the number of warm instances.
 const rateLimitMap = new Map<string, number[]>();
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
   const timestamps = rateLimitMap.get(ip) ?? [];
   const recent = timestamps.filter(t => now - t < RATE_WINDOW_MS);
+  if (recent.length === 0) { rateLimitMap.delete(ip); }
   if (recent.length >= RATE_MAX_POSTS) return true;
   recent.push(now);
   rateLimitMap.set(ip, recent);
