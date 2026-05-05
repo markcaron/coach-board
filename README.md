@@ -44,6 +44,25 @@ A mobile-first soccer coaching tactical board built with [Lit](https://lit.dev/)
 * **Delete** — remove selected items with confirmation dialog
 * **Undo / Redo** — full history stack with Cmd+Z / Cmd+Shift+Z
 
+### Animation (Desktop)
+
+* **Keyframe animation** — add frames to animate player and equipment movement across the field
+* **Cubic bezier motion trails** — curved paths with 2 draggable control points per item per frame
+* **Ghost rendering** — semi-transparent previous positions show where items were
+* **Per-frame line visibility** — lines drawn on a frame only appear from that frame onward
+* **Playback** — play/pause with configurable speed (0.5x, 1x, 2x) and loop toggle
+* **Timeline strip** — scrollable frame buttons with add/delete, below the field
+* **Animation mode toggle** — "Animate" button shows/hides the timeline; board data persists when toggled off
+
+### Sharing & Import/Export
+
+* **Shareable links** — compress the board state into a URL for instant sharing; auto-copies to clipboard
+* **Import SVG** — re-import any CoachingBoard-exported SVG to restore the full board, including animations
+* **Export as SVG** — embed full board state as metadata for lossless roundtrip import
+* **Save as PNG** — export at 10x resolution for high-quality raster output
+* **Save as GIF** — export animations as GIF with cubic bezier interpolation at 20fps
+* **Hamburger menu** — organized with dividers and grouped headings for About, Import, and Export/Save
+
 ### Mobile Experience
 
 * **Touch-optimized** — large touch targets, no scroll interference during drag
@@ -70,13 +89,7 @@ A mobile-first soccer coaching tactical board built with [Lit](https://lit.dev/)
 * **Auto-update** — silently updates when new versions deploy
 * **Home screen icons** — iOS and Android installable with custom icons
 * **Web app manifest** — standalone display mode with themed chrome
-* **localStorage** — all board state persists locally, zero server dependencies
-
-### Export
-
-* **Save as SVG** — export the current board as a clean SVG file
-* **Save as PNG** — export at 10x resolution for high-quality raster output
-* **Hamburger menu** — export options accessible from the bottom toolbar
+* **localStorage** — all board state (including animation frames) persists locally, zero server dependencies
 
 ## Getting Started
 
@@ -101,6 +114,8 @@ Outputs to `dist/` with service worker and precached assets.
 * **TypeScript** — type-safe throughout
 * **Vite** — fast dev server and bundler
 * **vite-plugin-pwa** — service worker and offline support
+* **modern-gif** — client-side GIF encoding for animation export
+* **lz-string** — URI-safe compression for shareable links
 
 ## Built with AI
 
