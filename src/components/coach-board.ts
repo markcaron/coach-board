@@ -469,6 +469,28 @@ export class CoachBoard extends LitElement {
       background: var(--pt-border);
     }
 
+    .menu-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 4px 0;
+    }
+
+    .menu-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px 2px;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: var(--pt-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .bottom-bar [role="menuitem"].menu-indent {
+      padding-left: 40px;
+    }
+
     dialog:not([open]) {
       display: none;
     }
@@ -732,6 +754,9 @@ export class CoachBoard extends LitElement {
   @query('#orientation-dialog') accessor _orientationDialog!: HTMLDialogElement;
   @query('#reset-dialog') accessor _resetDialog!: HTMLDialogElement;
   @query('#about-dialog') accessor _aboutDialog!: HTMLDialogElement;
+  @query('#import-confirm-dialog') accessor _importConfirmDialog!: HTMLDialogElement;
+  @query('#import-error-dialog') accessor _importErrorDialog!: HTMLDialogElement;
+  @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
 
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -850,6 +875,21 @@ export class CoachBoard extends LitElement {
     svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
     svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
     svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+    const meta = document.createElementNS('http://www.w3.org/2000/svg', 'desc');
+    meta.setAttribute('id', 'coaching-board-data');
+    meta.setAttribute('data-version', '1.2.0');
+    meta.textContent = JSON.stringify({
+      players: this.players,
+      lines: this.lines,
+      equipment: this.equipment,
+      shapes: this.shapes,
+      textItems: this.textItems,
+      animationFrames: this.animationFrames,
+      fieldTheme: this.fieldTheme,
+      fieldOrientation: this.fieldOrientation,
+    });
+    svgClone.insertBefore(meta, svgClone.firstChild);
 
     const serializer = new XMLSerializer();
     const svgString = serializer.serializeToString(svgClone);
@@ -1285,30 +1325,39 @@ export class CoachBoard extends LitElement {
                   </svg>
                   About
                 </button>
+
+                <div class="menu-divider"></div>
+
                 <button role="menuitem" tabindex="-1"
-                        @click="${this.#saveSvg}">
-                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
-                    <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
-                    <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
+                        @click="${this.#importSvg}">
+                  <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0">
+                    <path d="M1188.44 69.585L1215.56 80.835L1220.15 82.7383L1223.66 86.25L1554.3 416.883L1557.72 420.299L1559.62 424.743L1571.49 452.556L1573.5 457.259V1362.37C1573.5 1455.94 1496.92 1532.37 1403.5 1532.37H1403.5L511.873 1532.31V1532.31C418.24 1532.31 341.942 1455.91 341.941 1362.31V1167.94C341.941 1148.4 349.621 1131.97 362.452 1120.71C374.8 1109.87 390.504 1105.01 405.348 1105.01C420.191 1105.01 435.896 1109.87 448.243 1120.71C461.074 1131.97 468.754 1148.4 468.754 1167.94V1362.31C468.754 1385.94 488.31 1405.5 511.941 1405.5H1403.62C1427.44 1405.5 1446.81 1385.87 1446.81 1362.31L1446.75 525.736H1271C1185.51 525.736 1115.5 455.731 1115.5 370.236V194.489H511.874C488.082 194.489 468.686 214.082 468.686 237.678V432.051C468.685 451.587 461.007 468.021 448.176 479.282C435.828 490.119 420.123 494.973 405.28 494.973C390.437 494.973 374.732 490.119 362.385 479.282C349.554 468.021 341.874 451.587 341.874 432.051V237.678C341.874 144.122 418.379 67.6777 511.808 67.6777H1183.84L1188.44 69.585ZM1242.31 370.32C1242.31 386.138 1255.18 399.008 1271 399.008H1357.15L1242.31 284.168V370.32Z" fill="currentColor"/>
+                    <path d="M654.197 454.276L948.997 749.076C949.799 749.477 950.195 750.274 950.596 750.675C961.398 761.477 968.195 775.477 970.195 789.477C970.195 790.675 970.596 791.879 970.596 793.076C970.997 795.477 970.997 797.879 970.997 800.274L970.596 807.076C970.596 808.274 970.195 809.477 970.195 810.675C968.195 825.077 961.393 838.675 950.596 849.478C950.195 849.879 949.398 850.676 948.997 851.077L654.197 1145.88C640.599 1159.48 622.599 1166.28 604.599 1166.28C586.599 1166.28 568.599 1159.48 555 1145.88C527.803 1118.68 527.803 1074.28 555 1046.68L732.2 869.48L83 869.469C44.5987 869.469 13 837.871 13 799.469C13 780.272 21 762.667 33.4013 749.871C46.2034 737.068 63.4013 729.469 83 729.469L732.2 729.469L555 552.269C527.803 525.072 527.803 480.671 555 453.072C582.599 427.072 627 427.072 654.197 454.27L654.197 454.276Z" fill="currentColor"/>
                   </svg>
-                  Save as SVG
+                  Import SVG
                 </button>
-                <button role="menuitem" tabindex="-1"
-                        @click="${this.#savePng}">
-                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+
+                <div class="menu-divider"></div>
+
+                <div class="menu-heading">
+                  <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
                     <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
                     <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
                   </svg>
+                  Export / Save
+                </div>
+                <button role="menuitem" tabindex="-1" class="menu-indent"
+                        @click="${this.#saveSvg}">
+                  Export as SVG
+                </button>
+                <button role="menuitem" tabindex="-1" class="menu-indent"
+                        @click="${this.#savePng}">
                   Save as PNG
                 </button>
                 ${this._animationMode && this.animationFrames.length > 1 ? html`
-                  <button role="menuitem" tabindex="-1"
+                  <button role="menuitem" tabindex="-1" class="menu-indent"
                           @click="${this.#saveGif}">
-                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
-                      <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
-                      <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
-                    </svg>
-                    Export as GIF
+                    Save as GIF
                   </button>
                 ` : nothing}
               </div>
@@ -1316,6 +1365,40 @@ export class CoachBoard extends LitElement {
           </div>
         </div>
       </div>
+
+      <input type="file" accept=".svg,image/svg+xml" class="visually-hidden" id="svg-import-input"
+             @change="${this.#onFileSelected}" />
+
+      <dialog id="import-confirm-dialog">
+        <div class="dialog-header">
+          <h2>Import SVG</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._importConfirmDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Import will replace all current items on the board. Continue?</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._importConfirmDialog?.close()}">Cancel</button>
+            <button class="confirm-danger" @click="${this.#confirmImport}">Yes, import</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="import-error-dialog">
+        <div class="dialog-header">
+          <h2>Import Error</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._importErrorDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>This SVG was not exported from CoachingBoard and cannot be imported.</p>
+          <div class="confirm-actions" style="justify-content: flex-end;">
+            <button class="cancel-btn" @click="${() => this._importErrorDialog?.close()}">OK</button>
+          </div>
+        </div>
+      </dialog>
 
       <dialog id="orientation-dialog">
         <div class="dialog-header">
@@ -1364,7 +1447,7 @@ export class CoachBoard extends LitElement {
             <path d="M1080 600.84C1079.77 728.15 1029 850.12 938.81 939.98C848.62 1029.84 726.47 1080.24 599.15 1080C471.84 1079.77 349.87 1029 260.01 938.81C170.143 848.619 119.75 726.47 119.99 599.15C120.224 471.84 170.99 349.87 261.18 260.01C351.371 170.143 473.52 119.75 600.84 119.99C728.06 120.506 849.89 171.365 939.7 261.51C1029.47 351.604 1079.96 473.62 1079.99 600.83L1080 600.84ZM598.08 754.45C623.861 754.45 649.689 755.294 675.377 754.45C683.768 753.606 691.361 749.247 696.377 742.45C721.596 700.872 745.924 658.684 769.455 615.98V615.933C772.69 608.996 772.69 600.98 769.455 593.995C745.455 551.995 719.533 509.995 693.517 469.305H693.47C688.923 463.071 681.939 459.086 674.298 458.289C625.595 457.352 576.798 457.352 528.008 458.289C519.618 459.133 511.977 463.492 507.008 470.289C480.992 510.977 455.539 552.414 430.555 594.469C427.368 601.407 427.368 609.375 430.555 616.313C454.555 658.875 478.977 701.016 503.774 742.783C508.274 748.971 515.118 753.002 522.712 753.845C547.931 755.158 573.009 754.455 598.087 754.455L598.08 754.45ZM423.37 327.84C382.682 331.778 350.058 334.309 317.76 338.621C309.229 340.121 301.635 344.856 296.526 351.84C271.917 390.465 248.526 429.84 225.37 469.54C221.995 475.868 221.292 483.274 223.448 490.071C236.714 522.93 250.917 555.415 266.057 587.524C269.62 593.243 275.713 596.946 282.463 597.462C314.385 595.305 346.166 592.165 378.463 587.759C386.807 586.212 394.213 581.477 399.135 574.54C425.291 533.478 450.557 491.946 474.979 449.85H474.932C478.729 442.443 479.339 433.772 476.62 425.85C464.62 397.538 452.62 369.694 438.839 342.459C434.761 336.552 429.464 331.584 423.37 327.834L423.37 327.84ZM775.92 327.84C770.389 331.59 765.654 336.371 761.998 341.996C748.451 369.371 735.607 397.215 724.076 425.996C721.404 433.871 721.873 442.449 725.389 449.996C749.389 491.996 775.17 533.996 801.327 574.546H801.373C806.905 581.718 814.967 586.499 823.92 587.999C854.764 592.452 885.982 595.452 917.154 597.374C924.514 596.624 931.076 592.452 934.779 586.077C949.404 555.468 963.091 524.296 975.841 492.702C978.513 485.296 978.091 477.14 974.763 470.061C951.701 430.358 928.075 391.123 903.466 352.361V352.314C898.544 345.283 891.138 340.408 882.7 338.626C849.606 334.22 815.997 331.689 775.92 327.704L775.92 327.84ZM762.139 889.92C739.92 858.936 718.311 827.998 695.998 798.232C691.686 794.107 685.92 791.857 679.92 791.998C626.623 791.341 573.09 791.341 519.23 791.998C513.277 792.232 507.605 794.81 503.527 799.216C481.215 829.216 459.746 859.216 437.761 890.294C460.308 919.216 481.214 946.919 503.386 974.294C508.824 980.06 516.23 983.529 524.152 983.998C574.871 984.794 625.682 984.794 676.542 983.998C684.042 983.482 691.026 980.06 695.995 974.388C718.214 947.06 739.542 918.841 762.136 889.919L762.139 889.92ZM278.159 296.16C288.144 299.066 298.315 301.129 308.628 302.301C322.55 302.301 336.331 299.91 350.159 298.457C379.784 295.082 411.847 297.754 438.706 287.066C485.394 267.238 530.487 243.894 573.606 217.222C581.059 212.769 580.684 193.222 580.825 179.91C580.825 175.832 571.216 170.676 565.122 167.91C542.669 157.691 520.356 163.832 497.903 169.222H497.856C413.856 189.238 337.496 233.347 278.146 296.162L278.159 296.16ZM921.609 296.16C858.562 228.988 775.919 183.38 685.449 165.94C668.48 164.018 651.277 164.815 634.543 168.237C628.778 169.081 619.168 176.018 619.168 180.237C619.168 193.081 619.168 213.003 626.621 217.456C670.168 243.144 715.918 265.456 761.011 288.518L761.058 288.471C764.293 289.737 767.761 290.393 771.23 290.534C811.308 294.612 851.386 299.065 891.23 302.534C901.589 301.596 911.808 299.299 921.605 295.69L921.609 296.16ZM173.899 488.16C149.899 554.769 153.133 655.22 178.118 737.02L178.071 737.067C185.712 762.192 201.18 784.223 222.227 799.926C246.227 787.926 246.227 787.926 245.618 762.988C243.837 720.004 242.384 677.394 239.993 635.168C239.759 626.965 238.071 618.809 235.071 611.168C220.352 576.059 205.071 541.09 189.227 506.308C184.915 499.37 179.758 492.996 173.852 487.324L173.899 488.16ZM978.509 798.94C1037.67 750.237 1065.88 572.72 1025.29 490.41C1020.98 494.254 1015.35 496.879 1013.29 500.957C992.149 557.582 953.29 608.117 957.228 673.267V673.314C958.4 703.267 957.134 733.22 953.384 762.939C951.837 781.314 957.462 792.845 978.462 798.142L978.509 798.94ZM731.989 1022.63C809.567 998.958 878.849 953.771 931.769 892.32C942.363 878.023 950.753 862.273 956.753 845.539C958.394 839.633 956.894 833.305 952.769 828.711C944.613 824.774 932.003 819.711 925.91 823.32C850.91 867.148 776.75 912.009 730.07 989.871C722.617 1002.15 719.992 1010.31 731.992 1022.64L731.989 1022.63ZM473.989 1024.55C473.989 1012.55 477.13 1002.85 473.989 996.614C426.927 915.38 351.229 866.534 272.279 822.144C266.888 819.003 254.513 824.91 247.341 829.597L247.294 829.55C243.497 834.378 242.372 840.753 244.2 846.612C248.841 861.753 255.966 876.05 265.2 888.94C320.419 953.159 392.84 1000.22 473.98 1024.55L473.989 1024.55Z" fill="${COLORS.bgPrimary}"/>
           </svg>
           <div class="about-title">CoachingBoard</div>
-          <div class="about-meta">Version 1.1.0-beta</div>
+          <div class="about-meta">Version 1.2.0-beta</div>
           <div class="about-meta">by Mark Caron</div>
           <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
           <div class="confirm-actions centered">
@@ -2065,6 +2148,75 @@ export class CoachBoard extends LitElement {
   #showAbout() {
     this._menuOpen = false;
     requestAnimationFrame(() => this._aboutDialog?.showModal());
+  }
+
+  #pendingImportData: Record<string, unknown> | null = null;
+
+  #importSvg() {
+    this._menuOpen = false;
+    if (this._fileInput) {
+      this._fileInput.value = '';
+      this._fileInput.type = '';
+      this._fileInput.type = 'file';
+    }
+    this._fileInput?.click();
+  }
+
+  #onFileSelected(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    input.value = '';
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string;
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'image/svg+xml');
+      const wrapper = doc.querySelector('#coaching-board-data, desc[data-version]');
+      if (!wrapper || !wrapper.textContent) {
+        requestAnimationFrame(() => this._importErrorDialog?.showModal());
+        return;
+      }
+      try {
+        const data = JSON.parse(wrapper.textContent) as Record<string, unknown>;
+        if (!Array.isArray(data.players)) {
+          requestAnimationFrame(() => this._importErrorDialog?.showModal());
+          return;
+        }
+        this.#pendingImportData = data;
+        requestAnimationFrame(() => this._importConfirmDialog?.showModal());
+      } catch {
+        requestAnimationFrame(() => this._importErrorDialog?.showModal());
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  #confirmImport() {
+    this._importConfirmDialog?.close();
+    const data = this.#pendingImportData;
+    if (!data) return;
+    this.#pendingImportData = null;
+
+    this.#pushUndo();
+    if (Array.isArray(data.players)) this.players = data.players as Player[];
+    if (Array.isArray(data.lines)) this.lines = data.lines as Line[];
+    if (Array.isArray(data.equipment)) this.equipment = data.equipment as Equipment[];
+    if (Array.isArray(data.shapes)) this.shapes = data.shapes as Shape[];
+    if (Array.isArray(data.textItems)) this.textItems = data.textItems as TextItem[];
+    if (Array.isArray(data.animationFrames)) {
+      this.animationFrames = data.animationFrames as AnimationFrame[];
+      if (this.animationFrames.length > 0) this._animationMode = true;
+    }
+    if (data.fieldTheme === 'green' || data.fieldTheme === 'white') {
+      this.fieldTheme = data.fieldTheme;
+    }
+    if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') {
+      this.fieldOrientation = data.fieldOrientation as FieldOrientation;
+    }
+    this.selectedIds = new Set();
+    this.activeFrameIndex = 0;
   }
 
   #closeMenu() {
