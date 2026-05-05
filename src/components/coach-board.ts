@@ -303,8 +303,8 @@ export class CoachBoard extends LitElement {
     }
 
     .play-overlay-btn {
-      width: 144px;
-      height: 144px;
+      width: 108px;
+      height: 108px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
@@ -1447,12 +1447,12 @@ export class CoachBoard extends LitElement {
             ${this._showPlayOverlay ? html`
               <div class="play-overlay-btn">
                 ${this._pauseFlash ? html`
-                  <svg viewBox="0 0 16 16" width="56" height="56">
+                  <svg viewBox="0 0 16 16" width="42" height="42">
                     <rect x="4" y="3" width="3" height="10" rx="0.5" fill="white"/>
                     <rect x="9" y="3" width="3" height="10" rx="0.5" fill="white"/>
                   </svg>
                 ` : html`
-                  <svg viewBox="0 0 16 16" width="56" height="56">
+                  <svg viewBox="0 0 16 16" width="42" height="42">
                     <path d="M4.5 2l9 6-9 6z" fill="white"/>
                   </svg>
                 `}
