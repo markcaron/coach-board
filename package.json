@@ -1,6 +1,6 @@
 {
   "name": "coach-board",
-  "version": "0.1.0",
+  "version": "1.5.0-beta",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,9 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@netlify/blobs": "^10.7.4",
+    "@netlify/functions": "^5.2.0",
     "lit": "^3.2.0",
     "lz-string": "^1.5.0",
-    "modern-gif": "^2.1.0"
+    "modern-gif": "^2.1.0",
+    "nanoid": "^5.1.11"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

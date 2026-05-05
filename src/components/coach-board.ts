@@ -265,6 +265,14 @@ export class CoachBoard extends LitElement {
       height: 28px;
     }
 
+    .branding-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: inherit;
+    }
+
     .branding-text {
       font-size: 1rem;
       font-weight: bold;
@@ -295,8 +303,8 @@ export class CoachBoard extends LitElement {
     }
 
     .play-overlay-btn {
-      width: 72px;
-      height: 72px;
+      width: 144px;
+      height: 144px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
@@ -891,6 +899,8 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareUrl: string = '';
   @state() private accessor _copiedVisible: boolean = false;
   #shareCompressed: string = '';
+  #shareShortId: string = '';
+  #lastSharedData: string = '';
 
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -975,26 +985,41 @@ export class CoachBoard extends LitElement {
   }
 
   async #loadFromUrl() {
+    const path = window.location.pathname;
     const hash = window.location.hash;
-    if (!hash.startsWith('#board=')) return;
-    try {
-      const { decompressFromEncodedURIComponent } = await import('lz-string');
-      const hashContent = hash.slice('#board='.length);
-      const parts = hashContent.split('&');
-      const compressed = parts[0];
-      let mode: string | null = null;
-      for (let i = 1; i < parts.length; i++) {
-        if (parts[i].startsWith('mode=')) {
-          mode = parts[i].slice('mode='.length);
-        }
-      }
+    const params = new URLSearchParams(window.location.search);
 
-      const json = decompressFromEncodedURIComponent(compressed);
-      if (!json) return;
+    let json: string | null = null;
+    let mode: string | null = null;
+
+    const shortMatch = path.match(/^\/s\/([a-zA-Z0-9_-]+)/);
+    if (shortMatch) {
+      const id = shortMatch[1];
+      mode = params.get('mode');
+      try {
+        const res = await fetch(`/api/share/${id}`);
+        if (res.ok) json = await res.text();
+      } catch { /* network error */ }
+    } else if (hash.startsWith('#board=')) {
+      try {
+        const { decompressFromEncodedURIComponent } = await import('lz-string');
+        const hashContent = hash.slice('#board='.length);
+        const parts = hashContent.split('&');
+        const compressed = parts[0];
+        for (let i = 1; i < parts.length; i++) {
+          if (parts[i].startsWith('mode=')) mode = parts[i].slice('mode='.length);
+        }
+        json = decompressFromEncodedURIComponent(compressed);
+      } catch { /* invalid hash */ }
+    }
+
+    if (!json) return;
+
+    try {
       const data = JSON.parse(json) as Record<string, unknown>;
       if (!Array.isArray(data.players)) return;
 
-      if (Array.isArray(data.players)) this.players = data.players as Player[];
+      this.players = data.players as Player[];
       if (Array.isArray(data.lines)) this.lines = data.lines as Line[];
       if (Array.isArray(data.equipment)) this.equipment = data.equipment as Equipment[];
       if (Array.isArray(data.shapes)) this.shapes = data.shapes as Shape[];
@@ -1018,8 +1043,10 @@ export class CoachBoard extends LitElement {
       else if (mode === 'edit') this._viewMode = 'shared-edit';
 
       this.selectedIds = new Set();
-      window.history.replaceState(null, '', window.location.pathname);
-    } catch { /* invalid share link */ }
+      if (!shortMatch) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch { /* invalid data */ }
   }
 
   #pushUndo() {
@@ -1290,8 +1317,10 @@ export class CoachBoard extends LitElement {
     return html`
       ${this._viewMode === 'readonly' ? html`
         <div class="toolbar-area readonly-branding">
-          <svg class="branding-icon" viewBox="0 0 1600 1600" fill="currentColor"><path d="M1214.45 54.9997H385.56C309.309 54.9997 247.16 117.052 247.16 193.346V1406.75C247.16 1483 309.259 1545.09 385.56 1545.09H1214.47C1290.72 1545.09 1352.87 1483.04 1352.87 1406.75L1352.86 193.293C1352.86 117.042 1290.71 54.9863 1214.46 54.9863L1214.45 54.9997ZM639.4 145H960.2L958.997 292.2L639.397 290.601L639.4 145ZM960.6 1455H639.8L641.05 1307.85L960.65 1309.45L960.655 1455L960.6 1455ZM1262.8 1406.7C1262.8 1433.35 1241.1 1455 1214.45 1455H1050.65V1309.45C1050.65 1258.9 1009.55 1217.8 959 1217.8L641 1217.81C590.448 1217.81 549.349 1258.91 549.349 1309.46V1455H385.549C358.899 1455 337.2 1433.35 337.2 1406.7L337.195 845.009H569.941C591.04 952.858 686.092 1034.61 799.995 1034.61C913.897 1034.61 1008.99 952.86 1030.05 845.009H1262.79L1262.8 1406.7ZM936.693 845.004C917.641 902.602 863.944 944.556 800 944.556C736.056 944.556 682.349 902.608 663.307 845.004H936.693ZM663.293 755.004C682.345 697.405 736.043 655.452 799.987 655.452C863.931 655.452 917.637 697.4 936.68 755.004H663.293ZM1262.79 755.004H1030.04C1008.94 647.154 913.889 565.404 799.987 565.404C686.084 565.404 590.987 647.153 569.933 755.004H337.187V193.31C337.187 166.66 358.884 145.008 385.536 145.008H549.336V290.554C549.336 341.106 590.435 382.205 640.987 382.205H958.933C1009.49 382.205 1050.58 341.106 1050.58 290.554V145.008H1214.38C1241.03 145.008 1262.73 166.658 1262.73 193.31V755.004H1262.79Z"/></svg>
-          <span class="branding-text">CoachingBoard</span>
+          <a href="/" class="branding-link" title="Open CoachingBoard">
+            <svg class="branding-icon" viewBox="0 0 1600 1600" fill="currentColor"><path d="M1214.45 54.9997H385.56C309.309 54.9997 247.16 117.052 247.16 193.346V1406.75C247.16 1483 309.259 1545.09 385.56 1545.09H1214.47C1290.72 1545.09 1352.87 1483.04 1352.87 1406.75L1352.86 193.293C1352.86 117.042 1290.71 54.9863 1214.46 54.9863L1214.45 54.9997ZM639.4 145H960.2L958.997 292.2L639.397 290.601L639.4 145ZM960.6 1455H639.8L641.05 1307.85L960.65 1309.45L960.655 1455L960.6 1455ZM1262.8 1406.7C1262.8 1433.35 1241.1 1455 1214.45 1455H1050.65V1309.45C1050.65 1258.9 1009.55 1217.8 959 1217.8L641 1217.81C590.448 1217.81 549.349 1258.91 549.349 1309.46V1455H385.549C358.899 1455 337.2 1433.35 337.2 1406.7L337.195 845.009H569.941C591.04 952.858 686.092 1034.61 799.995 1034.61C913.897 1034.61 1008.99 952.86 1030.05 845.009H1262.79L1262.8 1406.7ZM936.693 845.004C917.641 902.602 863.944 944.556 800 944.556C736.056 944.556 682.349 902.608 663.307 845.004H936.693ZM663.293 755.004C682.345 697.405 736.043 655.452 799.987 655.452C863.931 655.452 917.637 697.4 936.68 755.004H663.293ZM1262.79 755.004H1030.04C1008.94 647.154 913.889 565.404 799.987 565.404C686.084 565.404 590.987 647.153 569.933 755.004H337.187V193.31C337.187 166.66 358.884 145.008 385.536 145.008H549.336V290.554C549.336 341.106 590.435 382.205 640.987 382.205H958.933C1009.49 382.205 1050.58 341.106 1050.58 290.554V145.008H1214.38C1241.03 145.008 1262.73 166.658 1262.73 193.31V755.004H1262.79Z"/></svg>
+            <span class="branding-text">CoachingBoard</span>
+          </a>
         </div>
       ` : html`
         <div class="toolbar-area">
@@ -1408,12 +1437,12 @@ export class CoachBoard extends LitElement {
             ${this._showPlayOverlay ? html`
               <div class="play-overlay-btn">
                 ${this._pauseFlash ? html`
-                  <svg viewBox="0 0 16 16" width="28" height="28">
+                  <svg viewBox="0 0 16 16" width="56" height="56">
                     <rect x="4" y="3" width="3" height="10" rx="0.5" fill="white"/>
                     <rect x="9" y="3" width="3" height="10" rx="0.5" fill="white"/>
                   </svg>
                 ` : html`
-                  <svg viewBox="0 0 16 16" width="28" height="28">
+                  <svg viewBox="0 0 16 16" width="56" height="56">
                     <path d="M4.5 2l9 6-9 6z" fill="white"/>
                   </svg>
                 `}
@@ -1710,7 +1739,7 @@ export class CoachBoard extends LitElement {
         <div class="dialog-body about-body">
           <svg class="about-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M1115.85 235.01H486.142C428.215 235.01 381 282.15 381 340.109V1261.9C381 1319.83 428.176 1367 486.142 1367H1115.86C1173.79 1367 1221 1319.86 1221 1261.9L1221 340.068C1221 282.143 1173.78 235 1115.85 235L1115.85 235.01ZM678.983 303.381H922.693L921.779 415.206L678.98 413.991L678.983 303.381ZM922.997 1298.56H679.287L680.236 1186.77L923.035 1187.99L923.039 1298.56L922.997 1298.56ZM1152.58 1261.86C1152.58 1282.11 1136.09 1298.56 1115.85 1298.56H991.408V1187.99C991.408 1149.59 960.185 1118.36 921.781 1118.36L680.198 1118.37C641.794 1118.37 610.572 1149.59 610.572 1187.99V1298.56H486.134C465.887 1298.56 449.403 1282.11 449.403 1261.87L449.399 835.162H626.215C642.244 917.093 714.455 979.197 800.986 979.197C887.517 979.197 959.762 917.094 975.756 835.162H1152.57L1152.58 1261.86ZM904.835 835.158C890.361 878.915 849.568 910.786 800.99 910.786C752.412 910.786 711.611 878.919 697.145 835.158H904.835ZM697.134 766.787C711.608 723.031 752.402 691.16 800.98 691.16C849.558 691.16 890.358 723.027 904.825 766.787H697.134ZM1152.57 766.787H975.75C959.722 684.857 887.511 622.752 800.98 622.752C714.448 622.752 642.203 684.856 626.209 766.787H449.393V340.082C449.393 319.836 465.876 303.387 486.124 303.387H610.562V413.956C610.562 452.359 641.784 483.581 680.188 483.581H921.731C960.135 483.581 991.357 452.359 991.357 413.956V303.387H1115.8C1136.04 303.387 1152.53 319.835 1152.53 340.082V766.787H1152.57Z" fill="white"/></svg>
           <div class="about-title">CoachingBoard</div>
-          <div class="about-meta">Version 1.4.0-beta</div>
+          <div class="about-meta">Version 1.5.0-beta</div>
           <div class="about-meta">by Mark Caron</div>
           <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
           <div class="confirm-actions centered">
@@ -2417,12 +2446,14 @@ export class CoachBoard extends LitElement {
 
   #buildShareUrl() {
     const mode = this._shareEditable ? 'edit' : 'view';
+    if (this.#shareShortId) {
+      return `${window.location.origin}/s/${this.#shareShortId}?mode=${mode}`;
+    }
     return `${window.location.origin}${window.location.pathname}#board=${this.#shareCompressed}&mode=${mode}`;
   }
 
   async #shareLink() {
     this._menuOpen = false;
-    const { compressToEncodedURIComponent } = await import('lz-string');
 
     const data = JSON.stringify({
       players: this.players,
@@ -2436,24 +2467,50 @@ export class CoachBoard extends LitElement {
       playbackLoop: this._playbackLoop,
     });
 
-    this.#shareCompressed = compressToEncodedURIComponent(data);
-    const url = this.#buildShareUrl();
-
-    if (url.length > 8000) {
-      this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
-      this._shareUrl = '';
-      requestAnimationFrame(() => this._shareDialog?.showModal());
-      return;
+    const boardChanged = data !== this.#lastSharedData;
+    if (boardChanged) {
+      this.#shareShortId = '';
+      this.#shareCompressed = '';
     }
 
-    this._shareUrl = url;
+    if (!this.#shareShortId) {
+      this._shareMessage = 'Generating link\u2026';
+      this._shareUrl = '';
+      requestAnimationFrame(() => this._shareDialog?.showModal());
+
+      try {
+        const res = await fetch('/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: data,
+        });
+        if (res.ok) {
+          const { id } = await res.json() as { id: string };
+          this.#shareShortId = id;
+          this.#lastSharedData = data;
+        }
+      } catch { /* API unavailable, fall back to hash */ }
+    }
+
+    if (!this.#shareShortId) {
+      const { compressToEncodedURIComponent } = await import('lz-string');
+      this.#shareCompressed = compressToEncodedURIComponent(data);
+      this.#lastSharedData = data;
+      const url = this.#buildShareUrl();
+      if (url.length > 8000) {
+        this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
+        this._shareUrl = '';
+        return;
+      }
+    }
+
+    this._shareUrl = this.#buildShareUrl();
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(this._shareUrl);
       this._shareMessage = 'Shareable link copied to clipboard!';
     } catch {
       this._shareMessage = 'Shareable link:';
     }
-    requestAnimationFrame(() => this._shareDialog?.showModal());
   }
 
   #onShareEditableChange(e: Event) {
