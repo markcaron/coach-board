@@ -1381,18 +1381,27 @@ export class CoachBoard extends LitElement {
               style="pointer-events: none" />
 
         ${singleSelected ? svg`
+          <circle cx="${l.x1}" cy="${l.y1}" r="${CONTROL_HANDLE_R + 1}"
+                  fill="transparent"
+                  data-id="${l.id}" data-kind="line-start"
+                  style="cursor: grab" />
           <circle cx="${l.x1}" cy="${l.y1}" r="${CONTROL_HANDLE_R}"
                   fill="${this.#selColor}" fill-opacity="0.5" stroke="${this.#selColor}" stroke-width="0.1"
-                  data-id="${l.id}" data-kind="line-start"
+                  style="pointer-events: none" />
+          <circle cx="${l.x2}" cy="${l.y2}" r="${CONTROL_HANDLE_R + 1}"
+                  fill="transparent"
+                  data-id="${l.id}" data-kind="line-end"
                   style="cursor: grab" />
           <circle cx="${l.x2}" cy="${l.y2}" r="${CONTROL_HANDLE_R}"
                   fill="${this.#selColor}" fill-opacity="0.5" stroke="${this.#selColor}" stroke-width="0.1"
-                  data-id="${l.id}" data-kind="line-end"
+                  style="pointer-events: none" />
+          <circle cx="${l.cx}" cy="${l.cy}" r="${CONTROL_HANDLE_R + 1}"
+                  fill="transparent"
+                  data-id="${l.id}" data-kind="line-control"
                   style="cursor: grab" />
           <circle cx="${l.cx}" cy="${l.cy}" r="${CONTROL_HANDLE_R}"
                   fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
-                  data-id="${l.id}" data-kind="line-control"
-                  style="cursor: grab" />
+                  style="pointer-events: none" />
           <line x1="${l.x1}" y1="${l.y1}" x2="${l.cx}" y2="${l.cy}"
                 stroke="${COLORS.annotation}" stroke-width="0.1" stroke-dasharray="0.4,0.3"
                 style="pointer-events: none" />
@@ -1483,9 +1492,11 @@ export class CoachBoard extends LitElement {
                   fill="none" stroke="${this.#selColor}" stroke-width="0.15"
                   stroke-dasharray="0.5,0.3" rx="0.2" />
           ` : nothing}
+          <rect x="${-1}" y="${-hw - 1}" width="${d + 2}" height="${POPUP_GOAL_W + 2}"
+                fill="transparent" style="cursor: pointer" />
           <path d="M 0,${-hw} A ${hw},${hw} 0 0 1 0,${hw}"
                 fill="url(#goal-net)" stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25"
-                style="cursor: pointer" />
+                style="pointer-events: none" />
           <line x1="0" y1="${-hw}" x2="0" y2="${hw}"
                 stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" style="pointer-events: none" />
           ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
@@ -1511,9 +1522,11 @@ export class CoachBoard extends LitElement {
                   fill="none" stroke="${this.#selColor}" stroke-width="0.15"
                   stroke-dasharray="0.5,0.3" rx="0.2" />
           ` : nothing}
+          <rect x="${-1}" y="${-hw - 1}" width="${d + 2}" height="${w + 2}"
+                fill="transparent" style="cursor: pointer" />
           <rect x="0" y="${-hw}" width="${d}" height="${w}"
                 fill="url(#goal-net)" stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}"
-                style="cursor: pointer" />
+                style="pointer-events: none" />
           <line x1="0" y1="${-hw}" x2="0" y2="${-hw - post}"
                 stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
           <line x1="0" y1="${hw}" x2="0" y2="${hw + post}"
@@ -2084,6 +2097,11 @@ export class CoachBoard extends LitElement {
     } else {
       this.playerColor = playerColors[0].color;
     }
+
+    // Force SVG marker re-render by cycling lines
+    const savedLines = this.lines;
+    this.lines = [];
+    this.updateComplete.then(() => { this.lines = savedLines; });
 
     this.#saveThemeToStorage();
   }
