@@ -918,7 +918,10 @@ export class CoachBoard extends LitElement {
   #onMobileChange = (e: MediaQueryListEvent) => {
     this._isMobile = e.matches;
     if (this._viewMode === 'readonly') {
-      if (e.matches) this.fieldOrientation = 'vertical';
+      if (e.matches && this.fieldOrientation === 'horizontal') {
+        this.#rotateLoadedData('vertical');
+        this.fieldOrientation = 'vertical';
+      }
       return;
     }
     if (e.matches) {
