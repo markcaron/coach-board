@@ -251,6 +251,26 @@ export class CoachBoard extends LitElement {
       padding-top: env(safe-area-inset-top);
     }
 
+    .readonly-branding {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      min-height: 60px;
+      background: var(--pt-bg-toolbar);
+    }
+
+    .branding-icon {
+      width: 28px;
+      height: 28px;
+    }
+
+    .branding-text {
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--pt-text);
+    }
+
     .field-area {
       flex: 1;
       display: flex;
@@ -261,6 +281,28 @@ export class CoachBoard extends LitElement {
       padding: 12px;
       background: var(--pt-bg-body);
       transition: background 0.2s;
+      position: relative;
+    }
+
+    .play-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      cursor: pointer;
+    }
+
+    .play-overlay-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
     }
 
     .field-area.theme-white {
@@ -300,6 +342,11 @@ export class CoachBoard extends LitElement {
       box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.3);
       user-select: none;
       font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .bottom-bar.readonly {
+      display: flex;
+      justify-content: flex-end;
     }
 
     .bottom-left {
@@ -495,6 +542,16 @@ export class CoachBoard extends LitElement {
       margin-top: 12px;
     }
 
+    .share-editable-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      cursor: pointer;
+      margin-right: auto;
+    }
+
     .copied-label {
       font-size: 0.75rem;
       color: var(--pt-success-light);
@@ -634,6 +691,10 @@ export class CoachBoard extends LitElement {
       margin-top: 0;
     }
 
+    .confirm-actions.end {
+      justify-content: flex-end;
+    }
+
     .confirm-actions-right {
       display: flex;
       gap: 8px;
@@ -651,6 +712,8 @@ export class CoachBoard extends LitElement {
     }
 
     .about-icon {
+      width: 48px;
+      height: 48px;
       margin-bottom: 12px;
     }
 
@@ -818,9 +881,14 @@ export class CoachBoard extends LitElement {
   @query('#import-error-dialog') accessor _importErrorDialog!: HTMLDialogElement;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('#share-dialog') accessor _shareDialog!: HTMLDialogElement;
+  @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
+  @state() private accessor _shareEditable: boolean = false;
+  @state() private accessor _showPlayOverlay: boolean = true;
+  @state() private accessor _pauseFlash: boolean = false;
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   @state() private accessor _copiedVisible: boolean = false;
+  #shareCompressed: string = '';
 
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -837,6 +905,10 @@ export class CoachBoard extends LitElement {
   #mobileQuery = window.matchMedia('(max-width: 768px)');
   #onMobileChange = (e: MediaQueryListEvent) => {
     this._isMobile = e.matches;
+    if (this._viewMode === 'readonly') {
+      if (e.matches) this.fieldOrientation = 'vertical';
+      return;
+    }
     if (e.matches) {
       this.#requestOrientation('vertical');
     } else {
@@ -905,7 +977,16 @@ export class CoachBoard extends LitElement {
     if (!hash.startsWith('#board=')) return;
     try {
       const { decompressFromEncodedURIComponent } = await import('lz-string');
-      const compressed = hash.slice('#board='.length);
+      const hashContent = hash.slice('#board='.length);
+      const parts = hashContent.split('&');
+      const compressed = parts[0];
+      let mode: string | null = null;
+      for (let i = 1; i < parts.length; i++) {
+        if (parts[i].startsWith('mode=')) {
+          mode = parts[i].slice('mode='.length);
+        }
+      }
+
       const json = decompressFromEncodedURIComponent(compressed);
       if (!json) return;
       const data = JSON.parse(json) as Record<string, unknown>;
@@ -920,12 +1001,20 @@ export class CoachBoard extends LitElement {
         this.animationFrames = data.animationFrames as AnimationFrame[];
         if (this.animationFrames.length > 0) this._animationMode = true;
       }
+      if (typeof data.playbackLoop === 'boolean') this._playbackLoop = data.playbackLoop;
       if (data.fieldTheme === 'green' || data.fieldTheme === 'white') {
         this.fieldTheme = data.fieldTheme;
       }
       if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') {
         this.fieldOrientation = data.fieldOrientation as FieldOrientation;
       }
+      if (this._isMobile) {
+        this.fieldOrientation = 'vertical';
+      }
+
+      if (mode === 'view') this._viewMode = 'readonly';
+      else if (mode === 'edit') this._viewMode = 'shared-edit';
+
       this.selectedIds = new Set();
       window.history.replaceState(null, '', window.location.pathname);
     } catch { /* invalid share link */ }
@@ -983,6 +1072,7 @@ export class CoachBoard extends LitElement {
       animationFrames: this.animationFrames,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      playbackLoop: this._playbackLoop,
     });
     svgClone.insertBefore(meta, svgClone.firstChild);
 
@@ -1196,25 +1286,32 @@ export class CoachBoard extends LitElement {
     const vbH = fd.h + PADDING * 2;
 
     return html`
-      <div class="toolbar-area">
-        <cb-toolbar
-          .activeTool="${this.activeTool}"
-          .selectedItems="${this.#selectedItems}"
-          .fieldTheme="${this.fieldTheme}"
-          .multiSelect="${this._multiSelect}"
-          @tool-changed="${this.#onToolChanged}"
-          @multi-select-toggle="${this.#onMultiSelectToggle}"
-          @player-update="${this.#onPlayerUpdate}"
-          @equipment-update="${this.#onEquipmentUpdate}"
-          @line-update="${this.#onLineUpdate}"
-          @shape-update="${this.#onShapeUpdate}"
-          @text-update="${this.#onTextUpdate}"
-          @align-items="${this.#onAlignItems}"
-          @group-items="${this.#onGroupItems}"
-          @ungroup-items="${this.#onUngroupItems}"
-          @delete-items="${this.#onDeleteItems}">
-        </cb-toolbar>
-      </div>
+      ${this._viewMode === 'readonly' ? html`
+        <div class="toolbar-area readonly-branding">
+          <svg class="branding-icon" viewBox="0 0 1600 1600" fill="currentColor"><path d="M1214.45 54.9997H385.56C309.309 54.9997 247.16 117.052 247.16 193.346V1406.75C247.16 1483 309.259 1545.09 385.56 1545.09H1214.47C1290.72 1545.09 1352.87 1483.04 1352.87 1406.75L1352.86 193.293C1352.86 117.042 1290.71 54.9863 1214.46 54.9863L1214.45 54.9997ZM639.4 145H960.2L958.997 292.2L639.397 290.601L639.4 145ZM960.6 1455H639.8L641.05 1307.85L960.65 1309.45L960.655 1455L960.6 1455ZM1262.8 1406.7C1262.8 1433.35 1241.1 1455 1214.45 1455H1050.65V1309.45C1050.65 1258.9 1009.55 1217.8 959 1217.8L641 1217.81C590.448 1217.81 549.349 1258.91 549.349 1309.46V1455H385.549C358.899 1455 337.2 1433.35 337.2 1406.7L337.195 845.009H569.941C591.04 952.858 686.092 1034.61 799.995 1034.61C913.897 1034.61 1008.99 952.86 1030.05 845.009H1262.79L1262.8 1406.7ZM936.693 845.004C917.641 902.602 863.944 944.556 800 944.556C736.056 944.556 682.349 902.608 663.307 845.004H936.693ZM663.293 755.004C682.345 697.405 736.043 655.452 799.987 655.452C863.931 655.452 917.637 697.4 936.68 755.004H663.293ZM1262.79 755.004H1030.04C1008.94 647.154 913.889 565.404 799.987 565.404C686.084 565.404 590.987 647.153 569.933 755.004H337.187V193.31C337.187 166.66 358.884 145.008 385.536 145.008H549.336V290.554C549.336 341.106 590.435 382.205 640.987 382.205H958.933C1009.49 382.205 1050.58 341.106 1050.58 290.554V145.008H1214.38C1241.03 145.008 1262.73 166.658 1262.73 193.31V755.004H1262.79Z"/></svg>
+          <span class="branding-text">CoachingBoard</span>
+        </div>
+      ` : html`
+        <div class="toolbar-area">
+          <cb-toolbar
+            .activeTool="${this.activeTool}"
+            .selectedItems="${this.#selectedItems}"
+            .fieldTheme="${this.fieldTheme}"
+            .multiSelect="${this._multiSelect}"
+            @tool-changed="${this.#onToolChanged}"
+            @multi-select-toggle="${this.#onMultiSelectToggle}"
+            @player-update="${this.#onPlayerUpdate}"
+            @equipment-update="${this.#onEquipmentUpdate}"
+            @line-update="${this.#onLineUpdate}"
+            @shape-update="${this.#onShapeUpdate}"
+            @text-update="${this.#onTextUpdate}"
+            @align-items="${this.#onAlignItems}"
+            @group-items="${this.#onGroupItems}"
+            @ungroup-items="${this.#onUngroupItems}"
+            @delete-items="${this.#onDeleteItems}">
+          </cb-toolbar>
+        </div>
+      `}
 
       <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
         <div class="svg-wrap ${this.fieldOrientation === 'vertical' ? 'vertical' : ''}">
@@ -1253,7 +1350,7 @@ export class CoachBoard extends LitElement {
             ${this.#draw ? this.#renderDrawPreview() : nothing}
           </g>
 
-          ${this._animationMode && this.activeFrameIndex > 0 && !this.isPlaying ? this.#renderGhostsAndTrails() : nothing}
+          ${this._animationMode && this.activeFrameIndex > 0 && !this.isPlaying && this._viewMode !== 'readonly' ? this.#renderGhostsAndTrails() : nothing}
 
           <g class="players-layer">
             ${this.#getFramePlayers().filter(p => !this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
@@ -1304,9 +1401,27 @@ export class CoachBoard extends LitElement {
             : nothing}
         </svg>
         </div>
+        ${this._viewMode === 'readonly' && this.animationFrames.length > 1 ? html`
+          <div class="play-overlay" @click="${this.#toggleReadonlyPlayback}">
+            ${this._showPlayOverlay ? html`
+              <div class="play-overlay-btn">
+                ${this._pauseFlash ? html`
+                  <svg viewBox="0 0 16 16" width="28" height="28">
+                    <rect x="4" y="3" width="3" height="10" rx="0.5" fill="white"/>
+                    <rect x="9" y="3" width="3" height="10" rx="0.5" fill="white"/>
+                  </svg>
+                ` : html`
+                  <svg viewBox="0 0 16 16" width="28" height="28">
+                    <path d="M4.5 2l9 6-9 6z" fill="white"/>
+                  </svg>
+                `}
+              </div>
+            ` : nothing}
+          </div>
+        ` : nothing}
       </div>
 
-      ${this._animationMode && !this._isMobile ? html`
+      ${this._animationMode && !this._isMobile && this._viewMode !== 'readonly' ? html`
         <cb-timeline
           .frameCount="${this.animationFrames.length}"
           .activeFrame="${this.activeFrameIndex}"
@@ -1322,7 +1437,8 @@ export class CoachBoard extends LitElement {
         </cb-timeline>
       ` : nothing}
 
-      <div class="bottom-bar">
+      <div class="bottom-bar${this._viewMode === 'readonly' ? ' readonly' : ''}">
+        ${this._viewMode !== 'readonly' ? html`
         <div class="bottom-left">
           <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
                   ?disabled="${this.#undoStack.length === 0}"
@@ -1341,6 +1457,8 @@ export class CoachBoard extends LitElement {
             </svg>
           </button>
         </div>
+        ` : nothing}
+        ${this._viewMode !== 'readonly' ? html`
         <div class="bottom-center">
           ${!this._isMobile ? html`
             <button aria-pressed="${this._animationMode}"
@@ -1392,7 +1510,9 @@ export class CoachBoard extends LitElement {
             </div>
           ` : nothing}
         </div>
+        ` : nothing}
         <div class="bottom-right">
+          ${this._viewMode !== 'readonly' ? html`
           <button class="danger" aria-label="Reset all" title="Reset all"
                   @click="${this.#requestClearAll}">
             <svg viewBox="0 0 1600 1600" width="18" height="18" style="flex-shrink:0">
@@ -1400,6 +1520,7 @@ export class CoachBoard extends LitElement {
             </svg>
             <span class="btn-text">Reset All</span>
           </button>
+          ` : nothing}
           <div class="dropdown-wrap">
             <button aria-label="Menu" title="Menu"
                     aria-haspopup="menu"
@@ -1422,6 +1543,7 @@ export class CoachBoard extends LitElement {
                   About
                 </button>
 
+                ${this._viewMode !== 'readonly' ? html`
                 <div class="menu-divider"></div>
 
                 <button role="menuitem" tabindex="-1"
@@ -1432,6 +1554,7 @@ export class CoachBoard extends LitElement {
                   </svg>
                   Import SVG
                 </button>
+                ` : nothing}
                 <button role="menuitem" tabindex="-1"
                         @click="${this.#shareLink}">
                   <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
@@ -1453,15 +1576,17 @@ export class CoachBoard extends LitElement {
                   </svg>
                   Export / Save
                 </div>
+                ${this._viewMode !== 'readonly' ? html`
                 <button role="menuitem" tabindex="-1" class="menu-indent"
                         @click="${this.#saveSvg}">
                   Export as SVG
                 </button>
+                ` : nothing}
                 <button role="menuitem" tabindex="-1" class="menu-indent"
                         @click="${this.#savePng}">
                   Save as PNG
                 </button>
-                ${this._animationMode && this.animationFrames.length > 1 ? html`
+                ${this.animationFrames.length > 1 ? html`
                   <button role="menuitem" tabindex="-1" class="menu-indent"
                           @click="${this.#saveGif}">
                     Save as GIF
@@ -1501,7 +1626,7 @@ export class CoachBoard extends LitElement {
         </div>
         <div class="dialog-body">
           <p>This SVG was not exported from CoachingBoard and cannot be imported.</p>
-          <div class="confirm-actions" style="justify-content: flex-end;">
+          <div class="confirm-actions end">
             <button class="cancel-btn" @click="${() => this._importErrorDialog?.close()}">OK</button>
           </div>
         </div>
@@ -1518,6 +1643,10 @@ export class CoachBoard extends LitElement {
           <p>${this._shareMessage}</p>
           ${this._shareUrl ? html`
             <div class="share-url-wrap">
+              <label class="share-editable-label">
+                <input type="checkbox" .checked="${this._shareEditable}" @change="${this.#onShareEditableChange}" />
+                Keep editable
+              </label>
               <span class="copied-label ${this._copiedVisible ? 'visible' : ''}">Copied!</span>
               <button class="copy-btn" title="Copy link" aria-label="Copy link"
                       @click="${this.#copyShareUrl}">
@@ -1529,7 +1658,7 @@ export class CoachBoard extends LitElement {
             </div>
             <code class="share-url">${this._shareUrl}</code>
           ` : nothing}
-          <div class="confirm-actions" style="justify-content: flex-end;">
+          <div class="confirm-actions end">
             <button class="cancel-btn" @click="${() => this._shareDialog?.close()}">OK</button>
           </div>
         </div>
@@ -1577,12 +1706,9 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="dialog-body about-body">
-          <svg class="about-icon" viewBox="0 0 1200 1200" width="48" height="48">
-            <path d="M600 1127C891.054 1127 1127 891.054 1127 600C1127 308.946 891.054 73 600 73C308.946 73 73 308.946 73 600C73 891.054 308.946 1127 600 1127Z" fill="white"/>
-            <path d="M1080 600.84C1079.77 728.15 1029 850.12 938.81 939.98C848.62 1029.84 726.47 1080.24 599.15 1080C471.84 1079.77 349.87 1029 260.01 938.81C170.143 848.619 119.75 726.47 119.99 599.15C120.224 471.84 170.99 349.87 261.18 260.01C351.371 170.143 473.52 119.75 600.84 119.99C728.06 120.506 849.89 171.365 939.7 261.51C1029.47 351.604 1079.96 473.62 1079.99 600.83L1080 600.84ZM598.08 754.45C623.861 754.45 649.689 755.294 675.377 754.45C683.768 753.606 691.361 749.247 696.377 742.45C721.596 700.872 745.924 658.684 769.455 615.98V615.933C772.69 608.996 772.69 600.98 769.455 593.995C745.455 551.995 719.533 509.995 693.517 469.305H693.47C688.923 463.071 681.939 459.086 674.298 458.289C625.595 457.352 576.798 457.352 528.008 458.289C519.618 459.133 511.977 463.492 507.008 470.289C480.992 510.977 455.539 552.414 430.555 594.469C427.368 601.407 427.368 609.375 430.555 616.313C454.555 658.875 478.977 701.016 503.774 742.783C508.274 748.971 515.118 753.002 522.712 753.845C547.931 755.158 573.009 754.455 598.087 754.455L598.08 754.45ZM423.37 327.84C382.682 331.778 350.058 334.309 317.76 338.621C309.229 340.121 301.635 344.856 296.526 351.84C271.917 390.465 248.526 429.84 225.37 469.54C221.995 475.868 221.292 483.274 223.448 490.071C236.714 522.93 250.917 555.415 266.057 587.524C269.62 593.243 275.713 596.946 282.463 597.462C314.385 595.305 346.166 592.165 378.463 587.759C386.807 586.212 394.213 581.477 399.135 574.54C425.291 533.478 450.557 491.946 474.979 449.85H474.932C478.729 442.443 479.339 433.772 476.62 425.85C464.62 397.538 452.62 369.694 438.839 342.459C434.761 336.552 429.464 331.584 423.37 327.834L423.37 327.84ZM775.92 327.84C770.389 331.59 765.654 336.371 761.998 341.996C748.451 369.371 735.607 397.215 724.076 425.996C721.404 433.871 721.873 442.449 725.389 449.996C749.389 491.996 775.17 533.996 801.327 574.546H801.373C806.905 581.718 814.967 586.499 823.92 587.999C854.764 592.452 885.982 595.452 917.154 597.374C924.514 596.624 931.076 592.452 934.779 586.077C949.404 555.468 963.091 524.296 975.841 492.702C978.513 485.296 978.091 477.14 974.763 470.061C951.701 430.358 928.075 391.123 903.466 352.361V352.314C898.544 345.283 891.138 340.408 882.7 338.626C849.606 334.22 815.997 331.689 775.92 327.704L775.92 327.84ZM762.139 889.92C739.92 858.936 718.311 827.998 695.998 798.232C691.686 794.107 685.92 791.857 679.92 791.998C626.623 791.341 573.09 791.341 519.23 791.998C513.277 792.232 507.605 794.81 503.527 799.216C481.215 829.216 459.746 859.216 437.761 890.294C460.308 919.216 481.214 946.919 503.386 974.294C508.824 980.06 516.23 983.529 524.152 983.998C574.871 984.794 625.682 984.794 676.542 983.998C684.042 983.482 691.026 980.06 695.995 974.388C718.214 947.06 739.542 918.841 762.136 889.919L762.139 889.92ZM278.159 296.16C288.144 299.066 298.315 301.129 308.628 302.301C322.55 302.301 336.331 299.91 350.159 298.457C379.784 295.082 411.847 297.754 438.706 287.066C485.394 267.238 530.487 243.894 573.606 217.222C581.059 212.769 580.684 193.222 580.825 179.91C580.825 175.832 571.216 170.676 565.122 167.91C542.669 157.691 520.356 163.832 497.903 169.222H497.856C413.856 189.238 337.496 233.347 278.146 296.162L278.159 296.16ZM921.609 296.16C858.562 228.988 775.919 183.38 685.449 165.94C668.48 164.018 651.277 164.815 634.543 168.237C628.778 169.081 619.168 176.018 619.168 180.237C619.168 193.081 619.168 213.003 626.621 217.456C670.168 243.144 715.918 265.456 761.011 288.518L761.058 288.471C764.293 289.737 767.761 290.393 771.23 290.534C811.308 294.612 851.386 299.065 891.23 302.534C901.589 301.596 911.808 299.299 921.605 295.69L921.609 296.16ZM173.899 488.16C149.899 554.769 153.133 655.22 178.118 737.02L178.071 737.067C185.712 762.192 201.18 784.223 222.227 799.926C246.227 787.926 246.227 787.926 245.618 762.988C243.837 720.004 242.384 677.394 239.993 635.168C239.759 626.965 238.071 618.809 235.071 611.168C220.352 576.059 205.071 541.09 189.227 506.308C184.915 499.37 179.758 492.996 173.852 487.324L173.899 488.16ZM978.509 798.94C1037.67 750.237 1065.88 572.72 1025.29 490.41C1020.98 494.254 1015.35 496.879 1013.29 500.957C992.149 557.582 953.29 608.117 957.228 673.267V673.314C958.4 703.267 957.134 733.22 953.384 762.939C951.837 781.314 957.462 792.845 978.462 798.142L978.509 798.94ZM731.989 1022.63C809.567 998.958 878.849 953.771 931.769 892.32C942.363 878.023 950.753 862.273 956.753 845.539C958.394 839.633 956.894 833.305 952.769 828.711C944.613 824.774 932.003 819.711 925.91 823.32C850.91 867.148 776.75 912.009 730.07 989.871C722.617 1002.15 719.992 1010.31 731.992 1022.64L731.989 1022.63ZM473.989 1024.55C473.989 1012.55 477.13 1002.85 473.989 996.614C426.927 915.38 351.229 866.534 272.279 822.144C266.888 819.003 254.513 824.91 247.341 829.597L247.294 829.55C243.497 834.378 242.372 840.753 244.2 846.612C248.841 861.753 255.966 876.05 265.2 888.94C320.419 953.159 392.84 1000.22 473.98 1024.55L473.989 1024.55Z" fill="${COLORS.bgPrimary}"/>
-          </svg>
+          <svg class="about-icon" viewBox="0 0 1600 1600" fill="currentColor"><path d="M1214.45 54.9997H385.56C309.309 54.9997 247.16 117.052 247.16 193.346V1406.75C247.16 1483 309.259 1545.09 385.56 1545.09H1214.47C1290.72 1545.09 1352.87 1483.04 1352.87 1406.75L1352.86 193.293C1352.86 117.042 1290.71 54.9863 1214.46 54.9863L1214.45 54.9997ZM639.4 145H960.2L958.997 292.2L639.397 290.601L639.4 145ZM960.6 1455H639.8L641.05 1307.85L960.65 1309.45L960.655 1455L960.6 1455ZM1262.8 1406.7C1262.8 1433.35 1241.1 1455 1214.45 1455H1050.65V1309.45C1050.65 1258.9 1009.55 1217.8 959 1217.8L641 1217.81C590.448 1217.81 549.349 1258.91 549.349 1309.46V1455H385.549C358.899 1455 337.2 1433.35 337.2 1406.7L337.195 845.009H569.941C591.04 952.858 686.092 1034.61 799.995 1034.61C913.897 1034.61 1008.99 952.86 1030.05 845.009H1262.79L1262.8 1406.7ZM936.693 845.004C917.641 902.602 863.944 944.556 800 944.556C736.056 944.556 682.349 902.608 663.307 845.004H936.693ZM663.293 755.004C682.345 697.405 736.043 655.452 799.987 655.452C863.931 655.452 917.637 697.4 936.68 755.004H663.293ZM1262.79 755.004H1030.04C1008.94 647.154 913.889 565.404 799.987 565.404C686.084 565.404 590.987 647.153 569.933 755.004H337.187V193.31C337.187 166.66 358.884 145.008 385.536 145.008H549.336V290.554C549.336 341.106 590.435 382.205 640.987 382.205H958.933C1009.49 382.205 1050.58 341.106 1050.58 290.554V145.008H1214.38C1241.03 145.008 1262.73 166.658 1262.73 193.31V755.004H1262.79Z"/></svg>
           <div class="about-title">CoachingBoard</div>
-          <div class="about-meta">Version 1.3.1-beta</div>
+          <div class="about-meta">Version 1.4.0-beta</div>
           <div class="about-meta">by Mark Caron</div>
           <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
           <div class="confirm-actions centered">
@@ -2287,6 +2413,11 @@ export class CoachBoard extends LitElement {
 
   #pendingImportData: Record<string, unknown> | null = null;
 
+  #buildShareUrl() {
+    const mode = this._shareEditable ? 'edit' : 'view';
+    return `${window.location.origin}${window.location.pathname}#board=${this.#shareCompressed}&mode=${mode}`;
+  }
+
   async #shareLink() {
     this._menuOpen = false;
     const { compressToEncodedURIComponent } = await import('lz-string');
@@ -2300,10 +2431,11 @@ export class CoachBoard extends LitElement {
       animationFrames: this.animationFrames,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      playbackLoop: this._playbackLoop,
     });
 
-    const compressed = compressToEncodedURIComponent(data);
-    const url = `${window.location.origin}${window.location.pathname}#board=${compressed}`;
+    this.#shareCompressed = compressToEncodedURIComponent(data);
+    const url = this.#buildShareUrl();
 
     if (url.length > 8000) {
       this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
@@ -2320,6 +2452,11 @@ export class CoachBoard extends LitElement {
       this._shareMessage = 'Shareable link:';
     }
     requestAnimationFrame(() => this._shareDialog?.showModal());
+  }
+
+  #onShareEditableChange(e: Event) {
+    this._shareEditable = (e.target as HTMLInputElement).checked;
+    this._shareUrl = this.#buildShareUrl();
   }
 
   #copyShareUrl() {
@@ -2385,6 +2522,7 @@ export class CoachBoard extends LitElement {
       this.animationFrames = data.animationFrames as AnimationFrame[];
       if (this.animationFrames.length > 0) this._animationMode = true;
     }
+    if (typeof data.playbackLoop === 'boolean') this._playbackLoop = data.playbackLoop;
     if (data.fieldTheme === 'green' || data.fieldTheme === 'white') {
       this.fieldTheme = data.fieldTheme;
     }
@@ -2696,6 +2834,25 @@ export class CoachBoard extends LitElement {
     }
   }
 
+  #toggleReadonlyPlayback() {
+    if (this.animationFrames.length < 2) return;
+
+    if (this.isPlaying) {
+      this.#stopPlayback();
+      this._pauseFlash = true;
+      this._showPlayOverlay = true;
+      setTimeout(() => { this._pauseFlash = false; }, 500);
+    } else {
+      this._showPlayOverlay = false;
+      this.isPlaying = true;
+      this.selectedIds = new Set();
+      this._playbackProgress = 0;
+      this.activeFrameIndex = 0;
+      this.#playbackLastTime = null;
+      this.#playbackRaf = requestAnimationFrame(this.#playbackTick);
+    }
+  }
+
   #onSpeedChange(e: SpeedChangeEvent) {
     this._playbackSpeed = e.speed;
   }
@@ -2726,6 +2883,9 @@ export class CoachBoard extends LitElement {
         } else {
           this.activeFrameIndex = this.animationFrames.length - 1;
           this.#stopPlayback();
+          if (this._viewMode === 'readonly') {
+            this._showPlayOverlay = true;
+          }
           return;
         }
       } else {
@@ -2743,6 +2903,7 @@ export class CoachBoard extends LitElement {
 
   #requestOrientation(orientation: FieldOrientation) {
     this._fieldMenuOpen = false;
+    if (this._viewMode === 'readonly') return;
     if (orientation === this.fieldOrientation) return;
     const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length;
     if (!hasItems) {
@@ -3019,6 +3180,10 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerDown(e: PointerEvent) {
+    if (this._viewMode === 'readonly') {
+      this.#toggleReadonlyPlayback();
+      return;
+    }
     if (this.isPlaying) return;
     const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
 
