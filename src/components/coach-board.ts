@@ -905,6 +905,136 @@ export class CoachBoard extends LitElement {
     img.src = svgUrl;
   }
 
+  async #saveGif() {
+    this._menuOpen = false;
+    if (this.animationFrames.length < 2) return;
+
+    const { encode } = await import('modern-gif');
+
+    const vb = this.svgEl.viewBox.baseVal;
+    const scale = 4;
+    const w = Math.round(vb.width * scale);
+    const h = Math.round(vb.height * scale);
+    const fps = 20;
+    const frameDuration = 1000 / this._playbackSpeed;
+    const stepsPerTransition = Math.round((frameDuration / 1000) * fps);
+    const delayPerStep = Math.round(1000 / fps);
+
+    const frames: Array<{ data: ImageData; delay: number }> = [];
+
+    const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+    svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+    svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+    svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+    svgClone.querySelectorAll('[data-kind="trail-cp1"], [data-kind="trail-cp2"]').forEach(el => el.remove());
+    svgClone.setAttribute('width', String(w));
+    svgClone.setAttribute('height', String(h));
+
+    const playerEls = new Map<string, SVGElement>();
+    const equipEls = new Map<string, SVGElement>();
+    svgClone.querySelectorAll('[data-kind="player"]').forEach(el => {
+      playerEls.set((el as SVGElement).dataset.id!, el as SVGElement);
+    });
+    svgClone.querySelectorAll('[data-kind="equipment"]').forEach(el => {
+      equipEls.set((el as SVGElement).dataset.id!, el as SVGElement);
+    });
+
+    const renderFrame = async (svgEl: SVGSVGElement): Promise<ImageData> => {
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgEl);
+      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(url);
+          resolve(ctx.getImageData(0, 0, w, h));
+        };
+        img.src = url;
+      });
+    };
+
+    const setPositions = (frameIdx: number, t: number, nextIdx: number) => {
+      for (const p of this.players) {
+        const from = this.#getItemPositionAtFrame(p.id, p.x, p.y, frameIdx);
+        const to = this.#getItemPositionAtFrame(p.id, p.x, p.y, nextIdx);
+        const el = playerEls.get(p.id);
+        if (!el) continue;
+        if (from.x === to.x && from.y === to.y) {
+          el.setAttribute('transform', `translate(${from.x}, ${from.y})`);
+        } else {
+          const toFrame = this.animationFrames[nextIdx];
+          const trail = toFrame?.trails[p.id];
+          const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
+          const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
+          const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
+          const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
+          const x = cubicBezier(t, from.x, cp1x, cp2x, to.x);
+          const y = cubicBezier(t, from.y, cp1y, cp2y, to.y);
+          el.setAttribute('transform', `translate(${x}, ${y})`);
+        }
+      }
+      for (const eq of this.equipment) {
+        const from = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, frameIdx);
+        const to = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, nextIdx);
+        const el = equipEls.get(eq.id);
+        if (!el) continue;
+        const angle = eq.angle ?? 0;
+        if (from.x === to.x && from.y === to.y) {
+          el.setAttribute('transform', `translate(${from.x}, ${from.y}) rotate(${angle})`);
+        } else {
+          const toFrame = this.animationFrames[nextIdx];
+          const trail = toFrame?.trails[eq.id];
+          const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
+          const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
+          const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
+          const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
+          const x = cubicBezier(t, from.x, cp1x, cp2x, to.x);
+          const y = cubicBezier(t, from.y, cp1y, cp2y, to.y);
+          el.setAttribute('transform', `translate(${x}, ${y}) rotate(${angle})`);
+        }
+      }
+    };
+
+    for (let fi = 0; fi < this.animationFrames.length - 1; fi++) {
+      const nextFi = fi + 1;
+      for (let step = 0; step < stepsPerTransition; step++) {
+        const t = step / stepsPerTransition;
+        setPositions(fi, t, nextFi);
+        const imageData = await renderFrame(svgClone);
+        frames.push({ data: imageData, delay: delayPerStep });
+      }
+    }
+
+    setPositions(this.animationFrames.length - 1, 0, this.animationFrames.length - 1);
+    const lastFrame = await renderFrame(svgClone);
+    frames.push({ data: lastFrame, delay: delayPerStep * 10 });
+
+    const gifBlob = await encode({
+      width: w,
+      height: h,
+      frames: frames.map(f => ({
+        data: f.data.data,
+        delay: f.delay,
+      })),
+      format: 'blob',
+    }) as Blob;
+
+    const url = URL.createObjectURL(gifBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'coaching-board.gif';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   get #selColor(): string {
     return this.fieldTheme === 'white' ? WHITE_THEME.selection : 'white';
   }
@@ -1207,6 +1337,16 @@ export class CoachBoard extends LitElement {
                   </svg>
                   Save as PNG
                 </button>
+                ${this._animationMode && this.animationFrames.length > 1 ? html`
+                  <button role="menuitem" tabindex="-1"
+                          @click="${this.#saveGif}">
+                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                      <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
+                      <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
+                    </svg>
+                    Export as GIF
+                  </button>
+                ` : nothing}
               </div>
             ` : nothing}
           </div>
