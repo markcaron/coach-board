@@ -295,8 +295,8 @@ export class CoachBoard extends LitElement {
     }
 
     .play-overlay-btn {
-      width: 72px;
-      height: 72px;
+      width: 144px;
+      height: 144px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
@@ -1034,7 +1034,6 @@ export class CoachBoard extends LitElement {
       else if (mode === 'edit') this._viewMode = 'shared-edit';
 
       this.selectedIds = new Set();
-      window.history.replaceState(null, '', '/');
     } catch { /* invalid data */ }
   }
 
@@ -1424,12 +1423,12 @@ export class CoachBoard extends LitElement {
             ${this._showPlayOverlay ? html`
               <div class="play-overlay-btn">
                 ${this._pauseFlash ? html`
-                  <svg viewBox="0 0 16 16" width="28" height="28">
+                  <svg viewBox="0 0 16 16" width="56" height="56">
                     <rect x="4" y="3" width="3" height="10" rx="0.5" fill="white"/>
                     <rect x="9" y="3" width="3" height="10" rx="0.5" fill="white"/>
                   </svg>
                 ` : html`
-                  <svg viewBox="0 0 16 16" width="28" height="28">
+                  <svg viewBox="0 0 16 16" width="56" height="56">
                     <path d="M4.5 2l9 6-9 6z" fill="white"/>
                   </svg>
                 `}
