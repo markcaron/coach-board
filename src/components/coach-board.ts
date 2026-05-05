@@ -891,6 +891,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareUrl: string = '';
   @state() private accessor _copiedVisible: boolean = false;
   #shareCompressed: string = '';
+  #shareShortId: string = '';
 
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -975,26 +976,41 @@ export class CoachBoard extends LitElement {
   }
 
   async #loadFromUrl() {
+    const path = window.location.pathname;
     const hash = window.location.hash;
-    if (!hash.startsWith('#board=')) return;
-    try {
-      const { decompressFromEncodedURIComponent } = await import('lz-string');
-      const hashContent = hash.slice('#board='.length);
-      const parts = hashContent.split('&');
-      const compressed = parts[0];
-      let mode: string | null = null;
-      for (let i = 1; i < parts.length; i++) {
-        if (parts[i].startsWith('mode=')) {
-          mode = parts[i].slice('mode='.length);
-        }
-      }
+    const params = new URLSearchParams(window.location.search);
 
-      const json = decompressFromEncodedURIComponent(compressed);
-      if (!json) return;
+    let json: string | null = null;
+    let mode: string | null = null;
+
+    const shortMatch = path.match(/^\/s\/([a-zA-Z0-9_-]+)/);
+    if (shortMatch) {
+      const id = shortMatch[1];
+      mode = params.get('mode');
+      try {
+        const res = await fetch(`/api/share/${id}`);
+        if (res.ok) json = await res.text();
+      } catch { /* network error */ }
+    } else if (hash.startsWith('#board=')) {
+      try {
+        const { decompressFromEncodedURIComponent } = await import('lz-string');
+        const hashContent = hash.slice('#board='.length);
+        const parts = hashContent.split('&');
+        const compressed = parts[0];
+        for (let i = 1; i < parts.length; i++) {
+          if (parts[i].startsWith('mode=')) mode = parts[i].slice('mode='.length);
+        }
+        json = decompressFromEncodedURIComponent(compressed);
+      } catch { /* invalid hash */ }
+    }
+
+    if (!json) return;
+
+    try {
       const data = JSON.parse(json) as Record<string, unknown>;
       if (!Array.isArray(data.players)) return;
 
-      if (Array.isArray(data.players)) this.players = data.players as Player[];
+      this.players = data.players as Player[];
       if (Array.isArray(data.lines)) this.lines = data.lines as Line[];
       if (Array.isArray(data.equipment)) this.equipment = data.equipment as Equipment[];
       if (Array.isArray(data.shapes)) this.shapes = data.shapes as Shape[];
@@ -1018,8 +1034,8 @@ export class CoachBoard extends LitElement {
       else if (mode === 'edit') this._viewMode = 'shared-edit';
 
       this.selectedIds = new Set();
-      window.history.replaceState(null, '', window.location.pathname);
-    } catch { /* invalid share link */ }
+      window.history.replaceState(null, '', '/');
+    } catch { /* invalid data */ }
   }
 
   #pushUndo() {
@@ -1710,7 +1726,7 @@ export class CoachBoard extends LitElement {
         <div class="dialog-body about-body">
           <svg class="about-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M1115.85 235.01H486.142C428.215 235.01 381 282.15 381 340.109V1261.9C381 1319.83 428.176 1367 486.142 1367H1115.86C1173.79 1367 1221 1319.86 1221 1261.9L1221 340.068C1221 282.143 1173.78 235 1115.85 235L1115.85 235.01ZM678.983 303.381H922.693L921.779 415.206L678.98 413.991L678.983 303.381ZM922.997 1298.56H679.287L680.236 1186.77L923.035 1187.99L923.039 1298.56L922.997 1298.56ZM1152.58 1261.86C1152.58 1282.11 1136.09 1298.56 1115.85 1298.56H991.408V1187.99C991.408 1149.59 960.185 1118.36 921.781 1118.36L680.198 1118.37C641.794 1118.37 610.572 1149.59 610.572 1187.99V1298.56H486.134C465.887 1298.56 449.403 1282.11 449.403 1261.87L449.399 835.162H626.215C642.244 917.093 714.455 979.197 800.986 979.197C887.517 979.197 959.762 917.094 975.756 835.162H1152.57L1152.58 1261.86ZM904.835 835.158C890.361 878.915 849.568 910.786 800.99 910.786C752.412 910.786 711.611 878.919 697.145 835.158H904.835ZM697.134 766.787C711.608 723.031 752.402 691.16 800.98 691.16C849.558 691.16 890.358 723.027 904.825 766.787H697.134ZM1152.57 766.787H975.75C959.722 684.857 887.511 622.752 800.98 622.752C714.448 622.752 642.203 684.856 626.209 766.787H449.393V340.082C449.393 319.836 465.876 303.387 486.124 303.387H610.562V413.956C610.562 452.359 641.784 483.581 680.188 483.581H921.731C960.135 483.581 991.357 452.359 991.357 413.956V303.387H1115.8C1136.04 303.387 1152.53 319.835 1152.53 340.082V766.787H1152.57Z" fill="white"/></svg>
           <div class="about-title">CoachingBoard</div>
-          <div class="about-meta">Version 1.4.0-beta</div>
+          <div class="about-meta">Version 1.5.0-beta</div>
           <div class="about-meta">by Mark Caron</div>
           <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
           <div class="confirm-actions centered">
@@ -2417,12 +2433,15 @@ export class CoachBoard extends LitElement {
 
   #buildShareUrl() {
     const mode = this._shareEditable ? 'edit' : 'view';
+    if (this.#shareShortId) {
+      return `${window.location.origin}/s/${this.#shareShortId}?mode=${mode}`;
+    }
     return `${window.location.origin}${window.location.pathname}#board=${this.#shareCompressed}&mode=${mode}`;
   }
 
   async #shareLink() {
     this._menuOpen = false;
-    const { compressToEncodedURIComponent } = await import('lz-string');
+    this.#shareShortId = '';
 
     const data = JSON.stringify({
       players: this.players,
@@ -2436,19 +2455,33 @@ export class CoachBoard extends LitElement {
       playbackLoop: this._playbackLoop,
     });
 
-    this.#shareCompressed = compressToEncodedURIComponent(data);
-    const url = this.#buildShareUrl();
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: data,
+      });
+      if (res.ok) {
+        const { id } = await res.json() as { id: string };
+        this.#shareShortId = id;
+      }
+    } catch { /* API unavailable, fall back to hash */ }
 
-    if (url.length > 8000) {
-      this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
-      this._shareUrl = '';
-      requestAnimationFrame(() => this._shareDialog?.showModal());
-      return;
+    if (!this.#shareShortId) {
+      const { compressToEncodedURIComponent } = await import('lz-string');
+      this.#shareCompressed = compressToEncodedURIComponent(data);
+      const url = this.#buildShareUrl();
+      if (url.length > 8000) {
+        this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
+        this._shareUrl = '';
+        requestAnimationFrame(() => this._shareDialog?.showModal());
+        return;
+      }
     }
 
-    this._shareUrl = url;
+    this._shareUrl = this.#buildShareUrl();
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(this._shareUrl);
       this._shareMessage = 'Shareable link copied to clipboard!';
     } catch {
       this._shareMessage = 'Shareable link:';
