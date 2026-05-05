@@ -1274,11 +1274,11 @@ export class CbToolbar extends LitElement {
         <div class="dropdown-wrap">
           <button class="color-btn"
                   aria-haspopup="menu"
-                  aria-expanded="${this._openMenu === 'shape-style' as any}"
+                  aria-expanded="${this._openMenu === 'shape-style'}"
                   aria-label="Shape style"
                   title="Shape style"
-                  @click="${(e: Event) => this.#onTriggerClick('shape-style' as MenuId, e)}"
-                  @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('shape-style' as MenuId, e)}">
+                  @click="${(e: Event) => this.#onTriggerClick('shape-style', e)}"
+                  @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('shape-style', e)}">
             ${ref.style === 'outline'
               ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
               : ref.style === 'dashed'
@@ -1371,7 +1371,7 @@ export class CbToolbar extends LitElement {
 
   #renderAlignmentControls() {
     const count = this.selectedItems.length;
-    const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as any).groupId);
+    const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as unknown as Record<string, unknown>).groupId);
     return html`
         <div class="dropdown-wrap">
           <button
