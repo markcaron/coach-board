@@ -1,7 +1,7 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
-import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme } from '../lib/types.js';
+import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, AnimationFrame, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
@@ -10,6 +10,8 @@ import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEven
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
+import './cb-timeline.js';
+import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
 
 const PLAYER_RADIUS = 2.4;
 const TEXT_FONT_SIZE = 2;
@@ -45,7 +47,7 @@ const HIT_SLOP = 1.8;
 const HIT_SLOP_MOBILE = 3.0;
 const PADDING = 4;
 
-type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side';
+type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side' | 'trail-cp1' | 'trail-cp2';
 
 interface GroupDragState {
   anchorX: number;
@@ -159,6 +161,11 @@ function wavyPath(x1: number, y1: number, cx: number, cy: number, x2: number, y2
     d += ` L ${pts[i].x} ${pts[i].y}`;
   }
   return d;
+}
+
+function cubicBezier(t: number, p0: number, p1: number, p2: number, p3: number): number {
+  const mt = 1 - t;
+  return mt * mt * mt * p0 + 3 * mt * mt * t * p1 + 3 * mt * t * t * p2 + t * t * t * p3;
 }
 
 function isModifier(e: PointerEvent | MouseEvent): boolean {
@@ -288,7 +295,7 @@ export class CoachBoard extends LitElement {
       gap: 8px;
       padding: 8px 12px;
       padding-bottom: calc(8px + env(safe-area-inset-bottom));
-      background: var(--pt-bg-primary);
+      background: var(--pt-bg-toolbar);
       z-index: 10;
       box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.3);
       user-select: none;
@@ -340,6 +347,12 @@ export class CoachBoard extends LitElement {
     .bottom-bar button:focus-visible {
       outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
+    }
+
+    .bottom-bar button[aria-pressed="true"] {
+      background: var(--pt-danger);
+      border-color: var(--pt-danger);
+      color: var(--pt-text-white);
     }
 
     .bottom-bar button.icon-btn {
@@ -707,6 +720,13 @@ export class CoachBoard extends LitElement {
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
   @state() private accessor _rotateHandleId: string | null = null;
+  @state() private accessor _animationMode: boolean = false;
+  @state() accessor animationFrames: AnimationFrame[] = [];
+  @state() accessor activeFrameIndex: number = 0;
+  @state() accessor isPlaying: boolean = false;
+  @state() private accessor _playbackProgress: number = 0;
+  @state() private accessor _playbackSpeed: number = 1;
+  @state() private accessor _playbackLoop: boolean = true;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
   @query('#orientation-dialog') accessor _orientationDialog!: HTMLDialogElement;
@@ -739,6 +759,9 @@ export class CoachBoard extends LitElement {
   #lastTapId: string | null = null;
   #undoStack: Snapshot[] = [];
   #redoStack: Snapshot[] = [];
+  #playbackRaf: number | null = null;
+  #playbackLastTime: number | null = null;
+  #trailDrag: { id: string; cp: 'cp1' | 'cp2' } | null = null;
 
   #snapshot(): Snapshot {
     return {
@@ -752,12 +775,14 @@ export class CoachBoard extends LitElement {
 
   #saveToStorage() {
     try {
-      const data: Snapshot = {
+      const data = {
         players: this.players,
         lines: this.lines,
         equipment: this.equipment,
         shapes: this.shapes,
         textItems: this.textItems,
+        animationFrames: this.animationFrames,
+        animationMode: this._animationMode,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch { /* quota exceeded or private browsing */ }
@@ -767,12 +792,14 @@ export class CoachBoard extends LitElement {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const data = JSON.parse(raw) as Partial<Snapshot>;
-      if (data.players) this.players = data.players;
-      if (data.lines) this.lines = data.lines;
-      if (data.equipment) this.equipment = data.equipment;
-      if (data.shapes) this.shapes = data.shapes;
-      if (data.textItems) this.textItems = data.textItems;
+      const data = JSON.parse(raw) as Record<string, unknown>;
+      if (data.players) this.players = data.players as Player[];
+      if (data.lines) this.lines = data.lines as Line[];
+      if (data.equipment) this.equipment = data.equipment as Equipment[];
+      if (data.shapes) this.shapes = data.shapes as Shape[];
+      if (data.textItems) this.textItems = data.textItems as TextItem[];
+      if (Array.isArray(data.animationFrames)) this.animationFrames = data.animationFrames as AnimationFrame[];
+      if (typeof data.animationMode === 'boolean') this._animationMode = data.animationMode;
 
       const allIds = [
         ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
@@ -917,12 +944,13 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    this.#stopPlayback();
   }
 
   protected override updated(changedProperties: Map<PropertyKey, unknown>) {
     if (changedProperties.has('players') || changedProperties.has('lines') ||
         changedProperties.has('equipment') || changedProperties.has('shapes') ||
-        changedProperties.has('textItems')) {
+        changedProperties.has('textItems') || changedProperties.has('animationFrames')) {
       this.#saveToStorage();
     }
     if (changedProperties.has('selectedIds') && this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
@@ -991,16 +1019,18 @@ export class CoachBoard extends LitElement {
           </g>
 
           <g class="lines-layer">
-            ${this.lines.filter(l => !this.selectedIds.has(l.id)).map(l => this.#renderLine(l))}
+            ${this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
             ${this.#draw ? this.#renderDrawPreview() : nothing}
           </g>
 
+          ${this._animationMode && this.activeFrameIndex > 0 && !this.isPlaying ? this.#renderGhostsAndTrails() : nothing}
+
           <g class="players-layer">
-            ${this.players.filter(p => !this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
+            ${this.#getFramePlayers().filter(p => !this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
           </g>
 
           <g class="equipment-layer">
-            ${this.equipment.filter(eq => !this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
+            ${this.#getFrameEquipment().filter(eq => !this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
           </g>
 
           <g class="text-layer">
@@ -1009,9 +1039,9 @@ export class CoachBoard extends LitElement {
 
           <g class="selected-layer">
             ${this.shapes.filter(s => this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
-            ${this.lines.filter(l => this.selectedIds.has(l.id)).map(l => this.#renderLine(l))}
-            ${this.players.filter(p => this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
-            ${this.equipment.filter(eq => this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
+            ${this.lines.filter(l => this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
+            ${this.#getFramePlayers().filter(p => this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
+            ${this.#getFrameEquipment().filter(eq => this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
             ${this.textItems.filter(t => this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
           </g>
 
@@ -1046,6 +1076,22 @@ export class CoachBoard extends LitElement {
         </div>
       </div>
 
+      ${this._animationMode && !this._isMobile ? html`
+        <cb-timeline
+          .frameCount="${this.animationFrames.length}"
+          .activeFrame="${this.activeFrameIndex}"
+          .isPlaying="${this.isPlaying}"
+          .speed="${this._playbackSpeed}"
+          @frame-select="${this.#onFrameSelect}"
+          @frame-add="${this.#onFrameAdd}"
+          @frame-delete="${this.#onFrameDelete}"
+          @play-toggle="${this.#onPlayToggle}"
+          @speed-change="${this.#onSpeedChange}"
+          @loop-toggle="${this.#onLoopToggle}"
+          .loop="${this._playbackLoop}">
+        </cb-timeline>
+      ` : nothing}
+
       <div class="bottom-bar">
         <div class="bottom-left">
           <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
@@ -1072,6 +1118,16 @@ export class CoachBoard extends LitElement {
             <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
             <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
           </select>
+          ${!this._isMobile ? html`
+            <button aria-pressed="${this._animationMode}"
+                    title="Animate" aria-label="Animate"
+                    @click="${this.#toggleAnimationMode}">
+              <svg viewBox="0 0 1200 1200" width="24" height="24" style="flex-shrink:0">
+                <path d="m846.12 420.12c-59.641-2.6406-113.88 35.16-131.88 92.039l-2.0391 6.6016-6.7188 1.4414c-81.84 18-141.24 91.922-141.24 175.68v93.84c0 31.68-23.762 58.922-54 61.801-16.801 1.6797-33.719-3.9609-46.199-15.238-12.48-11.398-19.68-27.602-19.68-44.398v-336c0-99.238-80.762-180-180-180-19.801 0-36 16.199-36 36s16.199 36 36 36c59.52 0 108 48.48 108 108v331.8c0 69.719 52.32 129.36 119.28 135.6 37.559 3.6016 73.68-8.3984 101.52-33.84 27.48-24.961 43.199-60.602 43.199-97.559v-96c0-43.68 26.039-82.801 66.48-99.719l11.039-4.6797 4.6797 11.039c20.641 49.32 68.52 81.238 121.8 81.238 36.238 0 69.961-14.398 95.16-40.559 25.078-26.16 38.16-60.48 36.719-96.719-2.6406-67.922-57.961-123.48-125.76-126.6zm-6.1211 191.88c-33.121 0-60-26.879-60-60s26.879-60 60-60 60 26.879 60 60-26.879 60-60 60z" fill="currentColor"/>
+              </svg>
+              <span class="btn-text">Animate</span>
+            </button>
+          ` : nothing}
           ${!this._isMobile ? html`
             <div class="dropdown-wrap">
               <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
@@ -1954,6 +2010,299 @@ export class CoachBoard extends LitElement {
     }
   }
 
+  // ── Animation mode ────────────────────────────────────────────
+
+  #toggleAnimationMode() {
+    this._animationMode = !this._animationMode;
+    if (!this._animationMode) {
+      this.#stopPlayback();
+      this.activeFrameIndex = 0;
+      this._playbackProgress = 0;
+    }
+    if (this._animationMode && this.animationFrames.length === 0) {
+      this.animationFrames = [{ id: uid('frame'), positions: {}, trails: {}, visibleLineIds: [] }];
+      this.activeFrameIndex = 0;
+    }
+  }
+
+  #stopPlayback() {
+    this.isPlaying = false;
+    if (this.#playbackRaf != null) {
+      cancelAnimationFrame(this.#playbackRaf);
+      this.#playbackRaf = null;
+    }
+    this.#playbackLastTime = null;
+  }
+
+  #getItemPosition(id: string, baseX: number, baseY: number): { x: number; y: number } {
+    if (!this._animationMode) return { x: baseX, y: baseY };
+    for (let i = this.activeFrameIndex; i >= 0; i--) {
+      const pos = this.animationFrames[i]?.positions[id];
+      if (pos) return { x: pos.x, y: pos.y };
+    }
+    return { x: baseX, y: baseY };
+  }
+
+  #getItemPositionAtFrame(id: string, baseX: number, baseY: number, frameIndex: number): { x: number; y: number } {
+    for (let i = frameIndex; i >= 0; i--) {
+      const pos = this.animationFrames[i]?.positions[id];
+      if (pos) return { x: pos.x, y: pos.y };
+    }
+    return { x: baseX, y: baseY };
+  }
+
+  #isLineVisible(lineId: string): boolean {
+    if (!this._animationMode) return true;
+    const line = this.lines.find(l => l.id === lineId);
+    if (!line) return false;
+    for (let i = 0; i <= this.activeFrameIndex; i++) {
+      const frame = this.animationFrames[i];
+      if (!frame) continue;
+      if (i === 0) continue;
+      if (frame.visibleLineIds.includes(lineId)) return true;
+    }
+    const frame0 = this.animationFrames[0];
+    if (!frame0) return true;
+    const allFrameLineIds = this.animationFrames.slice(1).flatMap(f => f.visibleLineIds);
+    if (allFrameLineIds.includes(lineId)) {
+      return false;
+    }
+    return true;
+  }
+
+  #getFramePlayers(): Player[] {
+    if (!this._animationMode) return this.players;
+    if (this.isPlaying) return this.#getInterpolatedPlayers();
+    return this.players.map(p => {
+      const pos = this.#getItemPosition(p.id, p.x, p.y);
+      return pos.x === p.x && pos.y === p.y ? p : { ...p, x: pos.x, y: pos.y };
+    });
+  }
+
+  #getFrameEquipment(): Equipment[] {
+    if (!this._animationMode) return this.equipment;
+    if (this.isPlaying) return this.#getInterpolatedEquipment();
+    return this.equipment.map(eq => {
+      const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+      return pos.x === eq.x && pos.y === eq.y ? eq : { ...eq, x: pos.x, y: pos.y };
+    });
+  }
+
+  #getInterpolatedPlayers(): Player[] {
+    const t = this._playbackProgress;
+    const fromIdx = this.activeFrameIndex;
+    const toIdx = fromIdx + 1;
+    if (toIdx >= this.animationFrames.length) {
+      return this.players.map(p => {
+        const pos = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
+        return { ...p, x: pos.x, y: pos.y };
+      });
+    }
+    return this.players.map(p => {
+      const from = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
+      const to = this.#getItemPositionAtFrame(p.id, p.x, p.y, toIdx);
+      if (from.x === to.x && from.y === to.y) return { ...p, x: from.x, y: from.y };
+      const toFrame = this.animationFrames[toIdx];
+      const trail = toFrame?.trails[p.id];
+      const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
+      const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
+      const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
+      const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
+      return {
+        ...p,
+        x: cubicBezier(t, from.x, cp1x, cp2x, to.x),
+        y: cubicBezier(t, from.y, cp1y, cp2y, to.y),
+      };
+    });
+  }
+
+  #getInterpolatedEquipment(): Equipment[] {
+    const t = this._playbackProgress;
+    const fromIdx = this.activeFrameIndex;
+    const toIdx = fromIdx + 1;
+    if (toIdx >= this.animationFrames.length) {
+      return this.equipment.map(eq => {
+        const pos = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
+        return { ...eq, x: pos.x, y: pos.y };
+      });
+    }
+    return this.equipment.map(eq => {
+      const from = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
+      const to = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, toIdx);
+      if (from.x === to.x && from.y === to.y) return { ...eq, x: from.x, y: from.y };
+      const toFrame = this.animationFrames[toIdx];
+      const trail = toFrame?.trails[eq.id];
+      const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
+      const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
+      const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
+      const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
+      return {
+        ...eq,
+        x: cubicBezier(t, from.x, cp1x, cp2x, to.x),
+        y: cubicBezier(t, from.y, cp1y, cp2y, to.y),
+      };
+    });
+  }
+
+  #renderGhostsAndTrails() {
+    const frame = this.animationFrames[this.activeFrameIndex];
+    if (!frame) return nothing;
+
+    const trails: ReturnType<typeof svg>[] = [];
+
+    for (const p of this.players) {
+      if (!frame.positions[p.id]) continue;
+      const curr = this.#getItemPosition(p.id, p.x, p.y);
+      const prev = this.#getItemPositionAtFrame(p.id, p.x, p.y, this.activeFrameIndex - 1);
+      if (curr.x === prev.x && curr.y === prev.y) continue;
+
+      const trail = frame.trails[p.id];
+      const cp1x = trail?.cp1x ?? prev.x + (curr.x - prev.x) / 3;
+      const cp1y = trail?.cp1y ?? prev.y + (curr.y - prev.y) / 3;
+      const cp2x = trail?.cp2x ?? prev.x + (curr.x - prev.x) * 2 / 3;
+      const cp2y = trail?.cp2y ?? prev.y + (curr.y - prev.y) * 2 / 3;
+
+      const isTriangle = p.team === 'a';
+      trails.push(svg`
+        <g opacity="0.3">
+          ${isTriangle
+            ? svg`<polygon points="${triPoints(prev.x, prev.y, PLAYER_RADIUS)}"
+                           fill="${p.color}" stroke="white" stroke-width="0.15"
+                           stroke-linejoin="round" style="pointer-events:none" />`
+            : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
+                          fill="${p.color}" stroke="white" stroke-width="0.15"
+                          style="pointer-events:none" />`
+          }
+        </g>
+        <path d="M ${prev.x},${prev.y} C ${cp1x},${cp1y} ${cp2x},${cp2y} ${curr.x},${curr.y}"
+              fill="none" stroke="${p.color}" stroke-width="0.25" stroke-opacity="0.5"
+              stroke-dasharray="1,0.6" style="pointer-events:none" />
+        <circle cx="${cp1x}" cy="${cp1y}" r="${CONTROL_HANDLE_R}"
+                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
+                data-id="${p.id}" data-kind="trail-cp1"
+                style="cursor:grab" />
+        <circle cx="${cp2x}" cy="${cp2y}" r="${CONTROL_HANDLE_R}"
+                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
+                data-id="${p.id}" data-kind="trail-cp2"
+                style="cursor:grab" />
+      `);
+    }
+
+    for (const eq of this.equipment) {
+      if (!frame.positions[eq.id]) continue;
+      const curr = this.#getItemPosition(eq.id, eq.x, eq.y);
+      const prev = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, this.activeFrameIndex - 1);
+      if (curr.x === prev.x && curr.y === prev.y) continue;
+
+      const trail = frame.trails[eq.id];
+      const cp1x = trail?.cp1x ?? prev.x + (curr.x - prev.x) / 3;
+      const cp1y = trail?.cp1y ?? prev.y + (curr.y - prev.y) / 3;
+      const cp2x = trail?.cp2x ?? prev.x + (curr.x - prev.x) * 2 / 3;
+      const cp2y = trail?.cp2y ?? prev.y + (curr.y - prev.y) * 2 / 3;
+
+      const color = eq.color ?? COLORS.accent;
+      trails.push(svg`
+        <g opacity="0.3">
+          <circle cx="${prev.x}" cy="${prev.y}" r="${BALL_RADIUS}"
+                  fill="white" stroke="white" stroke-width="0.15"
+                  style="pointer-events:none" />
+        </g>
+        <path d="M ${prev.x},${prev.y} C ${cp1x},${cp1y} ${cp2x},${cp2y} ${curr.x},${curr.y}"
+              fill="none" stroke="${color}" stroke-width="0.25" stroke-opacity="0.5"
+              stroke-dasharray="1,0.6" style="pointer-events:none" />
+        <circle cx="${cp1x}" cy="${cp1y}" r="${CONTROL_HANDLE_R}"
+                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
+                data-id="${eq.id}" data-kind="trail-cp1"
+                style="cursor:grab" />
+        <circle cx="${cp2x}" cy="${cp2y}" r="${CONTROL_HANDLE_R}"
+                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
+                data-id="${eq.id}" data-kind="trail-cp2"
+                style="cursor:grab" />
+      `);
+    }
+
+    return svg`<g class="ghosts-trails-layer">${trails}</g>`;
+  }
+
+  #onFrameSelect(e: FrameSelectEvent) {
+    this.#stopPlayback();
+    this.activeFrameIndex = e.frameIndex;
+    this._playbackProgress = 0;
+  }
+
+  #onFrameAdd() {
+    const newFrame: AnimationFrame = {
+      id: uid('frame'),
+      positions: {},
+      trails: {},
+      visibleLineIds: [],
+    };
+    this.animationFrames = [...this.animationFrames, newFrame];
+    this.activeFrameIndex = this.animationFrames.length - 1;
+  }
+
+  #onFrameDelete(e: FrameDeleteEvent) {
+    const idx = e.frameIndex;
+    if (idx <= 0) return;
+    this.animationFrames = this.animationFrames.filter((_, i) => i !== idx);
+    if (this.activeFrameIndex >= this.animationFrames.length) {
+      this.activeFrameIndex = this.animationFrames.length - 1;
+    }
+  }
+
+  #onPlayToggle() {
+    if (this.isPlaying) {
+      this.#stopPlayback();
+    } else {
+      if (this.animationFrames.length < 2) return;
+      this.isPlaying = true;
+      this.selectedIds = new Set();
+      this._playbackProgress = 0;
+      this.activeFrameIndex = 0;
+      this.#playbackLastTime = null;
+      this.#playbackRaf = requestAnimationFrame(this.#playbackTick);
+    }
+  }
+
+  #onSpeedChange(e: SpeedChangeEvent) {
+    this._playbackSpeed = e.speed;
+  }
+
+  #onLoopToggle() {
+    this._playbackLoop = !this._playbackLoop;
+  }
+
+  #playbackTick = (timestamp: number) => {
+    if (!this.isPlaying) return;
+    if (this.#playbackLastTime == null) {
+      this.#playbackLastTime = timestamp;
+      this.#playbackRaf = requestAnimationFrame(this.#playbackTick);
+      return;
+    }
+    const elapsed = timestamp - this.#playbackLastTime;
+    const duration = 1000 / this._playbackSpeed;
+    this._playbackProgress += elapsed / duration;
+    this.#playbackLastTime = timestamp;
+
+    if (this._playbackProgress >= 1) {
+      this._playbackProgress = 0;
+      const nextFrame = this.activeFrameIndex + 1;
+      if (nextFrame >= this.animationFrames.length) {
+        if (this._playbackLoop) {
+          this.activeFrameIndex = 0;
+          this.#playbackLastTime = null;
+        } else {
+          this.activeFrameIndex = this.animationFrames.length - 1;
+          this.#stopPlayback();
+          return;
+        }
+      } else {
+        this.activeFrameIndex = nextFrame;
+      }
+    }
+    this.#playbackRaf = requestAnimationFrame(this.#playbackTick);
+  };
+
   // ── Field orientation ──────────────────────────────────────────
 
   #toggleFieldMenu() {
@@ -2223,6 +2572,7 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerDown(e: PointerEvent) {
+    if (this.isPlaying) return;
     const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player') {
@@ -2267,6 +2617,13 @@ export class CoachBoard extends LitElement {
     }
 
     const { kind, id } = hit;
+
+    // Trail control point handles
+    if (kind === 'trail-cp1' || kind === 'trail-cp2') {
+      this.#trailDrag = { id, cp: kind === 'trail-cp1' ? 'cp1' : 'cp2' };
+      this.svgEl.setPointerCapture(e.pointerId);
+      return;
+    }
 
     // Rotate handle
     if (kind === 'rotate') {
@@ -2366,9 +2723,17 @@ export class CoachBoard extends LitElement {
 
     for (const id of this.selectedIds) {
       const p = this.players.find(p => p.id === id);
-      if (p) { pointOrigins.set(id, { x: p.x, y: p.y }); continue; }
+      if (p) {
+        const pos = this.#getItemPosition(p.id, p.x, p.y);
+        pointOrigins.set(id, pos);
+        continue;
+      }
       const eq = this.equipment.find(eq => eq.id === id);
-      if (eq) { pointOrigins.set(id, { x: eq.x, y: eq.y }); continue; }
+      if (eq) {
+        const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+        pointOrigins.set(id, pos);
+        continue;
+      }
       const sh = this.shapes.find(s => s.id === id);
       if (sh) { pointOrigins.set(id, { x: sh.cx, y: sh.cy }); continue; }
       const ti = this.textItems.find(t => t.id === id);
@@ -2483,6 +2848,24 @@ export class CoachBoard extends LitElement {
       return;
     }
 
+    if (this.#trailDrag) {
+      const { id, cp } = this.#trailDrag;
+      const frame = this.animationFrames[this.activeFrameIndex];
+      if (frame) {
+        const existing = frame.trails[id] ?? this.#defaultTrailCP(id);
+        const newTrails = { ...frame.trails };
+        if (cp === 'cp1') {
+          newTrails[id] = { ...existing, cp1x: pt.x, cp1y: pt.y };
+        } else {
+          newTrails[id] = { ...existing, cp2x: pt.x, cp2y: pt.y };
+        }
+        this.animationFrames = this.animationFrames.map((f, i) =>
+          i === this.activeFrameIndex ? { ...f, trails: newTrails } : f
+        );
+      }
+      return;
+    }
+
     if (this.#handleDrag) {
       const { kind, id } = this.#handleDrag;
       if (kind === 'line-start') {
@@ -2502,14 +2885,27 @@ export class CoachBoard extends LitElement {
     const dy = pt.y - anchorY;
 
     if (pointOrigins.size > 0) {
-      this.players = this.players.map(p => {
-        const orig = pointOrigins.get(p.id);
-        return orig ? { ...p, x: orig.x + dx, y: orig.y + dy } : p;
-      });
-      this.equipment = this.equipment.map(eq => {
-        const orig = pointOrigins.get(eq.id);
-        return orig ? { ...eq, x: orig.x + dx, y: orig.y + dy } : eq;
-      });
+      if (this._animationMode && this.activeFrameIndex > 0) {
+        const frame = this.animationFrames[this.activeFrameIndex];
+        if (frame) {
+          const newPositions = { ...frame.positions };
+          for (const [id, orig] of pointOrigins) {
+            newPositions[id] = { x: orig.x + dx, y: orig.y + dy };
+          }
+          this.animationFrames = this.animationFrames.map((f, i) =>
+            i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
+          );
+        }
+      } else {
+        this.players = this.players.map(p => {
+          const orig = pointOrigins.get(p.id);
+          return orig ? { ...p, x: orig.x + dx, y: orig.y + dy } : p;
+        });
+        this.equipment = this.equipment.map(eq => {
+          const orig = pointOrigins.get(eq.id);
+          return orig ? { ...eq, x: orig.x + dx, y: orig.y + dy } : eq;
+        });
+      }
       this.shapes = this.shapes.map(s => {
         const orig = pointOrigins.get(s.id);
         return orig ? { ...s, cx: orig.x + dx, cy: orig.y + dy } : s;
@@ -2554,6 +2950,13 @@ export class CoachBoard extends LitElement {
         };
         this.lines = [...this.lines, newLine];
         this.selectedIds = new Set([newLine.id]);
+        if (this._animationMode && this.activeFrameIndex > 0) {
+          this.animationFrames = this.animationFrames.map((f, i) =>
+            i === this.activeFrameIndex
+              ? { ...f, visibleLineIds: [...f.visibleLineIds, newLine.id] }
+              : f
+          );
+        }
       }
       this.#draw = null;
       this.requestUpdate();
@@ -2581,10 +2984,44 @@ export class CoachBoard extends LitElement {
       this.requestUpdate();
     }
 
+
     this.#groupDrag = null;
     this.#handleDrag = null;
     this.#rotateDrag = null;
     this.#shapeResizeDrag = null;
+    this.#trailDrag = null;
+  }
+
+  #defaultTrailCP(id: string): TrailControlPoints {
+    const p = this.players.find(pl => pl.id === id);
+    const eq = this.equipment.find(e => e.id === id);
+    const baseX = p ? p.x : eq ? eq.x : 0;
+    const baseY = p ? p.y : eq ? eq.y : 0;
+    const curr = this.#getItemPosition(id, baseX, baseY);
+    const prev = this.#getItemPositionAtFrame(id, baseX, baseY, this.activeFrameIndex - 1);
+    return {
+      cp1x: prev.x + (curr.x - prev.x) / 3,
+      cp1y: prev.y + (curr.y - prev.y) / 3,
+      cp2x: prev.x + (curr.x - prev.x) * 2 / 3,
+      cp2y: prev.y + (curr.y - prev.y) * 2 / 3,
+    };
+  }
+
+  #recordFramePositions() {
+    const frame = this.animationFrames[this.activeFrameIndex];
+    if (!frame) return;
+    const newPositions = { ...frame.positions };
+
+    for (const id of this.selectedIds) {
+      const p = this.players.find(pl => pl.id === id);
+      if (p) { newPositions[id] = { x: p.x, y: p.y }; continue; }
+      const eq = this.equipment.find(e => e.id === id);
+      if (eq) { newPositions[id] = { x: eq.x, y: eq.y }; continue; }
+    }
+
+    this.animationFrames = this.animationFrames.map((f, i) =>
+      i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
+    );
   }
 
   #onPointerLeave(_e: PointerEvent) {
@@ -2601,6 +3038,7 @@ export class CoachBoard extends LitElement {
     this.#handleDrag = null;
     this.#rotateDrag = null;
     this.#shapeResizeDrag = null;
+    this.#trailDrag = null;
   }
 
   #onKeyDown(e: KeyboardEvent) {

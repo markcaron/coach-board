@@ -292,5 +292,24 @@ export interface TextItem {
   groupId?: string;
 }
 
+export interface TrailControlPoints {
+  cp1x: number;
+  cp1y: number;
+  cp2x: number;
+  cp2y: number;
+}
+
+export interface FramePosition {
+  x: number;
+  y: number;
+}
+
+export interface AnimationFrame {
+  id: string;
+  positions: Record<string, FramePosition>;
+  trails: Record<string, TrailControlPoints>;
+  visibleLineIds: string[];
+}
+
 export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text';
 export type EquipmentKind = 'ball' | 'cone' | 'coach' | 'goal' | 'mini-goal' | 'popup-goal';
