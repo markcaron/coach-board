@@ -912,7 +912,7 @@ export class CoachBoard extends LitElement {
     const { encode } = await import('modern-gif');
 
     const vb = this.svgEl.viewBox.baseVal;
-    const scale = 4;
+    const scale = 10;
     const w = Math.round(vb.width * scale);
     const h = Math.round(vb.height * scale);
     const fps = 20;
@@ -922,28 +922,27 @@ export class CoachBoard extends LitElement {
 
     const frames: Array<{ data: ImageData; delay: number }> = [];
 
-    const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
-    svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
-    svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
-    svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
-    svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
-    svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
-    svgClone.querySelectorAll('[data-kind="trail-cp1"], [data-kind="trail-cp2"]').forEach(el => el.remove());
-    svgClone.setAttribute('width', String(w));
-    svgClone.setAttribute('height', String(h));
+    const savedPlaying = this.isPlaying;
+    const savedFrame = this.activeFrameIndex;
+    const savedProgress = this._playbackProgress;
+    const savedSelection = this.selectedIds;
+    this.selectedIds = new Set();
+    this.isPlaying = true;
 
-    const playerEls = new Map<string, SVGElement>();
-    const equipEls = new Map<string, SVGElement>();
-    svgClone.querySelectorAll('[data-kind="player"]').forEach(el => {
-      playerEls.set((el as SVGElement).dataset.id!, el as SVGElement);
-    });
-    svgClone.querySelectorAll('[data-kind="equipment"]').forEach(el => {
-      equipEls.set((el as SVGElement).dataset.id!, el as SVGElement);
-    });
+    const captureFrame = async (): Promise<ImageData> => {
+      await this.updateComplete;
+      const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+      svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+      svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+      svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+      svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+      svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+      svgClone.querySelectorAll('[data-kind="trail-cp1"], [data-kind="trail-cp2"]').forEach(el => el.remove());
+      svgClone.setAttribute('width', String(w));
+      svgClone.setAttribute('height', String(h));
 
-    const renderFrame = async (svgEl: SVGSVGElement): Promise<ImageData> => {
       const serializer = new XMLSerializer();
-      const svgString = serializer.serializeToString(svgEl);
+      const svgString = serializer.serializeToString(svgClone);
       const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       return new Promise((resolve) => {
@@ -961,61 +960,26 @@ export class CoachBoard extends LitElement {
       });
     };
 
-    const setPositions = (frameIdx: number, t: number, nextIdx: number) => {
-      for (const p of this.players) {
-        const from = this.#getItemPositionAtFrame(p.id, p.x, p.y, frameIdx);
-        const to = this.#getItemPositionAtFrame(p.id, p.x, p.y, nextIdx);
-        const el = playerEls.get(p.id);
-        if (!el) continue;
-        if (from.x === to.x && from.y === to.y) {
-          el.setAttribute('transform', `translate(${from.x}, ${from.y})`);
-        } else {
-          const toFrame = this.animationFrames[nextIdx];
-          const trail = toFrame?.trails[p.id];
-          const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
-          const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
-          const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
-          const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
-          const x = cubicBezier(t, from.x, cp1x, cp2x, to.x);
-          const y = cubicBezier(t, from.y, cp1y, cp2y, to.y);
-          el.setAttribute('transform', `translate(${x}, ${y})`);
-        }
-      }
-      for (const eq of this.equipment) {
-        const from = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, frameIdx);
-        const to = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, nextIdx);
-        const el = equipEls.get(eq.id);
-        if (!el) continue;
-        const angle = eq.angle ?? 0;
-        if (from.x === to.x && from.y === to.y) {
-          el.setAttribute('transform', `translate(${from.x}, ${from.y}) rotate(${angle})`);
-        } else {
-          const toFrame = this.animationFrames[nextIdx];
-          const trail = toFrame?.trails[eq.id];
-          const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
-          const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
-          const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
-          const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
-          const x = cubicBezier(t, from.x, cp1x, cp2x, to.x);
-          const y = cubicBezier(t, from.y, cp1y, cp2y, to.y);
-          el.setAttribute('transform', `translate(${x}, ${y}) rotate(${angle})`);
-        }
-      }
-    };
-
     for (let fi = 0; fi < this.animationFrames.length - 1; fi++) {
       const nextFi = fi + 1;
       for (let step = 0; step < stepsPerTransition; step++) {
         const t = step / stepsPerTransition;
-        setPositions(fi, t, nextFi);
-        const imageData = await renderFrame(svgClone);
+        this.activeFrameIndex = fi;
+        this._playbackProgress = t;
+        const imageData = await captureFrame();
         frames.push({ data: imageData, delay: delayPerStep });
       }
     }
 
-    setPositions(this.animationFrames.length - 1, 0, this.animationFrames.length - 1);
-    const lastFrame = await renderFrame(svgClone);
+    this.activeFrameIndex = this.animationFrames.length - 1;
+    this._playbackProgress = 0;
+    const lastFrame = await captureFrame();
     frames.push({ data: lastFrame, delay: delayPerStep * 10 });
+
+    this.isPlaying = savedPlaying;
+    this.activeFrameIndex = savedFrame;
+    this._playbackProgress = savedProgress;
+    this.selectedIds = savedSelection;
 
     const gifBlob = await encode({
       width: w,
@@ -1242,12 +1206,6 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="bottom-center">
-          <label class="visually-hidden" for="field-theme-select">Field theme</label>
-          <select id="field-theme-select" class="theme-select"
-                  @change="${this.#onThemeChange}">
-            <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
-            <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
-          </select>
           ${!this._isMobile ? html`
             <button aria-pressed="${this._animationMode}"
                     title="Animate" aria-label="Animate"
@@ -1258,6 +1216,12 @@ export class CoachBoard extends LitElement {
               <span class="btn-text">Animate</span>
             </button>
           ` : nothing}
+          <label class="visually-hidden" for="field-theme-select">Field theme</label>
+          <select id="field-theme-select" class="theme-select"
+                  @change="${this.#onThemeChange}">
+            <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
+            <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
+          </select>
           ${!this._isMobile ? html`
             <div class="dropdown-wrap">
               <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
@@ -1400,7 +1364,7 @@ export class CoachBoard extends LitElement {
             <path d="M1080 600.84C1079.77 728.15 1029 850.12 938.81 939.98C848.62 1029.84 726.47 1080.24 599.15 1080C471.84 1079.77 349.87 1029 260.01 938.81C170.143 848.619 119.75 726.47 119.99 599.15C120.224 471.84 170.99 349.87 261.18 260.01C351.371 170.143 473.52 119.75 600.84 119.99C728.06 120.506 849.89 171.365 939.7 261.51C1029.47 351.604 1079.96 473.62 1079.99 600.83L1080 600.84ZM598.08 754.45C623.861 754.45 649.689 755.294 675.377 754.45C683.768 753.606 691.361 749.247 696.377 742.45C721.596 700.872 745.924 658.684 769.455 615.98V615.933C772.69 608.996 772.69 600.98 769.455 593.995C745.455 551.995 719.533 509.995 693.517 469.305H693.47C688.923 463.071 681.939 459.086 674.298 458.289C625.595 457.352 576.798 457.352 528.008 458.289C519.618 459.133 511.977 463.492 507.008 470.289C480.992 510.977 455.539 552.414 430.555 594.469C427.368 601.407 427.368 609.375 430.555 616.313C454.555 658.875 478.977 701.016 503.774 742.783C508.274 748.971 515.118 753.002 522.712 753.845C547.931 755.158 573.009 754.455 598.087 754.455L598.08 754.45ZM423.37 327.84C382.682 331.778 350.058 334.309 317.76 338.621C309.229 340.121 301.635 344.856 296.526 351.84C271.917 390.465 248.526 429.84 225.37 469.54C221.995 475.868 221.292 483.274 223.448 490.071C236.714 522.93 250.917 555.415 266.057 587.524C269.62 593.243 275.713 596.946 282.463 597.462C314.385 595.305 346.166 592.165 378.463 587.759C386.807 586.212 394.213 581.477 399.135 574.54C425.291 533.478 450.557 491.946 474.979 449.85H474.932C478.729 442.443 479.339 433.772 476.62 425.85C464.62 397.538 452.62 369.694 438.839 342.459C434.761 336.552 429.464 331.584 423.37 327.834L423.37 327.84ZM775.92 327.84C770.389 331.59 765.654 336.371 761.998 341.996C748.451 369.371 735.607 397.215 724.076 425.996C721.404 433.871 721.873 442.449 725.389 449.996C749.389 491.996 775.17 533.996 801.327 574.546H801.373C806.905 581.718 814.967 586.499 823.92 587.999C854.764 592.452 885.982 595.452 917.154 597.374C924.514 596.624 931.076 592.452 934.779 586.077C949.404 555.468 963.091 524.296 975.841 492.702C978.513 485.296 978.091 477.14 974.763 470.061C951.701 430.358 928.075 391.123 903.466 352.361V352.314C898.544 345.283 891.138 340.408 882.7 338.626C849.606 334.22 815.997 331.689 775.92 327.704L775.92 327.84ZM762.139 889.92C739.92 858.936 718.311 827.998 695.998 798.232C691.686 794.107 685.92 791.857 679.92 791.998C626.623 791.341 573.09 791.341 519.23 791.998C513.277 792.232 507.605 794.81 503.527 799.216C481.215 829.216 459.746 859.216 437.761 890.294C460.308 919.216 481.214 946.919 503.386 974.294C508.824 980.06 516.23 983.529 524.152 983.998C574.871 984.794 625.682 984.794 676.542 983.998C684.042 983.482 691.026 980.06 695.995 974.388C718.214 947.06 739.542 918.841 762.136 889.919L762.139 889.92ZM278.159 296.16C288.144 299.066 298.315 301.129 308.628 302.301C322.55 302.301 336.331 299.91 350.159 298.457C379.784 295.082 411.847 297.754 438.706 287.066C485.394 267.238 530.487 243.894 573.606 217.222C581.059 212.769 580.684 193.222 580.825 179.91C580.825 175.832 571.216 170.676 565.122 167.91C542.669 157.691 520.356 163.832 497.903 169.222H497.856C413.856 189.238 337.496 233.347 278.146 296.162L278.159 296.16ZM921.609 296.16C858.562 228.988 775.919 183.38 685.449 165.94C668.48 164.018 651.277 164.815 634.543 168.237C628.778 169.081 619.168 176.018 619.168 180.237C619.168 193.081 619.168 213.003 626.621 217.456C670.168 243.144 715.918 265.456 761.011 288.518L761.058 288.471C764.293 289.737 767.761 290.393 771.23 290.534C811.308 294.612 851.386 299.065 891.23 302.534C901.589 301.596 911.808 299.299 921.605 295.69L921.609 296.16ZM173.899 488.16C149.899 554.769 153.133 655.22 178.118 737.02L178.071 737.067C185.712 762.192 201.18 784.223 222.227 799.926C246.227 787.926 246.227 787.926 245.618 762.988C243.837 720.004 242.384 677.394 239.993 635.168C239.759 626.965 238.071 618.809 235.071 611.168C220.352 576.059 205.071 541.09 189.227 506.308C184.915 499.37 179.758 492.996 173.852 487.324L173.899 488.16ZM978.509 798.94C1037.67 750.237 1065.88 572.72 1025.29 490.41C1020.98 494.254 1015.35 496.879 1013.29 500.957C992.149 557.582 953.29 608.117 957.228 673.267V673.314C958.4 703.267 957.134 733.22 953.384 762.939C951.837 781.314 957.462 792.845 978.462 798.142L978.509 798.94ZM731.989 1022.63C809.567 998.958 878.849 953.771 931.769 892.32C942.363 878.023 950.753 862.273 956.753 845.539C958.394 839.633 956.894 833.305 952.769 828.711C944.613 824.774 932.003 819.711 925.91 823.32C850.91 867.148 776.75 912.009 730.07 989.871C722.617 1002.15 719.992 1010.31 731.992 1022.64L731.989 1022.63ZM473.989 1024.55C473.989 1012.55 477.13 1002.85 473.989 996.614C426.927 915.38 351.229 866.534 272.279 822.144C266.888 819.003 254.513 824.91 247.341 829.597L247.294 829.55C243.497 834.378 242.372 840.753 244.2 846.612C248.841 861.753 255.966 876.05 265.2 888.94C320.419 953.159 392.84 1000.22 473.98 1024.55L473.989 1024.55Z" fill="${COLORS.bgPrimary}"/>
           </svg>
           <div class="about-title">CoachingBoard</div>
-          <div class="about-meta">Version 1.0.0-beta</div>
+          <div class="about-meta">Version 1.1.0-beta</div>
           <div class="about-meta">by Mark Caron</div>
           <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
           <div class="confirm-actions centered">
