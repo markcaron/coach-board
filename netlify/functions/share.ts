@@ -4,10 +4,16 @@ import type { Context } from '@netlify/functions';
 
 const STORE_NAME = 'shared-boards';
 const MAX_BODY = 512_000; // 500 KB max
+const TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
-export default async (request: Request, context: Context) => {
+export default async (request: Request, _context: Context) => {
+  const origin = request.headers.get('Origin') ?? '';
+  const allowedOrigin = origin.includes('coachingboard.netlify.app') || origin.includes('localhost')
+    ? origin
+    : 'https://coachingboard.netlify.app';
+
   const headers = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
@@ -22,16 +28,24 @@ export default async (request: Request, context: Context) => {
   const id = segments[0];
 
   if (request.method === 'GET' && id) {
-    const data = await store.get(id);
-    if (!data) {
+    const entry = await store.getWithMetadata(id);
+    if (!entry) {
       return new Response(JSON.stringify({ error: 'Not found' }), {
         status: 404,
         headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
-    return new Response(data, {
+    const created = (entry.metadata as Record<string, unknown>)?.created as number | undefined;
+    if (created && Date.now() - created > TTL_SECONDS * 1000) {
+      await store.delete(id);
+      return new Response(JSON.stringify({ error: 'Link expired' }), {
+        status: 410,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(entry.data, {
       status: 200,
-      headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=31536000, immutable' },
+      headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' },
     });
   }
 
@@ -45,7 +59,7 @@ export default async (request: Request, context: Context) => {
     }
 
     const newId = nanoid(10);
-    await store.set(newId, body);
+    await store.set(newId, body, { metadata: { created: Date.now() } });
 
     return new Response(JSON.stringify({ id: newId }), {
       status: 201,

@@ -265,6 +265,14 @@ export class CoachBoard extends LitElement {
       height: 28px;
     }
 
+    .branding-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: inherit;
+    }
+
     .branding-text {
       font-size: 1rem;
       font-weight: bold;
@@ -892,6 +900,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _copiedVisible: boolean = false;
   #shareCompressed: string = '';
   #shareShortId: string = '';
+  #lastSharedData: string = '';
 
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -1034,6 +1043,9 @@ export class CoachBoard extends LitElement {
       else if (mode === 'edit') this._viewMode = 'shared-edit';
 
       this.selectedIds = new Set();
+      if (!shortMatch) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     } catch { /* invalid data */ }
   }
 
@@ -1305,8 +1317,10 @@ export class CoachBoard extends LitElement {
     return html`
       ${this._viewMode === 'readonly' ? html`
         <div class="toolbar-area readonly-branding">
-          <svg class="branding-icon" viewBox="0 0 1600 1600" fill="currentColor"><path d="M1214.45 54.9997H385.56C309.309 54.9997 247.16 117.052 247.16 193.346V1406.75C247.16 1483 309.259 1545.09 385.56 1545.09H1214.47C1290.72 1545.09 1352.87 1483.04 1352.87 1406.75L1352.86 193.293C1352.86 117.042 1290.71 54.9863 1214.46 54.9863L1214.45 54.9997ZM639.4 145H960.2L958.997 292.2L639.397 290.601L639.4 145ZM960.6 1455H639.8L641.05 1307.85L960.65 1309.45L960.655 1455L960.6 1455ZM1262.8 1406.7C1262.8 1433.35 1241.1 1455 1214.45 1455H1050.65V1309.45C1050.65 1258.9 1009.55 1217.8 959 1217.8L641 1217.81C590.448 1217.81 549.349 1258.91 549.349 1309.46V1455H385.549C358.899 1455 337.2 1433.35 337.2 1406.7L337.195 845.009H569.941C591.04 952.858 686.092 1034.61 799.995 1034.61C913.897 1034.61 1008.99 952.86 1030.05 845.009H1262.79L1262.8 1406.7ZM936.693 845.004C917.641 902.602 863.944 944.556 800 944.556C736.056 944.556 682.349 902.608 663.307 845.004H936.693ZM663.293 755.004C682.345 697.405 736.043 655.452 799.987 655.452C863.931 655.452 917.637 697.4 936.68 755.004H663.293ZM1262.79 755.004H1030.04C1008.94 647.154 913.889 565.404 799.987 565.404C686.084 565.404 590.987 647.153 569.933 755.004H337.187V193.31C337.187 166.66 358.884 145.008 385.536 145.008H549.336V290.554C549.336 341.106 590.435 382.205 640.987 382.205H958.933C1009.49 382.205 1050.58 341.106 1050.58 290.554V145.008H1214.38C1241.03 145.008 1262.73 166.658 1262.73 193.31V755.004H1262.79Z"/></svg>
-          <span class="branding-text">CoachingBoard</span>
+          <a href="/" class="branding-link" title="Open CoachingBoard">
+            <svg class="branding-icon" viewBox="0 0 1600 1600" fill="currentColor"><path d="M1214.45 54.9997H385.56C309.309 54.9997 247.16 117.052 247.16 193.346V1406.75C247.16 1483 309.259 1545.09 385.56 1545.09H1214.47C1290.72 1545.09 1352.87 1483.04 1352.87 1406.75L1352.86 193.293C1352.86 117.042 1290.71 54.9863 1214.46 54.9863L1214.45 54.9997ZM639.4 145H960.2L958.997 292.2L639.397 290.601L639.4 145ZM960.6 1455H639.8L641.05 1307.85L960.65 1309.45L960.655 1455L960.6 1455ZM1262.8 1406.7C1262.8 1433.35 1241.1 1455 1214.45 1455H1050.65V1309.45C1050.65 1258.9 1009.55 1217.8 959 1217.8L641 1217.81C590.448 1217.81 549.349 1258.91 549.349 1309.46V1455H385.549C358.899 1455 337.2 1433.35 337.2 1406.7L337.195 845.009H569.941C591.04 952.858 686.092 1034.61 799.995 1034.61C913.897 1034.61 1008.99 952.86 1030.05 845.009H1262.79L1262.8 1406.7ZM936.693 845.004C917.641 902.602 863.944 944.556 800 944.556C736.056 944.556 682.349 902.608 663.307 845.004H936.693ZM663.293 755.004C682.345 697.405 736.043 655.452 799.987 655.452C863.931 655.452 917.637 697.4 936.68 755.004H663.293ZM1262.79 755.004H1030.04C1008.94 647.154 913.889 565.404 799.987 565.404C686.084 565.404 590.987 647.153 569.933 755.004H337.187V193.31C337.187 166.66 358.884 145.008 385.536 145.008H549.336V290.554C549.336 341.106 590.435 382.205 640.987 382.205H958.933C1009.49 382.205 1050.58 341.106 1050.58 290.554V145.008H1214.38C1241.03 145.008 1262.73 166.658 1262.73 193.31V755.004H1262.79Z"/></svg>
+            <span class="branding-text">CoachingBoard</span>
+          </a>
         </div>
       ` : html`
         <div class="toolbar-area">
@@ -2440,7 +2454,6 @@ export class CoachBoard extends LitElement {
 
   async #shareLink() {
     this._menuOpen = false;
-    this.#shareShortId = '';
 
     const data = JSON.stringify({
       players: this.players,
@@ -2454,26 +2467,39 @@ export class CoachBoard extends LitElement {
       playbackLoop: this._playbackLoop,
     });
 
-    try {
-      const res = await fetch('/api/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: data,
-      });
-      if (res.ok) {
-        const { id } = await res.json() as { id: string };
-        this.#shareShortId = id;
-      }
-    } catch { /* API unavailable, fall back to hash */ }
+    const boardChanged = data !== this.#lastSharedData;
+    if (boardChanged) {
+      this.#shareShortId = '';
+      this.#shareCompressed = '';
+    }
+
+    if (!this.#shareShortId) {
+      this._shareMessage = 'Generating link\u2026';
+      this._shareUrl = '';
+      requestAnimationFrame(() => this._shareDialog?.showModal());
+
+      try {
+        const res = await fetch('/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: data,
+        });
+        if (res.ok) {
+          const { id } = await res.json() as { id: string };
+          this.#shareShortId = id;
+          this.#lastSharedData = data;
+        }
+      } catch { /* API unavailable, fall back to hash */ }
+    }
 
     if (!this.#shareShortId) {
       const { compressToEncodedURIComponent } = await import('lz-string');
       this.#shareCompressed = compressToEncodedURIComponent(data);
+      this.#lastSharedData = data;
       const url = this.#buildShareUrl();
       if (url.length > 8000) {
         this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
         this._shareUrl = '';
-        requestAnimationFrame(() => this._shareDialog?.showModal());
         return;
       }
     }
@@ -2485,7 +2511,6 @@ export class CoachBoard extends LitElement {
     } catch {
       this._shareMessage = 'Shareable link:';
     }
-    requestAnimationFrame(() => this._shareDialog?.showModal());
   }
 
   #onShareEditableChange(e: Event) {
