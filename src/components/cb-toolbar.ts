@@ -241,8 +241,8 @@ export class CbToolbar extends LitElement {
     }
 
     button[aria-pressed="true"] {
-      background: var(--pt-danger);
-      border-color: var(--pt-danger);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
       color: var(--pt-text-white);
     }
 
