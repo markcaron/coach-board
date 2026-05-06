@@ -296,7 +296,7 @@ export class CoachBoard extends LitElement {
     .boards-list {
       list-style: none;
       margin: 0;
-      padding: 0;
+      padding: 4px;
       max-height: 300px;
       overflow-y: auto;
       display: flex;
