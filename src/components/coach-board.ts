@@ -303,14 +303,33 @@ export class CoachBoard extends LitElement {
     }
 
     .play-overlay-btn {
-      width: 108px;
-      height: 108px;
+      width: 96px;
+      height: 96px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: opacity 0.2s;
+    }
+
+    .play-overlay-btn.press-out {
+      animation: pressOut 0.3s ease-in forwards;
+    }
+
+    .play-overlay-btn.press-in {
+      animation: pressIn 0.3s ease-out forwards;
+    }
+
+    @keyframes pressOut {
+      0% { transform: scale(1); opacity: 1; }
+      40% { transform: scale(0.85); opacity: 1; }
+      100% { transform: scale(0.85); opacity: 0; }
+    }
+
+    @keyframes pressIn {
+      0% { transform: scale(0.7); opacity: 0; }
+      60% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
     }
 
     .field-area.theme-white {
@@ -553,6 +572,7 @@ export class CoachBoard extends LitElement {
     .share-editable-label {
       display: flex;
       align-items: center;
+      margin-top: 12px;
       gap: 8px;
       font-size: 0.85rem;
       color: var(--pt-text);
@@ -598,7 +618,7 @@ export class CoachBoard extends LitElement {
 
     .share-url {
       display: block;
-      margin-top: 4px;
+      margin-top: 24px;
       padding: 10px 12px;
       background: var(--pt-bg-primary);
       border: 1px solid var(--pt-border);
@@ -772,6 +792,7 @@ export class CoachBoard extends LitElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 6px;
       padding: 8px 20px;
       min-height: 44px;
       border: 1px solid rgba(255, 255, 255, 0.25);
@@ -869,7 +890,6 @@ export class CoachBoard extends LitElement {
   @state() accessor fieldOrientation: FieldOrientation = window.innerWidth <= 768 ? 'vertical' : 'horizontal';
   @state() accessor fieldTheme: FieldTheme = 'green';
   @state() accessor ghost: GhostCursor | null = null;
-  @state() private accessor _pendingOrientation: FieldOrientation | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
@@ -884,7 +904,6 @@ export class CoachBoard extends LitElement {
   @state() private accessor _playbackLoop: boolean = true;
 
   @query('svg') accessor svgEl!: SVGSVGElement;
-  @query('#orientation-dialog') accessor _orientationDialog!: HTMLDialogElement;
   @query('#reset-dialog') accessor _resetDialog!: HTMLDialogElement;
   @query('#about-dialog') accessor _aboutDialog!: HTMLDialogElement;
   @query('#import-confirm-dialog') accessor _importConfirmDialog!: HTMLDialogElement;
@@ -895,10 +914,11 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
   @state() private accessor _pauseFlash: boolean = false;
+  @state() private accessor _playBtnAnim: '' | 'press-out' | 'press-in' = '';
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
-  @state() private accessor _copiedVisible: boolean = false;
   #currentBoard: SavedBoard | null = null;
+  #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
   #shareCompressed: string = '';
   #shareShortId: string = '';
   #lastSharedData: string = '';
@@ -1500,7 +1520,7 @@ export class CoachBoard extends LitElement {
         ${this._viewMode === 'readonly' && this.animationFrames.length > 1 ? html`
           <div class="play-overlay" @click="${this.#toggleReadonlyPlayback}">
             ${this._showPlayOverlay ? html`
-              <div class="play-overlay-btn">
+              <div class="play-overlay-btn ${this._playBtnAnim}">
                 ${this._pauseFlash ? html`
                   <svg viewBox="0 0 16 16" width="42" height="42">
                     <rect x="4" y="3" width="3" height="10" rx="0.5" fill="white"/>
@@ -1739,43 +1759,23 @@ export class CoachBoard extends LitElement {
         <div class="dialog-body">
           <p>${this._shareMessage}</p>
           ${this._shareUrl ? html`
-            <div class="share-url-wrap">
-              <label class="share-editable-label">
-                <input type="checkbox" .checked="${this._shareEditable}" @change="${this.#onShareEditableChange}" />
-                Keep editable
-              </label>
-              <span class="copied-label ${this._copiedVisible ? 'visible' : ''}">Copied!</span>
-              <button class="copy-btn" title="Copy link" aria-label="Copy link"
-                      @click="${this.#copyShareUrl}">
-                <svg viewBox="0 0 16 16" width="14" height="14">
+            <code class="share-url">${this._shareUrl}</code>
+            <label class="share-editable-label">
+              <input type="checkbox" .checked="${this._shareEditable}" @change="${this.#onShareEditableChange}" />
+              Keep editable
+            </label>
+          ` : nothing}
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._shareDialog?.close()}">Close</button>
+            ${this._shareUrl ? html`
+              <button class="confirm-success" @click="${this.#copyAndClose}">
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="flex-shrink:0">
                   <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
                   <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                 </svg>
+                Copy link
               </button>
-            </div>
-            <code class="share-url">${this._shareUrl}</code>
-          ` : nothing}
-          <div class="confirm-actions end">
-            <button class="cancel-btn" @click="${() => this._shareDialog?.close()}">OK</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="orientation-dialog">
-        <div class="dialog-header">
-          <h2>Change field orientation</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${this.#cancelOrientationChange}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>What would you like to do with existing items? If you keep the items, some shifting may occur.</p>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${this.#cancelOrientationChange}">Cancel</button>
-            <div class="confirm-actions-right">
-              <button class="confirm-success" @click="${this.#applyOrientationKeep}">Keep items</button>
-              <button class="confirm-danger" @click="${this.#applyOrientationClear}">Clear all</button>
-            </div>
+            ` : nothing}
           </div>
         </div>
       </dialog>
@@ -2571,12 +2571,7 @@ export class CoachBoard extends LitElement {
     }
 
     this._shareUrl = this.#buildShareUrl();
-    try {
-      await navigator.clipboard.writeText(this._shareUrl);
-      this._shareMessage = 'Shareable link copied to clipboard!';
-    } catch {
-      this._shareMessage = 'Shareable link:';
-    }
+    this._shareMessage = 'Copy the link to share with players, other coaches, etc.';
     if (!this._shareDialog?.open) {
       requestAnimationFrame(() => this._shareDialog?.showModal());
     }
@@ -2587,12 +2582,11 @@ export class CoachBoard extends LitElement {
     this._shareUrl = this.#buildShareUrl();
   }
 
-  async #copyShareUrl() {
+  async #copyAndClose() {
     try {
       await navigator.clipboard.writeText(this._shareUrl);
-      this._copiedVisible = true;
-      setTimeout(() => { this._copiedVisible = false; }, 3000);
-    } catch { /* clipboard permission denied or document unfocused */ }
+      this._shareDialog?.close();
+    } catch { /* leave dialog open so URL remains visible for manual copy */ }
   }
 
   #importSvg() {
@@ -2997,20 +2991,33 @@ export class CoachBoard extends LitElement {
 
   #toggleReadonlyPlayback() {
     if (this.animationFrames.length < 2) return;
+    if (this._playBtnAnim !== '') return;
+
+    if (this.#playBtnTimeout != null) clearTimeout(this.#playBtnTimeout);
 
     if (this.isPlaying) {
       this.#stopPlayback();
       this._pauseFlash = true;
       this._showPlayOverlay = true;
-      setTimeout(() => { this._pauseFlash = false; }, 500);
+      this._playBtnAnim = 'press-in';
+      this.#playBtnTimeout = setTimeout(() => {
+        this._pauseFlash = false;
+        this._playBtnAnim = '';
+        this.#playBtnTimeout = null;
+      }, 1000);
     } else {
-      this._showPlayOverlay = false;
-      this.isPlaying = true;
-      this.selectedIds = new Set();
-      this._playbackProgress = 0;
-      this.activeFrameIndex = 0;
-      this.#playbackLastTime = null;
-      this.#playbackRaf = requestAnimationFrame(this.#playbackTick);
+      this._playBtnAnim = 'press-out';
+      this.#playBtnTimeout = setTimeout(() => {
+        this._showPlayOverlay = false;
+        this._playBtnAnim = '';
+        this.#playBtnTimeout = null;
+        this.isPlaying = true;
+        this.selectedIds = new Set();
+        this._playbackProgress = 0;
+        this.activeFrameIndex = 0;
+        this.#playbackLastTime = null;
+        this.#playbackRaf = requestAnimationFrame(this.#playbackTick);
+      }, 300);
     }
   }
 
@@ -3066,45 +3073,8 @@ export class CoachBoard extends LitElement {
     this._fieldMenuOpen = false;
     if (this._viewMode === 'readonly') return;
     if (orientation === this.fieldOrientation) return;
-    const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length;
-    if (!hasItems) {
-      this.#applyOrientation(orientation, false);
-    } else {
-      this._pendingOrientation = orientation;
-      requestAnimationFrame(() => this._orientationDialog?.showModal());
-    }
-  }
-
-  #cancelOrientationChange() {
-    this._pendingOrientation = null;
-    this._orientationDialog?.close();
-  }
-
-  #applyOrientationKeep() {
-    if (!this._pendingOrientation) return;
-    this.#applyOrientation(this._pendingOrientation, true);
-    this._pendingOrientation = null;
-    this._orientationDialog?.close();
-  }
-
-  #applyOrientationClear() {
-    if (!this._pendingOrientation) return;
-    this.#pushUndo();
-    this.players = [];
-    this.lines = [];
-    this.equipment = [];
-    this.shapes = [];
-    this.textItems = [];
-    this.animationFrames = [];
-    this.activeFrameIndex = 0;
-    this._animationMode = false;
-    this.#stopPlayback();
-    this._playbackProgress = 0;
-    this.selectedIds = new Set();
-    this.fieldOrientation = this._pendingOrientation;
-    this._pendingOrientation = null;
-    this._orientationDialog?.close();
-    this.#saveOrientationToStorage();
+    const hasItems = !!(this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length || this.animationFrames.length);
+    this.#applyOrientation(orientation, hasItems);
   }
 
   #requestClearAll() {
