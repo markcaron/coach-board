@@ -1,6 +1,6 @@
 {
   "name": "coach-board",
-  "version": "1.5.2-beta",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
