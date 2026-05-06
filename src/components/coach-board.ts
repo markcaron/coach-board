@@ -338,6 +338,11 @@ export class CoachBoard extends LitElement {
       margin-top: 4px;
     }
 
+    .item-description {
+      font-size: 0.7rem;
+      color: var(--pt-text-muted);
+    }
+
     .boards-list .delete-btn {
       flex-shrink: 0;
       background: transparent;
@@ -2126,7 +2131,7 @@ export class CoachBoard extends LitElement {
                 </svg>
                 <div>
                   <div>Export as SVG</div>
-                  <div class="board-date">Vector format with full board data. Can be reimported later.</div>
+                  <div class="item-description">Vector format with full board data. Can be reimported later.</div>
                 </div>
               </button>
             ` : nothing}
@@ -2137,7 +2142,7 @@ export class CoachBoard extends LitElement {
               </svg>
               <div>
                 <div>Save as PNG</div>
-                <div class="board-date">High-resolution image for sharing or printing.</div>
+                <div class="item-description">High-resolution image for sharing or printing.</div>
               </div>
             </button>
             ${this.animationFrames.length > 1 ? html`
@@ -2148,7 +2153,7 @@ export class CoachBoard extends LitElement {
                 </svg>
                 <div>
                   <div>Save as GIF</div>
-                  <div class="board-date">Animated image of the playback sequence.</div>
+                  <div class="item-description">Animated image of the playback sequence.</div>
                 </div>
               </button>
             ` : nothing}
@@ -2877,14 +2882,13 @@ export class CoachBoard extends LitElement {
     this.#currentBoard = { ...this.#currentBoard, name };
     this._boardName = name;
     saveBoard(this.#currentBoard).catch(() => {});
+    const pendingAction = this.#pendingBoardAction;
+    const pendingId = this.#pendingOpenBoardId;
     this._saveBoardDialog?.close();
-    if (this.#pendingBoardAction === 'new') {
-      this.#pendingBoardAction = null;
+    if (pendingAction === 'new') {
       requestAnimationFrame(() => this._newBoardDialog?.showModal());
-    } else if (this.#pendingBoardAction === 'open') {
-      this.#pendingBoardAction = null;
-      this.#doOpenBoard(this.#pendingOpenBoardId!);
-      this.#pendingOpenBoardId = null;
+    } else if (pendingAction === 'open') {
+      this.#doOpenBoard(pendingId!);
     }
   }
 
