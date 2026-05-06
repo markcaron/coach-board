@@ -405,8 +405,8 @@ export class CoachBoard extends LitElement {
     }
 
     .bottom-bar button[aria-pressed="true"] {
-      background: var(--pt-danger);
-      border-color: var(--pt-danger);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
       color: var(--pt-text-white);
     }
 
@@ -423,8 +423,8 @@ export class CoachBoard extends LitElement {
 
     .bottom-bar button.danger {
       background: transparent;
-      color: var(--pt-danger-light);
-      border-color: var(--pt-danger-light);
+      color: var(--pt-danger-lightest);
+      border-color: var(--pt-danger-lightest);
     }
 
     .bottom-bar button.danger:hover {
@@ -819,13 +819,13 @@ export class CoachBoard extends LitElement {
     }
 
     .confirm-actions .confirm-danger {
-      background: var(--pt-danger);
-      border-color: var(--pt-danger);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
       color: var(--pt-text-white);
     }
 
     .confirm-actions .confirm-danger:hover {
-      background: var(--pt-danger-hover);
+      background: var(--pt-danger);
     }
 
     .rotate-overlay {
@@ -1695,6 +1695,7 @@ export class CoachBoard extends LitElement {
       </div>
 
       <input type="file" accept=".svg,image/svg+xml" class="visually-hidden" id="svg-import-input"
+             tabindex="-1" aria-label="Import SVG file"
              @change="${this.#onFileSelected}" />
 
       <dialog id="import-confirm-dialog">

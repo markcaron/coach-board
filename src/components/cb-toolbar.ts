@@ -241,8 +241,8 @@ export class CbToolbar extends LitElement {
     }
 
     button[aria-pressed="true"] {
-      background: var(--pt-danger);
-      border-color: var(--pt-danger);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
       color: var(--pt-text-white);
     }
 
@@ -252,8 +252,8 @@ export class CbToolbar extends LitElement {
 
     button.danger {
       background: transparent;
-      color: var(--pt-danger-light);
-      border-color: var(--pt-danger-light);
+      color: var(--pt-danger-lightest);
+      border-color: var(--pt-danger-lightest);
     }
 
     button.danger:hover {
@@ -672,13 +672,13 @@ export class CbToolbar extends LitElement {
     }
 
     .confirm-actions .confirm-danger {
-      background: var(--pt-danger);
-      border-color: var(--pt-danger);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
       color: var(--pt-text-white);
     }
 
     .confirm-actions .confirm-danger:hover {
-      background: var(--pt-danger-hover);
+      background: var(--pt-danger);
     }
 
   `;
