@@ -371,10 +371,6 @@ export class CoachBoard extends LitElement {
       font-family: system-ui, -apple-system, sans-serif;
     }
 
-    .bottom-bar.readonly {
-      grid-template-columns: 0 1fr auto;
-    }
-
     .bottom-left {
       display: flex;
       gap: 4px;
@@ -1585,7 +1581,7 @@ export class CoachBoard extends LitElement {
             </button>
           ` : nothing}
           <label class="visually-hidden" for="field-theme-select">Field theme</label>
-          <select id="field-theme-select" class="theme-select"
+          <select id="field-theme-select" class="theme-select" aria-label="Field theme"
                   @change="${this.#onThemeChange}">
             <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
             <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
