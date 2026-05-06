@@ -6,7 +6,7 @@ import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, ge
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
-import { saveBoard, loadBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
+import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
@@ -276,6 +276,140 @@ export class CoachBoard extends LitElement {
     .branding-text {
       font-size: 1rem;
       font-weight: bold;
+      color: var(--pt-text);
+    }
+
+    .board-name-bar {
+      text-align: center;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      color: var(--pt-text-muted);
+      background: var(--pt-bg-body);
+      user-select: none;
+    }
+
+    .board-name-bar .unsaved {
+      opacity: 0.6;
+      font-style: italic;
+    }
+
+    .boards-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .boards-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--pt-border);
+      cursor: pointer;
+    }
+
+    .boards-list li:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .boards-list .board-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .boards-list .board-title {
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .boards-list .board-date {
+      font-size: 0.7rem;
+      color: var(--pt-text-muted);
+    }
+
+    .boards-list .delete-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: none;
+      color: var(--pt-danger-lightest);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      min-width: 32px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .boards-list .delete-btn:hover {
+      background: rgba(248, 113, 113, 0.15);
+    }
+
+    .export-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .export-options button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--pt-bg-surface);
+      border: 1px solid var(--pt-border);
+      border-radius: 6px;
+      color: var(--pt-text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .export-options button:hover {
+      background: var(--pt-border);
+    }
+
+    .save-board-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--pt-bg-primary);
+      border: 1px solid var(--pt-border);
+      border-radius: 6px;
+      color: var(--pt-text);
+      font-size: 0.85rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      margin-top: 12px;
+    }
+
+    .save-board-input:focus {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .import-svg-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      margin-top: 12px;
+      background: transparent;
+      border: 1px dashed var(--pt-border);
+      border-radius: 6px;
+      color: var(--pt-text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .import-svg-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
       color: var(--pt-text);
     }
 
@@ -910,6 +1044,14 @@ export class CoachBoard extends LitElement {
   @query('#import-error-dialog') accessor _importErrorDialog!: HTMLDialogElement;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('#share-dialog') accessor _shareDialog!: HTMLDialogElement;
+  @query('#save-board-dialog') accessor _saveBoardDialog!: HTMLDialogElement;
+  @query('#new-board-dialog') accessor _newBoardDialog!: HTMLDialogElement;
+  @query('#my-boards-dialog') accessor _myBoardsDialog!: HTMLDialogElement;
+  @query('#delete-board-dialog') accessor _deleteBoardDialog!: HTMLDialogElement;
+  @query('#export-dialog') accessor _exportDialog!: HTMLDialogElement;
+  @state() private accessor _boardName: string = 'Untitled Board';
+  @state() private accessor _myBoards: SavedBoard[] = [];
+  @state() private accessor _saveBoardName: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
@@ -918,6 +1060,9 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   #currentBoard: SavedBoard | null = null;
+  #pendingBoardAction: 'new' | 'open' | null = null;
+  #pendingOpenBoardId: string | null = null;
+  #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
   #shareCompressed: string = '';
   #shareShortId: string = '';
@@ -968,6 +1113,15 @@ export class CoachBoard extends LitElement {
       shapes: structuredClone(this.shapes),
       textItems: structuredClone(this.textItems),
     };
+  }
+
+  get #isBoardEmpty(): boolean {
+    return !this.players.length && !this.lines.length && !this.equipment.length
+      && !this.shapes.length && !this.textItems.length && !this.animationFrames.length;
+  }
+
+  get #isBoardSaved(): boolean {
+    return !!this.#currentBoard && this.#currentBoard.name !== 'Untitled Board';
   }
 
   #saveToStorage() {
@@ -1038,6 +1192,7 @@ export class CoachBoard extends LitElement {
       }
 
       this.#currentBoard = board;
+      this._boardName = board.name;
       setActiveBoardId(board.id);
 
       if (board.players.length) this.players = board.players;
@@ -1429,6 +1584,14 @@ export class CoachBoard extends LitElement {
         </div>
       `}
 
+      ${this._viewMode !== 'readonly' ? html`
+        <div class="board-name-bar">
+          ${this.#isBoardSaved
+            ? this._boardName
+            : html`<span class="unsaved">${this._boardName} (unsaved)</span>`}
+        </div>
+      ` : nothing}
+
       <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
         <div class="svg-wrap ${this.fieldOrientation === 'vertical' ? 'vertical' : ''}">
         <svg
@@ -1661,16 +1824,36 @@ export class CoachBoard extends LitElement {
 
                 ${this._viewMode !== 'readonly' ? html`
                 <div class="menu-divider"></div>
-
                 <button role="menuitem" tabindex="-1"
-                        @click="${this.#importSvg}">
-                  <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0">
-                    <path d="M1188.44 69.585L1215.56 80.835L1220.15 82.7383L1223.66 86.25L1554.3 416.883L1557.72 420.299L1559.62 424.743L1571.49 452.556L1573.5 457.259V1362.37C1573.5 1455.94 1496.92 1532.37 1403.5 1532.37H1403.5L511.873 1532.31V1532.31C418.24 1532.31 341.942 1455.91 341.941 1362.31V1167.94C341.941 1148.4 349.621 1131.97 362.452 1120.71C374.8 1109.87 390.504 1105.01 405.348 1105.01C420.191 1105.01 435.896 1109.87 448.243 1120.71C461.074 1131.97 468.754 1148.4 468.754 1167.94V1362.31C468.754 1385.94 488.31 1405.5 511.941 1405.5H1403.62C1427.44 1405.5 1446.81 1385.87 1446.81 1362.31L1446.75 525.736H1271C1185.51 525.736 1115.5 455.731 1115.5 370.236V194.489H511.874C488.082 194.489 468.686 214.082 468.686 237.678V432.051C468.685 451.587 461.007 468.021 448.176 479.282C435.828 490.119 420.123 494.973 405.28 494.973C390.437 494.973 374.732 490.119 362.385 479.282C349.554 468.021 341.874 451.587 341.874 432.051V237.678C341.874 144.122 418.379 67.6777 511.808 67.6777H1183.84L1188.44 69.585ZM1242.31 370.32C1242.31 386.138 1255.18 399.008 1271 399.008H1357.15L1242.31 284.168V370.32Z" fill="currentColor"/>
-                    <path d="M654.197 454.276L948.997 749.076C949.799 749.477 950.195 750.274 950.596 750.675C961.398 761.477 968.195 775.477 970.195 789.477C970.195 790.675 970.596 791.879 970.596 793.076C970.997 795.477 970.997 797.879 970.997 800.274L970.596 807.076C970.596 808.274 970.195 809.477 970.195 810.675C968.195 825.077 961.393 838.675 950.596 849.478C950.195 849.879 949.398 850.676 948.997 851.077L654.197 1145.88C640.599 1159.48 622.599 1166.28 604.599 1166.28C586.599 1166.28 568.599 1159.48 555 1145.88C527.803 1118.68 527.803 1074.28 555 1046.68L732.2 869.48L83 869.469C44.5987 869.469 13 837.871 13 799.469C13 780.272 21 762.667 33.4013 749.871C46.2034 737.068 63.4013 729.469 83 729.469L732.2 729.469L555 552.269C527.803 525.072 527.803 480.671 555 453.072C582.599 427.072 627 427.072 654.197 454.27L654.197 454.276Z" fill="currentColor"/>
+                        @click="${this.#showMyBoards}">
+                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                    <rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                    <line x1="5" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.2"/>
+                    <line x1="5" y1="9" x2="11" y2="9" stroke="currentColor" stroke-width="1.2"/>
                   </svg>
-                  Import SVG
+                  My Boards
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#handleNewBoard}">
+                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                    <rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                    <line x1="8" y1="5" x2="8" y2="11" stroke="currentColor" stroke-width="1.3"/>
+                    <line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.3"/>
+                  </svg>
+                  New Board
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#showSaveBoard}">
+                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                    <path d="M3 2h8l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                    <rect x="5" y="2" width="6" height="4" fill="none" stroke="currentColor" stroke-width="1"/>
+                    <rect x="4" y="10" width="8" height="4" rx="0.5" fill="none" stroke="currentColor" stroke-width="1"/>
+                  </svg>
+                  Save Board
                 </button>
                 ` : nothing}
+
+                <div class="menu-divider"></div>
                 <button role="menuitem" tabindex="-1"
                         @click="${this.#shareLink}">
                   <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
@@ -1680,34 +1863,18 @@ export class CoachBoard extends LitElement {
                     <line x1="6.2" y1="6.8" x2="9.8" y2="4.2" stroke="currentColor" stroke-width="1.2"/>
                     <line x1="6.2" y1="9.2" x2="9.8" y2="11.8" stroke="currentColor" stroke-width="1.2"/>
                   </svg>
-                  Share link
+                  Share Board
                 </button>
 
                 <div class="menu-divider"></div>
-
-                <div class="menu-heading">
-                  <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#showExportDialog}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                     <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
                     <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
                   </svg>
-                  Export / Save
-                </div>
-                ${this._viewMode !== 'readonly' ? html`
-                <button role="menuitem" tabindex="-1" class="menu-indent"
-                        @click="${this.#saveSvg}">
-                  Export as SVG
+                  Export Board
                 </button>
-                ` : nothing}
-                <button role="menuitem" tabindex="-1" class="menu-indent"
-                        @click="${this.#savePng}">
-                  Save as PNG
-                </button>
-                ${this.animationFrames.length > 1 ? html`
-                  <button role="menuitem" tabindex="-1" class="menu-indent"
-                          @click="${this.#saveGif}">
-                    Save as GIF
-                  </button>
-                ` : nothing}
               </div>
             ` : nothing}
           </div>
@@ -1810,6 +1977,120 @@ export class CoachBoard extends LitElement {
           <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
           <div class="confirm-actions centered">
             <button class="cancel-btn" @click="${() => this._aboutDialog?.close()}">OK</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="save-board-dialog">
+        <div class="dialog-header">
+          <h2>Save Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._saveBoardDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Give your board a name to save it.</p>
+          <input class="save-board-input" type="text" placeholder="Board name"
+                 .value="${this._saveBoardName}"
+                 @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}"
+                 @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
+            <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="new-board-dialog">
+        <div class="dialog-header">
+          <h2>New Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._newBoardDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Create a new empty board?</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
+            <button class="confirm-success" @click="${this.#confirmNewBoard}">Create New Board</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="my-boards-dialog">
+        <div class="dialog-header">
+          <h2>My Boards</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._myBoardsDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          ${this._myBoards.length ? html`
+            <ul class="boards-list">
+              ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
+                <li>
+                  <div class="board-info" @click="${() => this.#handleOpenBoard(b.id)}">
+                    <div class="board-title">${b.name}</div>
+                    <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                  </div>
+                  <button class="delete-btn" title="Delete board" aria-label="Delete ${b.name}"
+                          @click="${(e: Event) => { e.stopPropagation(); this.#handleDeleteBoard(b); }}">
+                    <svg viewBox="0 0 16 16" width="14" height="14">
+                      <path d="M4 4h8l-1 10H5L4 4z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                      <path d="M3 4h10M6 2h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </li>
+              `)}
+            </ul>
+          ` : html`<p>No saved boards yet.</p>`}
+          <button class="import-svg-btn" @click="${this.#importSvgFromMyBoards}">
+            <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Import from SVG
+          </button>
+          <div class="confirm-actions end">
+            <button class="cancel-btn" @click="${() => this._myBoardsDialog?.close()}">Close</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="delete-board-dialog">
+        <div class="dialog-header">
+          <h2>Delete Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._deleteBoardDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Are you sure you want to delete "${this.#pendingDeleteBoard?.name}"? This cannot be undone.</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._deleteBoardDialog?.close()}">Cancel</button>
+            <button class="confirm-danger" @click="${this.#confirmDeleteBoard}">Delete</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="export-dialog">
+        <div class="dialog-header">
+          <h2>Export Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._exportDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="export-options">
+            ${this._viewMode !== 'readonly' ? html`
+              <button @click="${this.#exportSvg}">Export as SVG</button>
+            ` : nothing}
+            <button @click="${this.#exportPng}">Save as PNG</button>
+            ${this.animationFrames.length > 1 ? html`
+              <button @click="${this.#exportGif}">Save as GIF</button>
+            ` : nothing}
+          </div>
+          <div class="confirm-actions end">
+            <button class="cancel-btn" @click="${() => this._exportDialog?.close()}">Close</button>
           </div>
         </div>
       </dialog>
@@ -2506,6 +2787,154 @@ export class CoachBoard extends LitElement {
   #showAbout() {
     this._menuOpen = false;
     requestAnimationFrame(() => this._aboutDialog?.showModal());
+  }
+
+  #showSaveBoard() {
+    this._menuOpen = false;
+    this._saveBoardName = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
+    requestAnimationFrame(() => this._saveBoardDialog?.showModal());
+  }
+
+  #confirmSaveBoard() {
+    const name = this._saveBoardName.trim();
+    if (!name || !this.#currentBoard) return;
+    this.#currentBoard = { ...this.#currentBoard, name };
+    this._boardName = name;
+    saveBoard(this.#currentBoard).catch(() => {});
+    this._saveBoardDialog?.close();
+    if (this.#pendingBoardAction === 'new') {
+      this.#pendingBoardAction = null;
+      requestAnimationFrame(() => this._newBoardDialog?.showModal());
+    } else if (this.#pendingBoardAction === 'open') {
+      this.#pendingBoardAction = null;
+      this.#doOpenBoard(this.#pendingOpenBoardId!);
+      this.#pendingOpenBoardId = null;
+    }
+  }
+
+  #showExportDialog() {
+    this._menuOpen = false;
+    requestAnimationFrame(() => this._exportDialog?.showModal());
+  }
+
+  #exportSvg() { this._exportDialog?.close(); this.#saveSvg(); }
+  #exportPng() { this._exportDialog?.close(); this.#savePng(); }
+  #exportGif() { this._exportDialog?.close(); this.#saveGif(); }
+
+  #handleNewBoard() {
+    this._menuOpen = false;
+    if (!this.#isBoardSaved && !this.#isBoardEmpty) {
+      this.#pendingBoardAction = 'new';
+      this._saveBoardName = '';
+      requestAnimationFrame(() => this._saveBoardDialog?.showModal());
+      return;
+    }
+    if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
+      deleteBoard(this.#currentBoard.id).catch(() => {});
+    }
+    requestAnimationFrame(() => this._newBoardDialog?.showModal());
+  }
+
+  async #confirmNewBoard() {
+    this._newBoardDialog?.close();
+    const board = createEmptyBoard();
+    await saveBoard(board);
+    this.#currentBoard = board;
+    this._boardName = board.name;
+    setActiveBoardId(board.id);
+    this.players = [];
+    this.lines = [];
+    this.equipment = [];
+    this.shapes = [];
+    this.textItems = [];
+    this.animationFrames = [];
+    this.activeFrameIndex = 0;
+    this._animationMode = false;
+    this.#stopPlayback();
+    this._playbackProgress = 0;
+    this._playbackLoop = true;
+    this.selectedIds = new Set();
+    this.fieldTheme = 'green';
+    this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
+  }
+
+  async #showMyBoards() {
+    this._menuOpen = false;
+    this._myBoards = await listBoards();
+    requestAnimationFrame(() => this._myBoardsDialog?.showModal());
+  }
+
+  #handleOpenBoard(id: string) {
+    if (id === this.#currentBoard?.id) {
+      this._myBoardsDialog?.close();
+      return;
+    }
+    if (!this.#isBoardSaved && !this.#isBoardEmpty) {
+      this.#pendingBoardAction = 'open';
+      this.#pendingOpenBoardId = id;
+      this._myBoardsDialog?.close();
+      this._saveBoardName = '';
+      requestAnimationFrame(() => this._saveBoardDialog?.showModal());
+      return;
+    }
+    if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
+      deleteBoard(this.#currentBoard.id).catch(() => {});
+    }
+    this._myBoardsDialog?.close();
+    this.#doOpenBoard(id);
+  }
+
+  async #doOpenBoard(id: string) {
+    const board = await loadBoard(id);
+    if (!board) return;
+    this.#currentBoard = board;
+    this._boardName = board.name;
+    setActiveBoardId(board.id);
+    this.players = board.players;
+    this.lines = board.lines;
+    this.equipment = board.equipment;
+    this.shapes = board.shapes;
+    this.textItems = board.textItems;
+    this.animationFrames = board.animationFrames;
+    this._animationMode = board.animationMode;
+    this._playbackLoop = board.playbackLoop;
+    this.activeFrameIndex = 0;
+    this.#stopPlayback();
+    this._playbackProgress = 0;
+    this.selectedIds = new Set();
+    if (!this._isMobile) this.fieldOrientation = board.fieldOrientation;
+    this.fieldTheme = board.fieldTheme;
+    const allIds = [
+      ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
+    ].map(i => i.id)
+      .concat(this.lines.map(l => l.id))
+      .concat(this.animationFrames.map(f => f.id));
+    for (const aid of allIds) {
+      const num = parseInt(aid.split('-').pop() ?? '0', 10);
+      if (!isNaN(num)) ensureMinId(num);
+    }
+  }
+
+  #handleDeleteBoard(board: SavedBoard) {
+    this.#pendingDeleteBoard = board;
+    requestAnimationFrame(() => this._deleteBoardDialog?.showModal());
+  }
+
+  async #confirmDeleteBoard() {
+    if (!this.#pendingDeleteBoard) return;
+    const id = this.#pendingDeleteBoard.id;
+    this.#pendingDeleteBoard = null;
+    this._deleteBoardDialog?.close();
+    await deleteBoard(id);
+    this._myBoards = await listBoards();
+    if (id === this.#currentBoard?.id) {
+      await this.#confirmNewBoard();
+    }
+  }
+
+  #importSvgFromMyBoards() {
+    this._myBoardsDialog?.close();
+    this.#importSvg();
   }
 
   #pendingImportData: Record<string, unknown> | null = null;
