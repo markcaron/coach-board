@@ -3568,10 +3568,8 @@ export class CoachBoard extends LitElement {
       if (this._animationMode && this.activeFrameIndex > 0) {
         const frame = this.animationFrames[this.activeFrameIndex];
         if (frame) {
-          const pos = frame.positions[id] ?? this.#getItemPositionAtFrame(id,
-            this.players.find(p => p.id === id)?.x ?? this.equipment.find(e => e.id === id)?.x ?? 0,
-            this.players.find(p => p.id === id)?.y ?? this.equipment.find(e => e.id === id)?.y ?? 0,
-            this.activeFrameIndex);
+          const base = this.players.find(p => p.id === id) ?? this.equipment.find(e => e.id === id);
+          const pos = frame.positions[id] ?? this.#getItemPositionAtFrame(id, base?.x ?? 0, base?.y ?? 0, this.activeFrameIndex);
           const newPositions = { ...frame.positions, [id]: { ...pos, angle: newAngle } };
           this.animationFrames = this.animationFrames.map((f, i) =>
             i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
