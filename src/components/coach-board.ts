@@ -1958,10 +1958,10 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          <p>Import will replace all current items on the board. Continue?</p>
+          <p>Import this SVG as a new board?</p>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._importConfirmDialog?.close()}">Cancel</button>
-            <button class="confirm-danger" @click="${this.#confirmImport}">Yes, import</button>
+            <button class="confirm-success" @click="${this.#confirmImport}">Import</button>
           </div>
         </div>
       </dialog>
@@ -3227,31 +3227,28 @@ export class CoachBoard extends LitElement {
     reader.readAsText(file);
   }
 
-  #confirmImport() {
+  async #confirmImport() {
     this._importConfirmDialog?.close();
     const data = this.#pendingImportData;
     if (!data) return;
     this.#pendingImportData = null;
 
-    this.#pushUndo();
-    if (Array.isArray(data.players)) this.players = data.players as Player[];
-    if (Array.isArray(data.lines)) this.lines = data.lines as Line[];
-    if (Array.isArray(data.equipment)) this.equipment = data.equipment as Equipment[];
-    if (Array.isArray(data.shapes)) this.shapes = data.shapes as Shape[];
-    if (Array.isArray(data.textItems)) this.textItems = data.textItems as TextItem[];
+    const board = createEmptyBoard('Imported Board');
+    if (Array.isArray(data.players)) board.players = data.players as Player[];
+    if (Array.isArray(data.lines)) board.lines = data.lines as Line[];
+    if (Array.isArray(data.equipment)) board.equipment = data.equipment as Equipment[];
+    if (Array.isArray(data.shapes)) board.shapes = data.shapes as Shape[];
+    if (Array.isArray(data.textItems)) board.textItems = data.textItems as TextItem[];
     if (Array.isArray(data.animationFrames)) {
-      this.animationFrames = data.animationFrames as AnimationFrame[];
-      if (this.animationFrames.length > 0) this._animationMode = true;
+      board.animationFrames = data.animationFrames as AnimationFrame[];
+      if (board.animationFrames.length > 0) board.animationMode = true;
     }
-    if (typeof data.playbackLoop === 'boolean') this._playbackLoop = data.playbackLoop;
-    if (data.fieldTheme === 'green' || data.fieldTheme === 'white') {
-      this.fieldTheme = data.fieldTheme;
-    }
-    if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') {
-      this.fieldOrientation = data.fieldOrientation as FieldOrientation;
-    }
-    this.selectedIds = new Set();
-    this.activeFrameIndex = 0;
+    if (typeof data.playbackLoop === 'boolean') board.playbackLoop = data.playbackLoop;
+    if (data.fieldTheme === 'green' || data.fieldTheme === 'white') board.fieldTheme = data.fieldTheme;
+    if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') board.fieldOrientation = data.fieldOrientation as FieldOrientation;
+
+    await saveBoard(board);
+    this.#doOpenBoard(board.id);
   }
 
   #closeMenu() {
