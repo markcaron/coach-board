@@ -2011,7 +2011,7 @@ export class CoachBoard extends LitElement {
         </div>
       </dialog>
 
-      <dialog id="save-board-dialog">
+      <dialog id="save-board-dialog" @close="${() => { this.#pendingBoardAction = null; this.#pendingOpenBoardId = null; }}">
         <div class="dialog-header">
           <h2>${this.#pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
           <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._saveBoardDialog?.close()}">
@@ -2855,8 +2855,20 @@ export class CoachBoard extends LitElement {
 
   #showSaveBoard() {
     this._menuOpen = false;
+    this.#pendingBoardAction = null;
+    this.#pendingOpenBoardId = null;
     this._saveBoardName = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
-    requestAnimationFrame(() => this._saveBoardDialog?.showModal());
+    this.#openSaveBoardDialog();
+  }
+
+  #openSaveBoardDialog() {
+    requestAnimationFrame(() => {
+      this._saveBoardDialog?.showModal();
+      this.updateComplete.then(() => {
+        const input = this.renderRoot.querySelector('#save-board-input') as HTMLInputElement | null;
+        input?.focus();
+      });
+    });
   }
 
   #confirmSaveBoard() {
@@ -2890,7 +2902,7 @@ export class CoachBoard extends LitElement {
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingBoardAction = 'new';
       this._saveBoardName = '';
-      requestAnimationFrame(() => this._saveBoardDialog?.showModal());
+      this.#openSaveBoardDialog();
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
@@ -2916,8 +2928,10 @@ export class CoachBoard extends LitElement {
     this._animationMode = false;
     this.#stopPlayback();
     this._playbackProgress = 0;
-    this._playbackLoop = true;
+    this._playbackLoop = board.playbackLoop;
     this.selectedIds = new Set();
+    this.#undoStack = [];
+    this.#redoStack = [];
     this.fieldTheme = 'green';
     this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
   }
@@ -2938,7 +2952,7 @@ export class CoachBoard extends LitElement {
       this.#pendingOpenBoardId = id;
       this._myBoardsDialog?.close();
       this._saveBoardName = '';
-      requestAnimationFrame(() => this._saveBoardDialog?.showModal());
+      this.#openSaveBoardDialog();
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
@@ -2966,6 +2980,8 @@ export class CoachBoard extends LitElement {
     this.#stopPlayback();
     this._playbackProgress = 0;
     this.selectedIds = new Set();
+    this.#undoStack = [];
+    this.#redoStack = [];
     if (!this._isMobile) this.fieldOrientation = board.fieldOrientation;
     this.fieldTheme = board.fieldTheme;
     const allIds = [

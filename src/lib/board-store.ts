@@ -69,7 +69,7 @@ export function createEmptyBoard(name = 'Untitled Board'): SavedBoard {
     fieldTheme: 'green',
     fieldOrientation: 'horizontal',
     animationMode: false,
-    playbackLoop: false,
+    playbackLoop: true,
     players: [],
     lines: [],
     equipment: [],
