@@ -302,6 +302,7 @@ export interface TrailControlPoints {
 export interface FramePosition {
   x: number;
   y: number;
+  angle?: number;
 }
 
 export interface AnimationFrame {

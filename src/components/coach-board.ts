@@ -1,7 +1,7 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
-import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, AnimationFrame, TrailControlPoints } from '../lib/types.js';
+import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
@@ -2521,6 +2521,9 @@ export class CoachBoard extends LitElement {
     } catch {
       this._shareMessage = 'Shareable link:';
     }
+    if (!this._shareDialog?.open) {
+      requestAnimationFrame(() => this._shareDialog?.showModal());
+    }
   }
 
   #onShareEditableChange(e: Event) {
@@ -2684,12 +2687,29 @@ export class CoachBoard extends LitElement {
     return { x: baseX, y: baseY };
   }
 
+  #getItemAngle(id: string, baseAngle: number | undefined): number | undefined {
+    if (!this._animationMode) return baseAngle;
+    for (let i = this.activeFrameIndex; i >= 0; i--) {
+      const pos = this.animationFrames[i]?.positions[id];
+      if (pos && pos.angle != null) return pos.angle;
+    }
+    return baseAngle;
+  }
+
   #getItemPositionAtFrame(id: string, baseX: number, baseY: number, frameIndex: number): { x: number; y: number } {
     for (let i = frameIndex; i >= 0; i--) {
       const pos = this.animationFrames[i]?.positions[id];
       if (pos) return { x: pos.x, y: pos.y };
     }
     return { x: baseX, y: baseY };
+  }
+
+  #getItemAngleAtFrame(id: string, baseAngle: number | undefined, frameIndex: number): number | undefined {
+    for (let i = frameIndex; i >= 0; i--) {
+      const pos = this.animationFrames[i]?.positions[id];
+      if (pos && pos.angle != null) return pos.angle;
+    }
+    return baseAngle;
   }
 
   #isLineVisible(lineId: string): boolean {
@@ -2716,7 +2736,8 @@ export class CoachBoard extends LitElement {
     if (this.isPlaying) return this.#getInterpolatedPlayers();
     return this.players.map(p => {
       const pos = this.#getItemPosition(p.id, p.x, p.y);
-      return pos.x === p.x && pos.y === p.y ? p : { ...p, x: pos.x, y: pos.y };
+      const angle = this.#getItemAngle(p.id, p.angle);
+      return { ...p, x: pos.x, y: pos.y, angle };
     });
   }
 
@@ -2725,7 +2746,8 @@ export class CoachBoard extends LitElement {
     if (this.isPlaying) return this.#getInterpolatedEquipment();
     return this.equipment.map(eq => {
       const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
-      return pos.x === eq.x && pos.y === eq.y ? eq : { ...eq, x: pos.x, y: pos.y };
+      const angle = this.#getItemAngle(eq.id, eq.angle);
+      return { ...eq, x: pos.x, y: pos.y, angle };
     });
   }
 
@@ -2736,13 +2758,17 @@ export class CoachBoard extends LitElement {
     if (toIdx >= this.animationFrames.length) {
       return this.players.map(p => {
         const pos = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
-        return { ...p, x: pos.x, y: pos.y };
+        const angle = this.#getItemAngleAtFrame(p.id, p.angle, fromIdx);
+        return { ...p, x: pos.x, y: pos.y, angle };
       });
     }
     return this.players.map(p => {
       const from = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
       const to = this.#getItemPositionAtFrame(p.id, p.x, p.y, toIdx);
-      if (from.x === to.x && from.y === to.y) return { ...p, x: from.x, y: from.y };
+      const fromAngle = this.#getItemAngleAtFrame(p.id, p.angle, fromIdx) ?? 0;
+      const toAngle = this.#getItemAngleAtFrame(p.id, p.angle, toIdx) ?? 0;
+      const angle = fromAngle + (toAngle - fromAngle) * t;
+      if (from.x === to.x && from.y === to.y) return { ...p, x: from.x, y: from.y, angle };
       const toFrame = this.animationFrames[toIdx];
       const trail = toFrame?.trails[p.id];
       const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
@@ -2753,6 +2779,7 @@ export class CoachBoard extends LitElement {
         ...p,
         x: cubicBezier(t, from.x, cp1x, cp2x, to.x),
         y: cubicBezier(t, from.y, cp1y, cp2y, to.y),
+        angle,
       };
     });
   }
@@ -2764,13 +2791,17 @@ export class CoachBoard extends LitElement {
     if (toIdx >= this.animationFrames.length) {
       return this.equipment.map(eq => {
         const pos = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
-        return { ...eq, x: pos.x, y: pos.y };
+        const angle = this.#getItemAngleAtFrame(eq.id, eq.angle, fromIdx);
+        return { ...eq, x: pos.x, y: pos.y, angle };
       });
     }
     return this.equipment.map(eq => {
       const from = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
       const to = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, toIdx);
-      if (from.x === to.x && from.y === to.y) return { ...eq, x: from.x, y: from.y };
+      const fromAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, fromIdx) ?? 0;
+      const toAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, toIdx) ?? 0;
+      const angle = fromAngle + (toAngle - fromAngle) * t;
+      if (from.x === to.x && from.y === to.y) return { ...eq, x: from.x, y: from.y, angle };
       const toFrame = this.animationFrames[toIdx];
       const trail = toFrame?.trails[eq.id];
       const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
@@ -2781,6 +2812,7 @@ export class CoachBoard extends LitElement {
         ...eq,
         x: cubicBezier(t, from.x, cp1x, cp2x, to.x),
         y: cubicBezier(t, from.y, cp1y, cp2y, to.y),
+        angle,
       };
     });
   }
@@ -3005,6 +3037,11 @@ export class CoachBoard extends LitElement {
     this.equipment = [];
     this.shapes = [];
     this.textItems = [];
+    this.animationFrames = [];
+    this.activeFrameIndex = 0;
+    this._animationMode = false;
+    this.isPlaying = false;
+    this._playbackProgress = 0;
     this.selectedIds = new Set();
     this.fieldOrientation = this._pendingOrientation;
     this._pendingOrientation = null;
@@ -3013,7 +3050,7 @@ export class CoachBoard extends LitElement {
   }
 
   #requestClearAll() {
-    const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length;
+    const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length || this.animationFrames.length;
     if (hasItems) {
       requestAnimationFrame(() => this._resetDialog?.showModal());
     }
@@ -3063,10 +3100,10 @@ export class CoachBoard extends LitElement {
       return { ...l, x1: r1.x, y1: r1.y, x2: r2.x, y2: r2.y, cx: rc.x, cy: rc.y };
     });
     this.animationFrames = this.animationFrames.map(frame => {
-      const newPositions: Record<string, { x: number; y: number }> = {};
+      const newPositions: Record<string, FramePosition> = {};
       for (const [id, pos] of Object.entries(frame.positions)) {
         const r = rotatePoint(pos.x, pos.y);
-        newPositions[id] = { x: r.x, y: r.y };
+        newPositions[id] = { x: r.x, y: r.y, angle: rotateAngle(pos.angle) };
       }
       const newTrails: Record<string, { cp1x: number; cp1y: number; cp2x: number; cp2y: number }> = {};
       for (const [id, trail] of Object.entries(frame.trails)) {
@@ -3212,7 +3249,7 @@ export class CoachBoard extends LitElement {
   }
 
   #onClearAll(_e: ClearAllEvent) {
-    if (this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length) {
+    if (this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length || this.animationFrames.length) {
       this.#pushUndo();
     }
     this.players = [];
@@ -3220,6 +3257,11 @@ export class CoachBoard extends LitElement {
     this.equipment = [];
     this.shapes = [];
     this.textItems = [];
+    this.animationFrames = [];
+    this.activeFrameIndex = 0;
+    this._animationMode = false;
+    this.isPlaying = false;
+    this._playbackProgress = 0;
     this.selectedIds = new Set();
   }
 
@@ -3576,7 +3618,10 @@ export class CoachBoard extends LitElement {
         if (frame) {
           const newPositions = { ...frame.positions };
           for (const [id, orig] of pointOrigins) {
-            newPositions[id] = { x: orig.x + dx, y: orig.y + dy };
+            const player = this.players.find(p => p.id === id);
+            const equip = player ? undefined : this.equipment.find(e => e.id === id);
+            const angle = player?.angle ?? equip?.angle;
+            newPositions[id] = { x: orig.x + dx, y: orig.y + dy, angle };
           }
           this.animationFrames = this.animationFrames.map((f, i) =>
             i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
@@ -3700,9 +3745,9 @@ export class CoachBoard extends LitElement {
 
     for (const id of this.selectedIds) {
       const p = this.players.find(pl => pl.id === id);
-      if (p) { newPositions[id] = { x: p.x, y: p.y }; continue; }
+      if (p) { newPositions[id] = { x: p.x, y: p.y, angle: p.angle }; continue; }
       const eq = this.equipment.find(e => e.id === id);
-      if (eq) { newPositions[id] = { x: eq.x, y: eq.y }; continue; }
+      if (eq) { newPositions[id] = { x: eq.x, y: eq.y, angle: eq.angle }; continue; }
     }
 
     this.animationFrames = this.animationFrames.map((f, i) =>
