@@ -224,6 +224,7 @@ export class CoachBoard extends LitElement {
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
+      touch-action: none;
       --color-blue: var(--pt-color-blue-400);
       --color-red: var(--pt-color-red-400);
       --color-yellow: var(--pt-color-yellow-400);
@@ -495,6 +496,7 @@ export class CoachBoard extends LitElement {
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      touch-action: none;
       min-height: 0;
       padding: 12px;
       background: var(--pt-bg-body);
