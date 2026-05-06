@@ -1110,6 +1110,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _boardName: string = 'Untitled Board';
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _saveBoardName: string = '';
+  @state() private accessor _deleteBoardName: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
@@ -2125,7 +2126,7 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          <p>Are you sure you want to delete "${this.#pendingDeleteBoard?.name}"? This cannot be undone.</p>
+          <p>Are you sure you want to delete "${this._deleteBoardName}"? This cannot be undone.</p>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._deleteBoardDialog?.close()}">Cancel</button>
             <button class="confirm-danger" @click="${this.#confirmDeleteBoard}">Delete</button>
@@ -3020,6 +3021,7 @@ export class CoachBoard extends LitElement {
 
   #handleDeleteBoard(board: SavedBoard) {
     this.#pendingDeleteBoard = board;
+    this._deleteBoardName = board.name;
     requestAnimationFrame(() => this._deleteBoardDialog?.showModal());
   }
 
