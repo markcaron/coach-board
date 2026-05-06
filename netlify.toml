@@ -6,6 +6,12 @@
 [functions]
   node_bundler = "esbuild"
 
+[context.staging]
+  command = "npm run build"
+
+[context."staging/*"]
+  command = "npm run build"
+
 [[redirects]]
   from = "/s/*"
   to = "/index.html"
