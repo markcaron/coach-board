@@ -372,8 +372,7 @@ export class CoachBoard extends LitElement {
     }
 
     .bottom-bar.readonly {
-      display: flex;
-      justify-content: flex-end;
+      grid-template-columns: 0 1fr auto;
     }
 
     .bottom-left {
@@ -1574,9 +1573,8 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         ` : nothing}
-        ${this._viewMode !== 'readonly' ? html`
         <div class="bottom-center">
-          ${!this._isMobile ? html`
+          ${this._viewMode !== 'readonly' && !this._isMobile ? html`
             <button aria-pressed="${this._animationMode}"
                     title="Animate" aria-label="Animate"
                     @click="${this.#toggleAnimationMode}">
@@ -1592,7 +1590,7 @@ export class CoachBoard extends LitElement {
             <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
             <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
           </select>
-          ${!this._isMobile ? html`
+          ${this._viewMode !== 'readonly' && !this._isMobile ? html`
             <div class="dropdown-wrap">
               <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
                       title="Field orientation"
@@ -1626,7 +1624,6 @@ export class CoachBoard extends LitElement {
             </div>
           ` : nothing}
         </div>
-        ` : nothing}
         <div class="bottom-right">
           ${this._viewMode !== 'readonly' ? html`
           <button class="danger" aria-label="Reset all" title="Reset all"
