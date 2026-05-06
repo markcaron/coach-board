@@ -306,17 +306,8 @@ export class CoachBoard extends LitElement {
 
     .boards-list li {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 8px;
-      padding: 12px 16px;
-      background: var(--pt-bg-surface);
-      border: 1px solid var(--pt-border);
-      border-radius: 6px;
-      transition: background 0.15s;
-    }
-
-    .boards-list li:hover {
-      background: var(--pt-border);
     }
 
     .boards-list .board-info {
@@ -327,26 +318,31 @@ export class CoachBoard extends LitElement {
     .boards-list .board-open-btn {
       flex: 1;
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 12px;
-      background: none;
-      border: none;
+      padding: 12px 16px;
+      background: var(--pt-bg-surface);
+      border: 1px solid var(--pt-border);
+      border-radius: 6px;
       color: inherit;
       cursor: pointer;
-      padding: 0;
       text-align: left;
       min-width: 0;
+      transition: background 0.15s;
+    }
+
+    .boards-list .board-open-btn:hover {
+      background: var(--pt-border);
     }
 
     .boards-list .board-open-btn:focus-visible {
       outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
-      border-radius: 4px;
     }
 
     .boards-list .board-icon {
       flex-shrink: 0;
-      color: var(--pt-text-muted);
+      color: white;
     }
 
     .boards-list .board-title {
@@ -457,8 +453,9 @@ export class CoachBoard extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 16px;
-      margin-top: 12px;
+      padding: 8px 20px;
+      min-height: 44px;
+      margin-top: 8px;
       background: transparent;
       border: 1px dashed var(--pt-border);
       border-radius: 6px;
@@ -2086,7 +2083,7 @@ export class CoachBoard extends LitElement {
               ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
                 <li>
                   <button class="board-open-btn" aria-label="Open ${b.name}" @click="${() => this.#handleOpenBoard(b.id)}">
-                    <svg class="board-icon" viewBox="0 0 1200 1200" width="24" height="24" aria-hidden="true" fill="currentColor" style="transform: rotate(90deg)">
+                    <svg class="board-icon" viewBox="0 0 1200 1200" width="28" height="28" aria-hidden="true" fill="currentColor" style="transform: rotate(90deg)">
                       <path d="m1050.2 206.34h-900.37c-50.016 0-90.703 40.688-90.703 90.703v605.86c0 50.016 40.688 90.703 90.703 90.703h900.42c50.016 0 90.703-40.688 90.703-90.703v-605.81c0-50.062-40.734-90.75-90.75-90.75zm58.875 696.56c0 32.484-26.391 58.875-58.875 58.875h-900.37c-32.484 0-58.875-26.391-58.875-58.875v-605.81c0-32.484 26.391-58.875 58.875-58.875h900.42c32.484 0 58.875 26.391 58.875 58.875v605.81z"/>
                       <path d="m1031.3 300.1h-862.5c-8.8125 0-15.938 7.125-15.938 15.938v568.03c0 8.8125 7.125 15.938 15.938 15.938h862.5c8.8125 0 15.938-7.125 15.938-15.938v-568.03c0-8.8125-7.125-15.938-15.938-15.938zm-447.19 410.48c-54.281-7.8281-96.281-54.188-96.281-110.58s42-102.75 96.281-110.58zm31.875-221.16c54.281 7.8281 96.281 54.188 96.281 110.58s-42 102.75-96.281 110.58zm-431.26 20.719h53.062c11.719 0 21.328 9.5625 21.328 21.328v137.02c0 11.719-9.5625 21.328-21.328 21.328l-53.062 0.046875zm0 211.6h53.062c29.344 0 53.156-23.859 53.156-53.156v-137.02c0-29.344-23.859-53.156-53.156-53.156l-53.062-0.046875v-146.39h399.37v125.63c-71.859 8.0625-128.16 68.484-128.16 142.4 0 73.969 56.25 134.39 128.16 142.4v125.63h-399.37zm431.26 146.29v-125.63c71.859-8.0625 128.16-68.484 128.16-142.4 0-73.969-56.25-134.39-128.16-142.4v-125.63h399.37v146.34l-53.062-0.046875c-29.344 0-53.156 23.859-53.156 53.156v137.02c0 29.344 23.859 53.156 53.156 53.156h53.062v146.34l-399.37 0.046874zm399.37-178.18h-53.062c-11.719 0-21.328-9.5625-21.328-21.328v-137.02c0-11.719 9.5625-21.328 21.328-21.328h53.062z"/>
                     </svg>
@@ -2106,6 +2103,7 @@ export class CoachBoard extends LitElement {
               `)}
             </ul>
           ` : html`<p>No saved boards yet.</p>`}
+          <p class="item-description" style="margin-top: 24px;">All board data is saved to your browser's local storage. Exporting your boards as SVGs is the best way to keep backups.</p>
           <button class="import-svg-btn" @click="${this.#importSvgFromMyBoards}">
             <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
               <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
