@@ -918,6 +918,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   #currentBoard: SavedBoard | null = null;
+  #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
   #shareCompressed: string = '';
   #shareShortId: string = '';
   #lastSharedData: string = '';
@@ -1765,10 +1766,10 @@ export class CoachBoard extends LitElement {
             </label>
           ` : nothing}
           <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._shareDialog?.close()}">Cancel</button>
+            <button class="cancel-btn" @click="${() => this._shareDialog?.close()}">Close</button>
             ${this._shareUrl ? html`
               <button class="confirm-success" @click="${this.#copyAndClose}">
-                <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="flex-shrink:0">
                   <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
                   <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                 </svg>
@@ -2584,8 +2585,8 @@ export class CoachBoard extends LitElement {
   async #copyAndClose() {
     try {
       await navigator.clipboard.writeText(this._shareUrl);
-    } catch { /* clipboard permission denied or document unfocused */ }
-    this._shareDialog?.close();
+      this._shareDialog?.close();
+    } catch { /* leave dialog open so URL remains visible for manual copy */ }
   }
 
   #importSvg() {
@@ -2990,21 +2991,26 @@ export class CoachBoard extends LitElement {
 
   #toggleReadonlyPlayback() {
     if (this.animationFrames.length < 2) return;
+    if (this._playBtnAnim !== '') return;
+
+    if (this.#playBtnTimeout != null) clearTimeout(this.#playBtnTimeout);
 
     if (this.isPlaying) {
       this.#stopPlayback();
       this._pauseFlash = true;
       this._showPlayOverlay = true;
       this._playBtnAnim = 'press-in';
-      setTimeout(() => {
+      this.#playBtnTimeout = setTimeout(() => {
         this._pauseFlash = false;
         this._playBtnAnim = '';
+        this.#playBtnTimeout = null;
       }, 1000);
     } else {
       this._playBtnAnim = 'press-out';
-      setTimeout(() => {
+      this.#playBtnTimeout = setTimeout(() => {
         this._showPlayOverlay = false;
         this._playBtnAnim = '';
+        this.#playBtnTimeout = null;
         this.isPlaying = true;
         this.selectedIds = new Set();
         this._playbackProgress = 0;
