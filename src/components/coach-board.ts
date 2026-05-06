@@ -6,7 +6,7 @@ import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, ge
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
-import { saveBoard, loadBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
+import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
@@ -276,6 +276,207 @@ export class CoachBoard extends LitElement {
     .branding-text {
       font-size: 1rem;
       font-weight: bold;
+      color: var(--pt-text);
+    }
+
+    .board-name-bar {
+      text-align: center;
+      padding: 12px 12px 0;
+      font-size: 0.75rem;
+      color: var(--pt-text-muted);
+      background: var(--pt-bg-body);
+      user-select: none;
+    }
+
+    .board-name-bar.theme-white {
+      background: var(--pt-field-area-white);
+      color: var(--pt-color-gray-600);
+    }
+
+    .board-name-bar.theme-white .unsaved {
+      color: var(--pt-color-gray-500);
+    }
+
+    .board-name-bar .unsaved {
+      opacity: 0.6;
+      font-style: italic;
+    }
+
+    .boards-list {
+      list-style: none;
+      margin: 0;
+      padding: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .boards-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .boards-list .board-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .boards-list .board-open-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--pt-bg-surface);
+      border: 1px solid var(--pt-border);
+      border-radius: 6px;
+      color: inherit;
+      cursor: pointer;
+      text-align: left;
+      min-width: 0;
+      transition: background 0.15s;
+    }
+
+    .boards-list .board-open-btn:hover {
+      background: var(--pt-border);
+    }
+
+    .boards-list .board-open-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .boards-list .board-icon {
+      flex-shrink: 0;
+      color: white;
+    }
+
+    .boards-list .board-title {
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .boards-list .board-date {
+      font-size: 0.7rem;
+      color: var(--pt-text-muted);
+      margin-top: 4px;
+    }
+
+    .item-description {
+      font-size: 0.7rem;
+      color: var(--pt-text-muted);
+      margin-top: 4px;
+    }
+
+    .boards-list .delete-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: none;
+      color: var(--pt-danger-lightest);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      min-width: 32px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .boards-list .delete-btn:hover {
+      background: rgba(248, 113, 113, 0.15);
+    }
+
+    .export-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .export-options button {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--pt-bg-surface);
+      border: 1px solid var(--pt-border);
+      border-radius: 6px;
+      color: var(--pt-text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-align: left;
+    }
+
+    .export-options button:hover {
+      background: var(--pt-border);
+    }
+
+    .export-options button:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .boards-list .delete-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .import-svg-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .save-board-label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--pt-text-muted);
+      margin-top: 16px;
+      margin-bottom: 6px;
+    }
+
+    .save-board-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--pt-bg-primary);
+      border: 1px solid var(--pt-border);
+      border-radius: 6px;
+      color: var(--pt-text);
+      font-size: 0.85rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      box-sizing: border-box;
+    }
+
+    .save-board-input:focus {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .import-svg-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      min-height: 44px;
+      margin-top: 16px;
+      background: transparent;
+      border: 1px dashed var(--pt-border);
+      border-radius: 6px;
+      color: var(--pt-text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .import-svg-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
       color: var(--pt-text);
     }
 
@@ -905,6 +1106,15 @@ export class CoachBoard extends LitElement {
   @query('#import-error-dialog') accessor _importErrorDialog!: HTMLDialogElement;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('#share-dialog') accessor _shareDialog!: HTMLDialogElement;
+  @query('#save-board-dialog') accessor _saveBoardDialog!: HTMLDialogElement;
+  @query('#new-board-dialog') accessor _newBoardDialog!: HTMLDialogElement;
+  @query('#my-boards-dialog') accessor _myBoardsDialog!: HTMLDialogElement;
+  @query('#delete-board-dialog') accessor _deleteBoardDialog!: HTMLDialogElement;
+  @query('#export-dialog') accessor _exportDialog!: HTMLDialogElement;
+  @state() private accessor _boardName: string = 'Untitled Board';
+  @state() private accessor _myBoards: SavedBoard[] = [];
+  @state() private accessor _saveBoardName: string = '';
+  @state() private accessor _deleteBoardName: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
@@ -913,6 +1123,9 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   #currentBoard: SavedBoard | null = null;
+  #pendingBoardAction: 'new' | 'open' | null = null;
+  #pendingOpenBoardId: string | null = null;
+  #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
   #shareCompressed: string = '';
   #shareShortId: string = '';
@@ -963,6 +1176,15 @@ export class CoachBoard extends LitElement {
       shapes: structuredClone(this.shapes),
       textItems: structuredClone(this.textItems),
     };
+  }
+
+  get #isBoardEmpty(): boolean {
+    return !this.players.length && !this.lines.length && !this.equipment.length
+      && !this.shapes.length && !this.textItems.length && !this.animationFrames.length;
+  }
+
+  get #isBoardSaved(): boolean {
+    return !!this.#currentBoard && this.#currentBoard.name !== 'Untitled Board';
   }
 
   #saveToStorage() {
@@ -1033,6 +1255,7 @@ export class CoachBoard extends LitElement {
       }
 
       this.#currentBoard = board;
+      this._boardName = board.name;
       setActiveBoardId(board.id);
 
       if (board.players.length) this.players = board.players;
@@ -1424,6 +1647,14 @@ export class CoachBoard extends LitElement {
         </div>
       `}
 
+      ${this._viewMode !== 'readonly' ? html`
+        <div class="board-name-bar ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
+          Board: ${this.#isBoardSaved
+            ? this._boardName
+            : html`<span class="unsaved">${this._boardName} (unsaved)</span>`}
+        </div>
+      ` : nothing}
+
       <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
         <div class="svg-wrap ${this.fieldOrientation === 'vertical' ? 'vertical' : ''}">
         <svg
@@ -1645,62 +1876,60 @@ export class CoachBoard extends LitElement {
                    @keydown="${this.#onMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${this.#showAbout}">
-                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
-                    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" />
-                    <text x="8" y="12" text-anchor="middle" fill="currentColor" font-size="11" font-weight="bold" font-family="system-ui, sans-serif">i</text>
+                  <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0" fill="currentColor">
+                    <path d="m600 112.5c-129.29 0-253.29 51.363-344.71 142.79-91.422 91.426-142.79 215.42-142.79 344.71s51.363 253.29 142.79 344.71c91.426 91.422 215.42 142.79 344.71 142.79s253.29-51.363 344.71-142.79c91.422-91.426 142.79-215.42 142.79-344.71-0.14453-129.25-51.555-253.16-142.95-344.55-91.395-91.391-215.3-142.8-344.55-142.95zm0 900c-109.4 0-214.32-43.461-291.68-120.82-77.359-77.355-120.82-182.28-120.82-291.68s43.461-214.32 120.82-291.68c77.355-77.359 182.28-120.82 291.68-120.82s214.32 43.461 291.68 120.82c77.359 77.355 120.82 182.28 120.82 291.68-0.11719 109.37-43.617 214.22-120.95 291.55s-182.18 120.83-291.55 120.95z"/>
+                    <path d="m675 812.5h-37.5v-312.5c0-9.9453-3.9492-19.484-10.984-26.516-7.0312-7.0352-16.57-10.984-26.516-10.984h-25c-11.887 0.003906-23.066 5.6445-30.137 15.203-7.0664 9.5586-9.1836 21.898-5.707 33.266s12.137 20.414 23.344 24.383v277.15h-37.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h150c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
+                    <path d="m650 350c0 27.613-22.387 50-50 50s-50-22.387-50-50 22.387-50 50-50 50 22.387 50 50z"/>
                   </svg>
                   About
                 </button>
 
                 ${this._viewMode !== 'readonly' ? html`
                 <div class="menu-divider"></div>
-
                 <button role="menuitem" tabindex="-1"
-                        @click="${this.#importSvg}">
-                  <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0">
-                    <path d="M1188.44 69.585L1215.56 80.835L1220.15 82.7383L1223.66 86.25L1554.3 416.883L1557.72 420.299L1559.62 424.743L1571.49 452.556L1573.5 457.259V1362.37C1573.5 1455.94 1496.92 1532.37 1403.5 1532.37H1403.5L511.873 1532.31V1532.31C418.24 1532.31 341.942 1455.91 341.941 1362.31V1167.94C341.941 1148.4 349.621 1131.97 362.452 1120.71C374.8 1109.87 390.504 1105.01 405.348 1105.01C420.191 1105.01 435.896 1109.87 448.243 1120.71C461.074 1131.97 468.754 1148.4 468.754 1167.94V1362.31C468.754 1385.94 488.31 1405.5 511.941 1405.5H1403.62C1427.44 1405.5 1446.81 1385.87 1446.81 1362.31L1446.75 525.736H1271C1185.51 525.736 1115.5 455.731 1115.5 370.236V194.489H511.874C488.082 194.489 468.686 214.082 468.686 237.678V432.051C468.685 451.587 461.007 468.021 448.176 479.282C435.828 490.119 420.123 494.973 405.28 494.973C390.437 494.973 374.732 490.119 362.385 479.282C349.554 468.021 341.874 451.587 341.874 432.051V237.678C341.874 144.122 418.379 67.6777 511.808 67.6777H1183.84L1188.44 69.585ZM1242.31 370.32C1242.31 386.138 1255.18 399.008 1271 399.008H1357.15L1242.31 284.168V370.32Z" fill="currentColor"/>
-                    <path d="M654.197 454.276L948.997 749.076C949.799 749.477 950.195 750.274 950.596 750.675C961.398 761.477 968.195 775.477 970.195 789.477C970.195 790.675 970.596 791.879 970.596 793.076C970.997 795.477 970.997 797.879 970.997 800.274L970.596 807.076C970.596 808.274 970.195 809.477 970.195 810.675C968.195 825.077 961.393 838.675 950.596 849.478C950.195 849.879 949.398 850.676 948.997 851.077L654.197 1145.88C640.599 1159.48 622.599 1166.28 604.599 1166.28C586.599 1166.28 568.599 1159.48 555 1145.88C527.803 1118.68 527.803 1074.28 555 1046.68L732.2 869.48L83 869.469C44.5987 869.469 13 837.871 13 799.469C13 780.272 21 762.667 33.4013 749.871C46.2034 737.068 63.4013 729.469 83 729.469L732.2 729.469L555 552.269C527.803 525.072 527.803 480.671 555 453.072C582.599 427.072 627 427.072 654.197 454.27L654.197 454.276Z" fill="currentColor"/>
+                        @click="${this.#showMyBoards}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                    <path d="m250 1087.5h700c49.707-0.066406 97.359-19.84 132.51-54.992 35.152-35.148 54.926-82.801 54.992-132.51v-450c-0.066406-49.707-19.84-97.359-54.992-132.51-35.148-35.152-82.801-54.926-132.51-54.992h-287.9c-29.824-0.074219-58.41-11.918-79.551-32.949l-62.102-62.102c-35.199-35.098-82.84-54.863-132.55-55h-137.9c-49.715 0.066406-97.375 19.848-132.53 55.008-35.148 35.16-54.918 82.828-54.973 132.54v600c0.066406 49.707 19.84 97.359 54.992 132.51 35.148 35.152 82.801 54.926 132.51 54.992zm-112.5-787.5c0.039062-29.824 11.906-58.418 32.996-79.504 21.086-21.09 49.68-32.957 79.504-32.996h137.9c29.824 0.074219 58.41 11.918 79.551 32.949l62.102 62.102c35.199 35.098 82.84 54.863 132.55 55h287.9c29.816 0.039063 58.398 11.898 79.488 32.977 21.086 21.078 32.957 49.656 33.012 79.473v450c-0.039062 29.824-11.906 58.418-32.996 79.504-21.086 21.09-49.68 32.957-79.504 32.996h-700c-29.824-0.039062-58.418-11.906-79.504-32.996-21.09-21.086-32.957-49.68-32.996-79.504z"/>
                   </svg>
-                  Import SVG
+                  My Boards
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#handleNewBoard}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                    <path d="m300 1137.5h600c62.965-0.078125 123.33-25.129 167.85-69.648 44.52-44.523 69.57-104.89 69.648-167.85v-600c-0.078125-62.965-25.129-123.33-69.648-167.85-44.523-44.52-104.89-69.57-167.85-69.648h-600c-62.965 0.078125-123.33 25.129-167.85 69.648-44.52 44.523-69.57 104.89-69.648 167.85v600c0.078125 62.965 25.129 123.33 69.648 167.85 44.523 44.52 104.89 69.57 167.85 69.648zm-162.5-837.5c0.054688-43.082 17.191-84.383 47.652-114.85 30.465-30.461 71.766-47.598 114.85-47.652h600c43.082 0.054688 84.383 17.191 114.85 47.652 30.461 30.465 47.598 71.766 47.652 114.85v600c-0.054688 43.082-17.191 84.383-47.652 114.85-30.465 30.461-71.766 47.598-114.85 47.652h-600c-43.082-0.054688-84.383-17.191-114.85-47.652-30.461-30.465-47.598-71.766-47.652-114.85z"/>
+                    <path d="m400 637.5h162.5v162.5c0 13.398 7.1484 25.777 18.75 32.477 11.602 6.6992 25.898 6.6992 37.5 0 11.602-6.6992 18.75-19.078 18.75-32.477v-162.5h162.5c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75h-162.5v-162.5c0-13.398-7.1484-25.777-18.75-32.477-11.602-6.6992-25.898-6.6992-37.5 0-11.602 6.6992-18.75 19.078-18.75 32.477v162.5h-162.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75z"/>
+                  </svg>
+                  New Board
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#showSaveBoard}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                    <path d="m112.5 200v800c0.027344 36.461 14.523 71.418 40.301 97.199 25.781 25.777 60.738 40.273 97.199 40.301h700c36.461-0.027344 71.418-14.523 97.199-40.301 25.777-25.781 40.273-60.738 40.301-97.199v-615c0.027344-31.207-10.551-61.496-30-85.898l-148.05-185c-26.07-32.719-65.664-51.723-107.5-51.602h-551.95c-36.461 0.027344-71.418 14.523-97.199 40.301-25.777 25.781-40.273 60.738-40.301 97.199zm225 862.5v-362.5c0-6.9023 5.5977-12.5 12.5-12.5h500c3.3164 0 6.4961 1.3164 8.8398 3.6602s3.6602 5.5234 3.6602 8.8398v362.5zm375-925v112.5c0 3.3164-1.3164 6.4961-3.6602 8.8398s-5.5234 3.6602-8.8398 3.6602h-300c-6.9023 0-12.5-5.5977-12.5-12.5v-112.5zm-525 62.5c0.027344-16.566 6.6211-32.449 18.336-44.164 11.715-11.715 27.598-18.309 44.164-18.336h62.5v112.5c0.027344 23.199 9.2539 45.438 25.656 61.844 16.406 16.402 38.645 25.629 61.844 25.656h300c23.199-0.027344 45.438-9.2539 61.844-25.656 16.402-16.406 25.629-38.645 25.656-61.844v-112.5h14.449c18.996-0.042969 36.969 8.5938 48.801 23.449l148.1 185c8.8086 11.113 13.617 24.871 13.648 39.051v615c-0.027344 16.566-6.6211 32.449-18.336 44.164-11.715 11.715-27.598 18.309-44.164 18.336h-12.5v-362.5c-0.027344-23.199-9.2539-45.438-25.656-61.844-16.406-16.402-38.645-25.629-61.844-25.656h-500c-23.199 0.027344-45.438 9.2539-61.844 25.656-16.402 16.406-25.629 38.645-25.656 61.844v362.5h-12.5c-16.566-0.027344-32.449-6.6211-44.164-18.336-11.715-11.715-18.309-27.598-18.336-44.164z"/>
+                    <path d="m750 762.5h-300c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h300c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
+                    <path d="m750 912.5h-300c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h300c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
+                  </svg>
+                  Save Board
                 </button>
                 ` : nothing}
+
+                <div class="menu-divider"></div>
                 <button role="menuitem" tabindex="-1"
                         @click="${this.#shareLink}">
-                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
-                    <circle cx="12" cy="3" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                    <circle cx="4" cy="8" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                    <circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                    <line x1="6.2" y1="6.8" x2="9.8" y2="4.2" stroke="currentColor" stroke-width="1.2"/>
-                    <line x1="6.2" y1="9.2" x2="9.8" y2="11.8" stroke="currentColor" stroke-width="1.2"/>
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                    <path d="m300 837.5c36.375-0.11328 72.234-8.625 104.79-24.867 32.547-16.242 60.906-39.781 82.863-68.781l233.15 125.6 0.003906-0.003906c-5.2422 18.062-8.0352 36.746-8.3008 55.551-0.25 51.039 17.758 100.48 50.77 139.41 33.012 38.922 78.852 64.762 129.25 72.844 50.395 8.0859 102.02-2.1172 145.55-28.762s76.102-67.973 91.828-116.53c15.727-48.555 13.57-101.13-6.0703-148.24-19.645-47.105-55.484-85.637-101.05-108.63-45.562-22.992-97.848-28.938-147.41-16.762-49.566 12.18-93.141 41.68-122.86 83.172l-229.45-123.6c18.93-50.207 18.93-105.59 0-155.8l229.7-123.6c29.523 40.945 72.699 70 121.75 81.93 49.047 11.93 100.75 5.9492 145.77-16.867 45.031-22.816 80.43-60.961 99.824-107.57 19.391-46.605 21.5-98.605 5.9453-146.63-15.551-48.023-47.746-88.91-90.781-115.3-43.031-26.387-94.074-36.539-143.93-28.621s-95.242 33.379-127.98 71.801c-32.742 38.418-50.688 87.27-50.598 137.75 0.26562 18.805 3.0586 37.488 8.3008 55.551l-233.4 125.6c-32.859-42.824-79.348-73.152-131.79-85.969-52.438-12.816-107.68-7.3516-156.59 15.488-48.91 22.84-88.559 61.688-112.39 110.12-23.832 48.434-30.422 103.55-18.676 156.24 11.742 52.688 41.117 99.785 83.266 133.51 42.148 33.727 94.543 52.055 148.52 51.961zm625-50c36.469 0 71.441 14.488 97.227 40.273 25.785 25.785 40.273 60.758 40.273 97.227s-14.488 71.441-40.273 97.227c-25.785 25.785-60.758 40.273-97.227 40.273s-71.441-14.488-97.227-40.273c-25.785-25.785-40.273-60.758-40.273-97.227 0.027344-36.461 14.523-71.418 40.301-97.199 25.781-25.777 60.738-40.273 97.199-40.301zm0-650c36.469 0 71.441 14.488 97.227 40.273 25.785 25.785 40.273 60.758 40.273 97.227s-14.488 71.441-40.273 97.227c-25.785 25.785-60.758 40.273-97.227 40.273s-71.441-14.488-97.227-40.273c-25.785-25.785-40.273-60.758-40.273-97.227 0.027344-36.461 14.523-71.418 40.301-97.199 25.781-25.777 60.738-40.273 97.199-40.301zm-625 300c43.098 0 84.43 17.121 114.91 47.594 30.473 30.477 47.594 71.809 47.594 114.91s-17.121 84.43-47.594 114.91c-30.477 30.473-71.809 47.594-114.91 47.594s-84.43-17.121-114.91-47.594c-30.473-30.477-47.594-71.809-47.594-114.91 0.054688-43.082 17.191-84.383 47.652-114.85 30.465-30.461 71.766-47.598 114.85-47.652z"/>
                   </svg>
-                  Share link
+                  Share Link
                 </button>
 
                 <div class="menu-divider"></div>
-
-                <div class="menu-heading">
-                  <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
-                    <path d="m1076.4 816.6v210.9c0 4.1992-0.60156 8.1016-1.5 11.699-4.1992 20.699-22.5 36.301-44.102 36.301h-861.9c-23.102 0-42.301-17.699-44.699-40.199-0.60156-2.6992-0.60156-5.1016-0.60156-8.1016v-210.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 8.1016 8.1016 13.199 19.5 13.199 31.801v168.9h773.1v-168.9c0-24.898 20.398-45 45-45 12.301 0 23.699 5.1016 31.801 13.199 7.8008 8.3984 12.898 19.801 12.898 32.102z" fill="currentColor"/>
-                    <path d="m859.5 605.4-221.1 221.1c-0.30078 0.60156-0.89844 0.89844-1.1992 1.1992-8.1016 8.1016-18.602 13.199-29.102 14.699-0.89844 0-1.8008 0.30078-2.6992 0.30078-1.8008 0.30078-3.6016 0.30078-5.3984 0.30078l-5.1016-0.30078c-0.89844 0-1.8008-0.30078-2.6992-0.30078-10.801-1.5-21-6.6016-29.102-14.699-0.30078-0.30078-0.89844-0.89844-1.1992-1.1992l-221.1-221.1c-10.199-10.199-15.301-23.699-15.301-37.199s5.1016-27 15.301-37.199c20.398-20.398 53.699-20.398 74.398 0l132.9 132.9 0.007812-486.9c0-28.801 23.699-52.5 52.5-52.5 14.398 0 27.602 6 37.199 15.301 9.6016 9.6016 15.301 22.5 15.301 37.199v486.9l132.9-132.9c20.398-20.398 53.699-20.398 74.398 0 19.5 20.699 19.5 54-0.89844 74.398z" fill="currentColor"/>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#showExportDialog}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                    <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
+                    <path d="m600 37.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v566.55l-197.5-164.55c-12.738-10.59-29.156-15.695-45.656-14.199-16.496 1.5-31.727 9.4844-42.344 22.199-10.59 12.738-15.695 29.156-14.199 45.656 1.5 16.496 9.4844 31.727 22.199 42.344l300 250c3.1484 2.2344 6.4961 4.1758 10 5.8008 2.2852 1.5312 4.6758 2.9023 7.1484 4.0977 14.566 6.1328 30.988 6.1328 45.551 0 2.4141-1.2031 4.7539-2.5547 7-4.0469 3.5039-1.6289 6.8477-3.5703 10-5.8008l300-250c13.23-11.004 21.336-26.977 22.41-44.148 1.0742-17.176-4.9766-34.031-16.73-46.598-11.758-12.566-28.172-19.73-45.379-19.805-14.613 0.027344-28.762 5.1562-40 14.5l-197.5 164.55v-566.55c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
                   </svg>
-                  Export / Save
-                </div>
-                ${this._viewMode !== 'readonly' ? html`
-                <button role="menuitem" tabindex="-1" class="menu-indent"
-                        @click="${this.#saveSvg}">
-                  Export as SVG
+                  Export Board
                 </button>
-                ` : nothing}
-                <button role="menuitem" tabindex="-1" class="menu-indent"
-                        @click="${this.#savePng}">
-                  Save as PNG
-                </button>
-                ${this.animationFrames.length > 1 ? html`
-                  <button role="menuitem" tabindex="-1" class="menu-indent"
-                          @click="${this.#saveGif}">
-                    Save as GIF
-                  </button>
-                ` : nothing}
               </div>
             ` : nothing}
           </div>
@@ -1803,6 +2032,156 @@ export class CoachBoard extends LitElement {
           <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
           <div class="confirm-actions centered">
             <button class="cancel-btn" @click="${() => this._aboutDialog?.close()}">OK</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="save-board-dialog" @close="${() => { this.#pendingBoardAction = null; this.#pendingOpenBoardId = null; }}">
+        <div class="dialog-header">
+          <h2>${this.#pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._saveBoardDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>${this.#pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
+          <label class="save-board-label" for="save-board-input">Board name</label>
+          <input class="save-board-input" id="save-board-input" type="text" placeholder="Board name"
+                 .value="${this._saveBoardName}"
+                 @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}"
+                 @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
+            <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="new-board-dialog">
+        <div class="dialog-header">
+          <h2>New Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._newBoardDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Create a new empty board?</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
+            <button class="confirm-success" @click="${this.#confirmNewBoard}">Create New Board</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="my-boards-dialog">
+        <div class="dialog-header">
+          <h2>My Boards</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._myBoardsDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          ${this._myBoards.length ? html`
+            <ul class="boards-list">
+              ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
+                <li>
+                  <button class="board-open-btn" aria-label="Open ${b.name}" @click="${() => this.#handleOpenBoard(b.id)}">
+                    <svg class="board-icon" viewBox="0 0 1200 1200" width="28" height="28" aria-hidden="true" fill="currentColor" style="transform: rotate(90deg)">
+                      <path d="m1050.2 206.34h-900.37c-50.016 0-90.703 40.688-90.703 90.703v605.86c0 50.016 40.688 90.703 90.703 90.703h900.42c50.016 0 90.703-40.688 90.703-90.703v-605.81c0-50.062-40.734-90.75-90.75-90.75zm58.875 696.56c0 32.484-26.391 58.875-58.875 58.875h-900.37c-32.484 0-58.875-26.391-58.875-58.875v-605.81c0-32.484 26.391-58.875 58.875-58.875h900.42c32.484 0 58.875 26.391 58.875 58.875v605.81z"/>
+                      <path d="m1031.3 300.1h-862.5c-8.8125 0-15.938 7.125-15.938 15.938v568.03c0 8.8125 7.125 15.938 15.938 15.938h862.5c8.8125 0 15.938-7.125 15.938-15.938v-568.03c0-8.8125-7.125-15.938-15.938-15.938zm-447.19 410.48c-54.281-7.8281-96.281-54.188-96.281-110.58s42-102.75 96.281-110.58zm31.875-221.16c54.281 7.8281 96.281 54.188 96.281 110.58s-42 102.75-96.281 110.58zm-431.26 20.719h53.062c11.719 0 21.328 9.5625 21.328 21.328v137.02c0 11.719-9.5625 21.328-21.328 21.328l-53.062 0.046875zm0 211.6h53.062c29.344 0 53.156-23.859 53.156-53.156v-137.02c0-29.344-23.859-53.156-53.156-53.156l-53.062-0.046875v-146.39h399.37v125.63c-71.859 8.0625-128.16 68.484-128.16 142.4 0 73.969 56.25 134.39 128.16 142.4v125.63h-399.37zm431.26 146.29v-125.63c71.859-8.0625 128.16-68.484 128.16-142.4 0-73.969-56.25-134.39-128.16-142.4v-125.63h399.37v146.34l-53.062-0.046875c-29.344 0-53.156 23.859-53.156 53.156v137.02c0 29.344 23.859 53.156 53.156 53.156h53.062v146.34l-399.37 0.046874zm399.37-178.18h-53.062c-11.719 0-21.328-9.5625-21.328-21.328v-137.02c0-11.719 9.5625-21.328 21.328-21.328h53.062z"/>
+                    </svg>
+                    <div class="board-info">
+                      <div class="board-title">${b.name}</div>
+                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                    </div>
+                  </button>
+                  <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
+                          @click="${() => this.#handleDeleteBoard(b)}">
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                      <path d="M4 4h8l-1 10H5L4 4z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                      <path d="M3 4h10M6 2h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </li>
+              `)}
+            </ul>
+          ` : html`<p>No saved boards yet.</p>`}
+          <p class="item-description" style="margin-top: 24px;">All board data is saved to your browser's local storage. Exporting your boards as SVGs is the best way to keep backups.</p>
+          <button class="import-svg-btn" @click="${this.#importSvgFromMyBoards}">
+            <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+              <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
+              <path d="m600 862.5c16.566-0.027344 32.449-6.6211 44.164-18.336 11.715-11.715 18.309-27.598 18.336-44.164v-566.55l197.5 164.55c12.738 10.59 29.156 15.695 45.656 14.199 16.496-1.5 31.727-9.4844 42.344-22.199 10.59-12.738 15.695-29.156 14.199-45.656-1.5-16.496-9.4844-31.727-22.199-42.344l-300-250c-3.1562-2.2227-6.5039-4.1641-10-5.8008-2.2656-1.4922-4.6172-2.8477-7.0508-4.0508-14.562-6.1289-30.984-6.1289-45.551 0-2.5508 1.1875-5.0234 2.5391-7.3984 4.0508-3.5 1.6328-6.8438 3.5742-10 5.8008l-300 250c-13.23 11.031-21.32 27.035-22.359 44.23-1.0391 17.195 5.0664 34.055 16.871 46.602 11.805 12.543 28.262 19.66 45.488 19.668 14.613-0.035156 28.758-5.1641 40-14.5l197.5-164.55v566.55c0.027344 16.566 6.6211 32.449 18.336 44.164 11.715 11.715 27.598 18.309 44.164 18.336z"/>
+            </svg>
+            Import from SVG
+          </button>
+          <div class="confirm-actions end">
+            <button class="cancel-btn" @click="${() => this._myBoardsDialog?.close()}">Close</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="delete-board-dialog">
+        <div class="dialog-header">
+          <h2>Delete Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._deleteBoardDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <p>Are you sure you want to delete "${this._deleteBoardName}"? This cannot be undone.</p>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._deleteBoardDialog?.close()}">Cancel</button>
+            <button class="confirm-danger" @click="${this.#confirmDeleteBoard}">Delete</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="export-dialog">
+        <div class="dialog-header">
+          <h2>Export Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._exportDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="export-options">
+            ${this._viewMode !== 'readonly' ? html`
+              <button @click="${this.#exportSvg}">
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                  <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                  <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">SVG</text>
+                </svg>
+                <div>
+                  <div>Export as SVG</div>
+                  <div class="item-description">Vector format with full board data. Can be reimported later.</div>
+                </div>
+              </button>
+            ` : nothing}
+            <button @click="${this.#exportPng}">
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">PNG</text>
+              </svg>
+              <div>
+                <div>Save as PNG</div>
+                <div class="item-description">High-resolution image for sharing or printing.</div>
+              </div>
+            </button>
+            ${this.animationFrames.length > 1 ? html`
+              <button @click="${this.#exportGif}">
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                  <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                  <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">GIF</text>
+                </svg>
+                <div>
+                  <div>Save as GIF</div>
+                  <div class="item-description">Animated image of the playback sequence.</div>
+                </div>
+              </button>
+            ` : nothing}
+          </div>
+          <div class="confirm-actions end">
+            <button class="cancel-btn" @click="${() => this._exportDialog?.close()}">Close</button>
           </div>
         </div>
       </dialog>
@@ -2499,6 +2878,170 @@ export class CoachBoard extends LitElement {
   #showAbout() {
     this._menuOpen = false;
     requestAnimationFrame(() => this._aboutDialog?.showModal());
+  }
+
+  #showSaveBoard() {
+    this._menuOpen = false;
+    this.#pendingBoardAction = null;
+    this.#pendingOpenBoardId = null;
+    this._saveBoardName = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
+    this.#openSaveBoardDialog();
+  }
+
+  #openSaveBoardDialog() {
+    requestAnimationFrame(() => {
+      this._saveBoardDialog?.showModal();
+      this.updateComplete.then(() => {
+        const input = this.renderRoot.querySelector('#save-board-input') as HTMLInputElement | null;
+        input?.focus();
+      });
+    });
+  }
+
+  #confirmSaveBoard() {
+    const name = this._saveBoardName.trim();
+    if (!name || !this.#currentBoard) return;
+    this.#currentBoard = { ...this.#currentBoard, name };
+    this._boardName = name;
+    saveBoard(this.#currentBoard).catch(() => {});
+    const pendingAction = this.#pendingBoardAction;
+    const pendingId = this.#pendingOpenBoardId;
+    this._saveBoardDialog?.close();
+    if (pendingAction === 'new') {
+      requestAnimationFrame(() => this._newBoardDialog?.showModal());
+    } else if (pendingAction === 'open') {
+      this.#doOpenBoard(pendingId!);
+    }
+  }
+
+  #showExportDialog() {
+    this._menuOpen = false;
+    requestAnimationFrame(() => this._exportDialog?.showModal());
+  }
+
+  #exportSvg() { this._exportDialog?.close(); this.#saveSvg(); }
+  #exportPng() { this._exportDialog?.close(); this.#savePng(); }
+  #exportGif() { this._exportDialog?.close(); this.#saveGif(); }
+
+  #handleNewBoard() {
+    this._menuOpen = false;
+    if (!this.#isBoardSaved && !this.#isBoardEmpty) {
+      this.#pendingBoardAction = 'new';
+      this._saveBoardName = '';
+      this.#openSaveBoardDialog();
+      return;
+    }
+    if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
+      deleteBoard(this.#currentBoard.id).catch(() => {});
+    }
+    requestAnimationFrame(() => this._newBoardDialog?.showModal());
+  }
+
+  async #confirmNewBoard() {
+    this._newBoardDialog?.close();
+    const board = createEmptyBoard();
+    await saveBoard(board);
+    this.#currentBoard = board;
+    this._boardName = board.name;
+    setActiveBoardId(board.id);
+    this.players = [];
+    this.lines = [];
+    this.equipment = [];
+    this.shapes = [];
+    this.textItems = [];
+    this.animationFrames = [];
+    this.activeFrameIndex = 0;
+    this._animationMode = false;
+    this.#stopPlayback();
+    this._playbackProgress = 0;
+    this._playbackLoop = board.playbackLoop;
+    this.selectedIds = new Set();
+    this.#undoStack = [];
+    this.#redoStack = [];
+    this.fieldTheme = 'green';
+    this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
+  }
+
+  async #showMyBoards() {
+    this._menuOpen = false;
+    this._myBoards = await listBoards();
+    requestAnimationFrame(() => this._myBoardsDialog?.showModal());
+  }
+
+  #handleOpenBoard(id: string) {
+    if (id === this.#currentBoard?.id) {
+      this._myBoardsDialog?.close();
+      return;
+    }
+    if (!this.#isBoardSaved && !this.#isBoardEmpty) {
+      this.#pendingBoardAction = 'open';
+      this.#pendingOpenBoardId = id;
+      this._myBoardsDialog?.close();
+      this._saveBoardName = '';
+      this.#openSaveBoardDialog();
+      return;
+    }
+    if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
+      deleteBoard(this.#currentBoard.id).catch(() => {});
+    }
+    this._myBoardsDialog?.close();
+    this.#doOpenBoard(id);
+  }
+
+  async #doOpenBoard(id: string) {
+    const board = await loadBoard(id);
+    if (!board) return;
+    this.#currentBoard = board;
+    this._boardName = board.name;
+    setActiveBoardId(board.id);
+    this.players = board.players;
+    this.lines = board.lines;
+    this.equipment = board.equipment;
+    this.shapes = board.shapes;
+    this.textItems = board.textItems;
+    this.animationFrames = board.animationFrames;
+    this._animationMode = board.animationMode;
+    this._playbackLoop = board.playbackLoop;
+    this.activeFrameIndex = 0;
+    this.#stopPlayback();
+    this._playbackProgress = 0;
+    this.selectedIds = new Set();
+    this.#undoStack = [];
+    this.#redoStack = [];
+    if (!this._isMobile) this.fieldOrientation = board.fieldOrientation;
+    this.fieldTheme = board.fieldTheme;
+    const allIds = [
+      ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
+    ].map(i => i.id)
+      .concat(this.lines.map(l => l.id))
+      .concat(this.animationFrames.map(f => f.id));
+    for (const aid of allIds) {
+      const num = parseInt(aid.split('-').pop() ?? '0', 10);
+      if (!isNaN(num)) ensureMinId(num);
+    }
+  }
+
+  #handleDeleteBoard(board: SavedBoard) {
+    this.#pendingDeleteBoard = board;
+    this._deleteBoardName = board.name;
+    requestAnimationFrame(() => this._deleteBoardDialog?.showModal());
+  }
+
+  async #confirmDeleteBoard() {
+    if (!this.#pendingDeleteBoard) return;
+    const id = this.#pendingDeleteBoard.id;
+    this.#pendingDeleteBoard = null;
+    this._deleteBoardDialog?.close();
+    await deleteBoard(id);
+    this._myBoards = await listBoards();
+    if (id === this.#currentBoard?.id) {
+      await this.#confirmNewBoard();
+    }
+  }
+
+  #importSvgFromMyBoards() {
+    this._myBoardsDialog?.close();
+    this.#importSvg();
   }
 
   #pendingImportData: Record<string, unknown> | null = null;
