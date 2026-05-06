@@ -2116,7 +2116,7 @@ export class CoachBoard extends LitElement {
               `)}
             </ul>
           ` : html`<p>No saved boards yet.</p>`}
-          <p class="item-description" style="margin-top: 24px;">All board data is saved to your browser's local storage. Exporting your boards as SVGs is the best way to keep backups.</p>
+          <p class="item-description" style="margin-top: 24px;">All board data is saved to your browser's local storage. Exporting boards as backup SVGs (data only, no visual preview) is the best way to keep backups.</p>
           <div class="boards-action-row">
             <button class="import-svg-btn" @click="${this.#importSvgFromMyBoards}">
               <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
@@ -3067,35 +3067,42 @@ export class CoachBoard extends LitElement {
     const boards = this._myBoards.filter(b => b.name !== 'Untitled Board');
     if (!boards.length) return;
 
-    const JSZip = (await import('jszip')).default;
-    const zip = new JSZip();
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const usedNames = new Set<string>();
 
-    for (const board of boards) {
-      const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <desc id="coaching-board-data" data-version="1.5.2">${JSON.stringify({
-        players: board.players,
-        lines: board.lines,
-        equipment: board.equipment,
-        shapes: board.shapes,
-        textItems: board.textItems,
-        animationFrames: board.animationFrames,
-        fieldTheme: board.fieldTheme,
-        fieldOrientation: board.fieldOrientation,
-        playbackLoop: board.playbackLoop,
-      })}</desc>
+      for (const board of boards) {
+        const json = JSON.stringify({
+          players: board.players,
+          lines: board.lines,
+          equipment: board.equipment,
+          shapes: board.shapes,
+          textItems: board.textItems,
+          animationFrames: board.animationFrames,
+          fieldTheme: board.fieldTheme,
+          fieldOrientation: board.fieldOrientation,
+          playbackLoop: board.playbackLoop,
+        }).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 105 68">
+  <desc id="coaching-board-data" data-version="1.5.2">${json}</desc>
 </svg>`;
-      const safeName = board.name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      zip.file(`${safeName}.svg`, svgContent);
-    }
+        let safeName = board.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+        if (usedNames.has(safeName)) safeName = `${safeName}_${board.id.slice(0, 8)}`;
+        usedNames.add(safeName);
+        zip.file(`${safeName}.svg`, svgContent);
+      }
 
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'coaching-boards.zip';
-    a.click();
-    URL.revokeObjectURL(url);
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'coaching-boards.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* jszip load failure or generation error */ }
   }
 
   #pendingImportData: Record<string, unknown> | null = null;
