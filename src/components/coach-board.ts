@@ -2767,7 +2767,8 @@ export class CoachBoard extends LitElement {
       const to = this.#getItemPositionAtFrame(p.id, p.x, p.y, toIdx);
       const fromAngle = this.#getItemAngleAtFrame(p.id, p.angle, fromIdx) ?? 0;
       const toAngle = this.#getItemAngleAtFrame(p.id, p.angle, toIdx) ?? 0;
-      const angle = fromAngle + (toAngle - fromAngle) * t;
+      const angleDelta = ((toAngle - fromAngle + 180) % 360 + 360) % 360 - 180;
+      const angle = fromAngle + angleDelta * t;
       if (from.x === to.x && from.y === to.y) return { ...p, x: from.x, y: from.y, angle };
       const toFrame = this.animationFrames[toIdx];
       const trail = toFrame?.trails[p.id];
@@ -2800,7 +2801,8 @@ export class CoachBoard extends LitElement {
       const to = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, toIdx);
       const fromAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, fromIdx) ?? 0;
       const toAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, toIdx) ?? 0;
-      const angle = fromAngle + (toAngle - fromAngle) * t;
+      const angleDelta = ((toAngle - fromAngle + 180) % 360 + 360) % 360 - 180;
+      const angle = fromAngle + angleDelta * t;
       if (from.x === to.x && from.y === to.y) return { ...eq, x: from.x, y: from.y, angle };
       const toFrame = this.animationFrames[toIdx];
       const trail = toFrame?.trails[eq.id];
@@ -3040,7 +3042,7 @@ export class CoachBoard extends LitElement {
     this.animationFrames = [];
     this.activeFrameIndex = 0;
     this._animationMode = false;
-    this.isPlaying = false;
+    this.#stopPlayback();
     this._playbackProgress = 0;
     this.selectedIds = new Set();
     this.fieldOrientation = this._pendingOrientation;
@@ -3260,7 +3262,7 @@ export class CoachBoard extends LitElement {
     this.animationFrames = [];
     this.activeFrameIndex = 0;
     this._animationMode = false;
-    this.isPlaying = false;
+    this.#stopPlayback();
     this._playbackProgress = 0;
     this.selectedIds = new Set();
   }
@@ -3360,9 +3362,22 @@ export class CoachBoard extends LitElement {
       const eq = this.equipment.find(eq => eq.id === id);
       const sh = this.shapes.find(s => s.id === id);
       const ti = this.textItems.find(t => t.id === id);
-      const cx = p ? p.x : eq ? eq.x : sh ? sh.cx : ti!.x;
-      const cy = p ? p.y : eq ? eq.y : sh ? sh.cy : ti!.y;
-      const origRotation = p ? (p.angle ?? 0) : eq ? (eq.angle ?? 0) : sh ? (sh.angle ?? 0) : (ti!.angle ?? 0);
+      let cx: number, cy: number, origRotation: number;
+      if (p) {
+        const pos = this.#getItemPosition(p.id, p.x, p.y);
+        cx = pos.x; cy = pos.y;
+        origRotation = this.#getItemAngle(p.id, p.angle) ?? 0;
+      } else if (eq) {
+        const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+        cx = pos.x; cy = pos.y;
+        origRotation = this.#getItemAngle(eq.id, eq.angle) ?? 0;
+      } else if (sh) {
+        cx = sh.cx; cy = sh.cy;
+        origRotation = sh.angle ?? 0;
+      } else {
+        cx = ti!.x; cy = ti!.y;
+        origRotation = ti!.angle ?? 0;
+      }
       const startAngle = rad2deg(Math.atan2(pt.y - cy, pt.x - cx));
       this.#rotateDrag = { id, cx, cy, startAngle, origRotation };
       this.svgEl.setPointerCapture(e.pointerId);
@@ -3549,27 +3564,42 @@ export class CoachBoard extends LitElement {
       if (e.shiftKey) {
         newAngle = Math.round(newAngle / 15) * 15;
       }
-      const p = this.players.find(p => p.id === id);
-      if (p) {
-        this.players = this.players.map(pl =>
-          pl.id === id ? { ...pl, angle: newAngle } : pl
-        );
+
+      if (this._animationMode && this.activeFrameIndex > 0) {
+        const frame = this.animationFrames[this.activeFrameIndex];
+        if (frame) {
+          const pos = frame.positions[id] ?? this.#getItemPositionAtFrame(id,
+            this.players.find(p => p.id === id)?.x ?? this.equipment.find(e => e.id === id)?.x ?? 0,
+            this.players.find(p => p.id === id)?.y ?? this.equipment.find(e => e.id === id)?.y ?? 0,
+            this.activeFrameIndex);
+          const newPositions = { ...frame.positions, [id]: { ...pos, angle: newAngle } };
+          this.animationFrames = this.animationFrames.map((f, i) =>
+            i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
+          );
+        }
       } else {
-        const sh = this.shapes.find(s => s.id === id);
-        if (sh) {
-          this.shapes = this.shapes.map(s =>
-            s.id === id ? { ...s, angle: newAngle } : s
+        const p = this.players.find(p => p.id === id);
+        if (p) {
+          this.players = this.players.map(pl =>
+            pl.id === id ? { ...pl, angle: newAngle } : pl
           );
         } else {
-          const ti = this.textItems.find(t => t.id === id);
-          if (ti) {
-            this.textItems = this.textItems.map(t =>
-              t.id === id ? { ...t, angle: newAngle } : t
+          const sh = this.shapes.find(s => s.id === id);
+          if (sh) {
+            this.shapes = this.shapes.map(s =>
+              s.id === id ? { ...s, angle: newAngle } : s
             );
           } else {
-            this.equipment = this.equipment.map(eq =>
-              eq.id === id ? { ...eq, angle: newAngle } : eq
-            );
+            const ti = this.textItems.find(t => t.id === id);
+            if (ti) {
+              this.textItems = this.textItems.map(t =>
+                t.id === id ? { ...t, angle: newAngle } : t
+              );
+            } else {
+              this.equipment = this.equipment.map(eq =>
+                eq.id === id ? { ...eq, angle: newAngle } : eq
+              );
+            }
           }
         }
       }
@@ -3620,7 +3650,7 @@ export class CoachBoard extends LitElement {
           for (const [id, orig] of pointOrigins) {
             const player = this.players.find(p => p.id === id);
             const equip = player ? undefined : this.equipment.find(e => e.id === id);
-            const angle = player?.angle ?? equip?.angle;
+            const angle = this.#getItemAngle(id, player?.angle ?? equip?.angle);
             newPositions[id] = { x: orig.x + dx, y: orig.y + dy, angle };
           }
           this.animationFrames = this.animationFrames.map((f, i) =>
@@ -3745,9 +3775,17 @@ export class CoachBoard extends LitElement {
 
     for (const id of this.selectedIds) {
       const p = this.players.find(pl => pl.id === id);
-      if (p) { newPositions[id] = { x: p.x, y: p.y, angle: p.angle }; continue; }
+      if (p) {
+        const pos = this.#getItemPosition(p.id, p.x, p.y);
+        newPositions[id] = { x: pos.x, y: pos.y, angle: this.#getItemAngle(p.id, p.angle) };
+        continue;
+      }
       const eq = this.equipment.find(e => e.id === id);
-      if (eq) { newPositions[id] = { x: eq.x, y: eq.y, angle: eq.angle }; continue; }
+      if (eq) {
+        const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+        newPositions[id] = { x: pos.x, y: pos.y, angle: this.#getItemAngle(eq.id, eq.angle) };
+        continue;
+      }
     }
 
     this.animationFrames = this.animationFrames.map((f, i) =>
