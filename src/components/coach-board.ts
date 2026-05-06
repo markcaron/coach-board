@@ -2091,7 +2091,7 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          ${this._myBoards.length ? html`
+          ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
             <ul class="boards-list">
               ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
                 <li>
