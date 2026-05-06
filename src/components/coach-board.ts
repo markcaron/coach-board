@@ -288,6 +288,15 @@ export class CoachBoard extends LitElement {
       user-select: none;
     }
 
+    .board-name-bar.theme-white {
+      background: var(--pt-field-area-white);
+      color: var(--pt-color-gray-600);
+    }
+
+    .board-name-bar.theme-white .unsaved {
+      color: var(--pt-color-gray-500);
+    }
+
     .board-name-bar .unsaved {
       opacity: 0.6;
       font-style: italic;
@@ -455,7 +464,7 @@ export class CoachBoard extends LitElement {
       gap: 8px;
       padding: 8px 20px;
       min-height: 44px;
-      margin-top: 8px;
+      margin-top: 16px;
       background: transparent;
       border: 1px dashed var(--pt-border);
       border-radius: 6px;
@@ -1644,8 +1653,8 @@ export class CoachBoard extends LitElement {
       `}
 
       ${this._viewMode !== 'readonly' ? html`
-        <div class="board-name-bar">
-          ${this.#isBoardSaved
+        <div class="board-name-bar ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
+          Board: ${this.#isBoardSaved
             ? this._boardName
             : html`<span class="unsaved">${this._boardName} (unsaved)</span>`}
         </div>
