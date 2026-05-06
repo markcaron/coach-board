@@ -10,6 +10,7 @@ export interface SavedBoard {
   fieldTheme: FieldTheme;
   fieldOrientation: FieldOrientation;
   animationMode: boolean;
+  playbackLoop: boolean;
   players: Player[];
   lines: Line[];
   equipment: Equipment[];
@@ -68,6 +69,7 @@ export function createEmptyBoard(name = 'Untitled Board'): SavedBoard {
     fieldTheme: 'green',
     fieldOrientation: 'horizontal',
     animationMode: false,
+    playbackLoop: false,
     players: [],
     lines: [],
     equipment: [],

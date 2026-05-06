@@ -898,7 +898,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   @state() private accessor _copiedVisible: boolean = false;
-  #activeBoardId: string = '';
+  #currentBoard: SavedBoard | null = null;
   #shareCompressed: string = '';
   #shareShortId: string = '';
   #lastSharedData: string = '';
@@ -927,6 +927,9 @@ export class CoachBoard extends LitElement {
     }
     if (e.matches) {
       this.#requestOrientation('vertical');
+    } else if (this.#currentBoard) {
+      const saved = this.#currentBoard.fieldOrientation;
+      if (saved && saved !== this.fieldOrientation) this.#requestOrientation(saved);
     }
   };
   #lastTapTime = 0;
@@ -948,15 +951,13 @@ export class CoachBoard extends LitElement {
   }
 
   #saveToStorage() {
-    if (!this.#activeBoardId) return;
-    const board: SavedBoard = {
-      id: this.#activeBoardId,
-      name: 'Untitled Board',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+    if (!this.#currentBoard) return;
+    this.#currentBoard = {
+      ...this.#currentBoard,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
       animationMode: this._animationMode,
+      playbackLoop: this._playbackLoop,
       players: this.players,
       lines: this.lines,
       equipment: this.equipment,
@@ -964,7 +965,7 @@ export class CoachBoard extends LitElement {
       textItems: this.textItems,
       animationFrames: this.animationFrames,
     };
-    saveBoard(board).catch(() => { /* storage error */ });
+    saveBoard(this.#currentBoard).catch(() => { /* storage error */ });
   }
 
   async #migrateFromLocalStorage(): Promise<SavedBoard | undefined> {
@@ -1016,7 +1017,7 @@ export class CoachBoard extends LitElement {
         await saveBoard(board);
       }
 
-      this.#activeBoardId = board.id;
+      this.#currentBoard = board;
       setActiveBoardId(board.id);
 
       if (board.players.length) this.players = board.players;
@@ -1026,6 +1027,7 @@ export class CoachBoard extends LitElement {
       if (board.textItems.length) this.textItems = board.textItems;
       if (board.animationFrames.length) this.animationFrames = board.animationFrames;
       if (board.animationMode) this._animationMode = board.animationMode;
+      if (board.playbackLoop) this._playbackLoop = board.playbackLoop;
 
       if (!this._isMobile && (board.fieldOrientation === 'horizontal' || board.fieldOrientation === 'vertical')) {
         this.fieldOrientation = board.fieldOrientation;
@@ -1361,7 +1363,8 @@ export class CoachBoard extends LitElement {
   protected override updated(changedProperties: Map<PropertyKey, unknown>) {
     if (changedProperties.has('players') || changedProperties.has('lines') ||
         changedProperties.has('equipment') || changedProperties.has('shapes') ||
-        changedProperties.has('textItems') || changedProperties.has('animationFrames')) {
+        changedProperties.has('textItems') || changedProperties.has('animationFrames') ||
+        changedProperties.has('_playbackLoop')) {
       this.#saveToStorage();
     }
     if (changedProperties.has('selectedIds') && this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
