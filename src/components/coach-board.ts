@@ -1809,7 +1809,7 @@ export class CoachBoard extends LitElement {
             </svg>
           </button>
         </div>
-        ` : nothing}
+        ` : html`<div class="bottom-left"></div>`}
         <div class="bottom-center">
           ${this._viewMode !== 'readonly' && !this._isMobile ? html`
             <button aria-pressed="${this._animationMode}"
