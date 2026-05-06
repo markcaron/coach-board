@@ -6,6 +6,7 @@ import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, ge
 import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
+import { saveBoard, loadBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
@@ -120,7 +121,6 @@ interface Snapshot {
 }
 
 const MAX_HISTORY = 50;
-const STORAGE_KEY = 'coach-board-state';
 
 function wavyPath(x1: number, y1: number, cx: number, cy: number, x2: number, y2: number, amp = 0.48): string {
   const sampleCount = 64;
@@ -898,6 +898,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   @state() private accessor _copiedVisible: boolean = false;
+  #activeBoardId: string = '';
   #shareCompressed: string = '';
   #shareShortId: string = '';
   #lastSharedData: string = '';
@@ -926,9 +927,6 @@ export class CoachBoard extends LitElement {
     }
     if (e.matches) {
       this.#requestOrientation('vertical');
-    } else {
-      const saved = this.#loadOrientationFromStorage();
-      if (saved) this.#requestOrientation(saved);
     }
   };
   #lastTapTime = 0;
@@ -950,32 +948,91 @@ export class CoachBoard extends LitElement {
   }
 
   #saveToStorage() {
-    try {
-      const data = {
-        players: this.players,
-        lines: this.lines,
-        equipment: this.equipment,
-        shapes: this.shapes,
-        textItems: this.textItems,
-        animationFrames: this.animationFrames,
-        animationMode: this._animationMode,
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch { /* quota exceeded or private browsing */ }
+    if (!this.#activeBoardId) return;
+    const board: SavedBoard = {
+      id: this.#activeBoardId,
+      name: 'Untitled Board',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      fieldTheme: this.fieldTheme,
+      fieldOrientation: this.fieldOrientation,
+      animationMode: this._animationMode,
+      players: this.players,
+      lines: this.lines,
+      equipment: this.equipment,
+      shapes: this.shapes,
+      textItems: this.textItems,
+      animationFrames: this.animationFrames,
+    };
+    saveBoard(board).catch(() => { /* storage error */ });
   }
 
-  #loadFromStorage() {
+  async #migrateFromLocalStorage(): Promise<SavedBoard | undefined> {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
+      const raw = localStorage.getItem('coach-board-state');
+      if (!raw) return undefined;
       const data = JSON.parse(raw) as Record<string, unknown>;
-      if (data.players) this.players = data.players as Player[];
-      if (data.lines) this.lines = data.lines as Line[];
-      if (data.equipment) this.equipment = data.equipment as Equipment[];
-      if (data.shapes) this.shapes = data.shapes as Shape[];
-      if (data.textItems) this.textItems = data.textItems as TextItem[];
-      if (Array.isArray(data.animationFrames)) this.animationFrames = data.animationFrames as AnimationFrame[];
-      if (typeof data.animationMode === 'boolean') this._animationMode = data.animationMode;
+      if (!Array.isArray(data.players)) return undefined;
+
+      const themeRaw = localStorage.getItem('coach-board-theme');
+      const orientRaw = localStorage.getItem('coach-board-orientation');
+
+      const board = createEmptyBoard();
+      board.players = data.players as Player[];
+      board.lines = (data.lines ?? []) as Line[];
+      board.equipment = (data.equipment ?? []) as Equipment[];
+      board.shapes = (data.shapes ?? []) as Shape[];
+      board.textItems = (data.textItems ?? []) as TextItem[];
+      board.animationFrames = (data.animationFrames ?? []) as AnimationFrame[];
+      board.animationMode = typeof data.animationMode === 'boolean' ? data.animationMode : false;
+      if (themeRaw === 'green' || themeRaw === 'white') board.fieldTheme = themeRaw;
+      if (orientRaw === 'horizontal' || orientRaw === 'vertical') board.fieldOrientation = orientRaw;
+
+      await saveBoard(board);
+
+      localStorage.removeItem('coach-board-state');
+      localStorage.removeItem('coach-board-theme');
+      localStorage.removeItem('coach-board-orientation');
+
+      return board;
+    } catch { return undefined; }
+  }
+
+  async #loadFromStorage() {
+    try {
+      let boardId = getActiveBoardId();
+      let board: SavedBoard | undefined;
+
+      if (boardId) {
+        board = await loadBoard(boardId);
+      }
+
+      if (!board) {
+        board = await this.#migrateFromLocalStorage();
+      }
+
+      if (!board) {
+        board = createEmptyBoard();
+        await saveBoard(board);
+      }
+
+      this.#activeBoardId = board.id;
+      setActiveBoardId(board.id);
+
+      if (board.players.length) this.players = board.players;
+      if (board.lines.length) this.lines = board.lines;
+      if (board.equipment.length) this.equipment = board.equipment;
+      if (board.shapes.length) this.shapes = board.shapes;
+      if (board.textItems.length) this.textItems = board.textItems;
+      if (board.animationFrames.length) this.animationFrames = board.animationFrames;
+      if (board.animationMode) this._animationMode = board.animationMode;
+
+      if (!this._isMobile && (board.fieldOrientation === 'horizontal' || board.fieldOrientation === 'vertical')) {
+        this.fieldOrientation = board.fieldOrientation;
+      }
+      if (board.fieldTheme === 'green' || board.fieldTheme === 'white') {
+        this.fieldTheme = board.fieldTheme;
+      }
 
       const allIds = [
         ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
@@ -1284,18 +1341,13 @@ export class CoachBoard extends LitElement {
     this._isMobile = this.#mobileQuery.matches;
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
-    } else {
-      const savedOrientation = this.#loadOrientationFromStorage();
-      if (savedOrientation) {
-        this.fieldOrientation = savedOrientation;
-      }
     }
     const isSharedUrl = /^\/s\//.test(window.location.pathname);
     if (!isSharedUrl) {
-      this.#loadThemeFromStorage();
-      this.#loadFromStorage();
+      this.#loadFromStorage().then(() => this.#loadFromUrl());
+    } else {
+      this.#loadFromUrl();
     }
-    this.#loadFromUrl();
   }
 
   disconnectedCallback() {
@@ -3126,30 +3178,11 @@ export class CoachBoard extends LitElement {
   }
 
   #saveOrientationToStorage() {
-    try {
-      localStorage.setItem('coach-board-orientation', this.fieldOrientation);
-    } catch { /* ignore */ }
-  }
-
-  #loadOrientationFromStorage(): FieldOrientation | null {
-    try {
-      const v = localStorage.getItem('coach-board-orientation');
-      if (v === 'horizontal' || v === 'vertical') return v;
-    } catch { /* ignore */ }
-    return null;
+    this.#saveToStorage();
   }
 
   #saveThemeToStorage() {
-    try {
-      localStorage.setItem('coach-board-theme', this.fieldTheme);
-    } catch { /* ignore */ }
-  }
-
-  #loadThemeFromStorage() {
-    try {
-      const v = localStorage.getItem('coach-board-theme');
-      if (v === 'green' || v === 'white') this.fieldTheme = v;
-    } catch { /* ignore */ }
+    this.#saveToStorage();
   }
 
   #onThemeChange(e: Event) {
