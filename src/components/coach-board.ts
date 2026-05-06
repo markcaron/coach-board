@@ -819,13 +819,13 @@ export class CoachBoard extends LitElement {
     }
 
     .confirm-actions .confirm-danger {
-      background: var(--pt-danger);
-      border-color: var(--pt-danger);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
       color: var(--pt-text-white);
     }
 
     .confirm-actions .confirm-danger:hover {
-      background: var(--pt-danger-hover);
+      background: var(--pt-danger);
     }
 
     .rotate-overlay {
@@ -1640,7 +1640,7 @@ export class CoachBoard extends LitElement {
       </div>
 
       <input type="file" accept=".svg,image/svg+xml" class="visually-hidden" id="svg-import-input"
-             aria-label="Import SVG file"
+             tabindex="-1" aria-label="Import SVG file"
              @change="${this.#onFileSelected}" />
 
       <dialog id="import-confirm-dialog">
