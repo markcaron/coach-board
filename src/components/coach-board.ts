@@ -3239,7 +3239,10 @@ export class CoachBoard extends LitElement {
     if (Array.isArray(data.equipment)) board.equipment = data.equipment as Equipment[];
     if (Array.isArray(data.shapes)) board.shapes = data.shapes as Shape[];
     if (Array.isArray(data.textItems)) board.textItems = data.textItems as TextItem[];
-    if (Array.isArray(data.animationFrames)) board.animationFrames = data.animationFrames as AnimationFrame[];
+    if (Array.isArray(data.animationFrames)) {
+      board.animationFrames = data.animationFrames as AnimationFrame[];
+      if (board.animationFrames.length > 0) board.animationMode = true;
+    }
     if (typeof data.playbackLoop === 'boolean') board.playbackLoop = data.playbackLoop;
     if (data.fieldTheme === 'green' || data.fieldTheme === 'white') board.fieldTheme = data.fieldTheme;
     if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') board.fieldOrientation = data.fieldOrientation as FieldOrientation;
