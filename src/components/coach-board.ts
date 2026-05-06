@@ -281,7 +281,7 @@ export class CoachBoard extends LitElement {
 
     .board-name-bar {
       text-align: center;
-      padding: 4px 12px;
+      padding: 12px 12px 0;
       font-size: 0.75rem;
       color: var(--pt-text-muted);
       background: var(--pt-bg-body);
@@ -319,6 +319,11 @@ export class CoachBoard extends LitElement {
       min-width: 0;
     }
 
+    .boards-list .board-icon {
+      flex-shrink: 0;
+      color: var(--pt-text-muted);
+    }
+
     .boards-list .board-title {
       font-size: 0.85rem;
       color: var(--pt-text);
@@ -330,6 +335,7 @@ export class CoachBoard extends LitElement {
     .boards-list .board-date {
       font-size: 0.7rem;
       color: var(--pt-text-muted);
+      margin-top: 4px;
     }
 
     .boards-list .delete-btn {
@@ -359,8 +365,8 @@ export class CoachBoard extends LitElement {
 
     .export-options button {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      align-items: flex-start;
+      gap: 12px;
       padding: 12px 16px;
       background: var(--pt-bg-surface);
       border: 1px solid var(--pt-border);
@@ -369,10 +375,34 @@ export class CoachBoard extends LitElement {
       font-size: 0.85rem;
       cursor: pointer;
       transition: background 0.15s;
+      text-align: left;
     }
 
     .export-options button:hover {
       background: var(--pt-border);
+    }
+
+    .export-options button:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .boards-list .delete-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .import-svg-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .save-board-label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--pt-text-muted);
+      margin-top: 16px;
+      margin-bottom: 6px;
     }
 
     .save-board-input {
@@ -384,7 +414,7 @@ export class CoachBoard extends LitElement {
       color: var(--pt-text);
       font-size: 0.85rem;
       font-family: system-ui, -apple-system, sans-serif;
-      margin-top: 12px;
+      box-sizing: border-box;
     }
 
     .save-board-input:focus {
@@ -1983,14 +2013,15 @@ export class CoachBoard extends LitElement {
 
       <dialog id="save-board-dialog">
         <div class="dialog-header">
-          <h2>Save Board</h2>
+          <h2>${this.#pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
           <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._saveBoardDialog?.close()}">
             <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
           </button>
         </div>
         <div class="dialog-body">
-          <p>Give your board a name to save it.</p>
-          <input class="save-board-input" type="text" placeholder="Board name"
+          <p>${this.#pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
+          <label class="save-board-label" for="save-board-input">Board name</label>
+          <input class="save-board-input" id="save-board-input" type="text" placeholder="Board name"
                  .value="${this._saveBoardName}"
                  @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}"
                  @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
@@ -2029,6 +2060,12 @@ export class CoachBoard extends LitElement {
             <ul class="boards-list">
               ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
                 <li>
+                  <svg class="board-icon" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" @click="${() => this.#handleOpenBoard(b.id)}">
+                    <rect x="2" y="1" width="12" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                    <line x1="5" y1="5.5" x2="11" y2="5.5" stroke="currentColor" stroke-width="0.8"/>
+                    <line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="0.8"/>
+                    <line x1="5" y1="10.5" x2="9" y2="10.5" stroke="currentColor" stroke-width="0.8"/>
+                  </svg>
                   <div class="board-info" @click="${() => this.#handleOpenBoard(b.id)}">
                     <div class="board-title">${b.name}</div>
                     <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
@@ -2082,11 +2119,38 @@ export class CoachBoard extends LitElement {
         <div class="dialog-body">
           <div class="export-options">
             ${this._viewMode !== 'readonly' ? html`
-              <button @click="${this.#exportSvg}">Export as SVG</button>
+              <button @click="${this.#exportSvg}">
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                  <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                  <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">SVG</text>
+                </svg>
+                <div>
+                  <div>Export as SVG</div>
+                  <div class="board-date">Vector format with full board data. Can be reimported later.</div>
+                </div>
+              </button>
             ` : nothing}
-            <button @click="${this.#exportPng}">Save as PNG</button>
+            <button @click="${this.#exportPng}">
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">PNG</text>
+              </svg>
+              <div>
+                <div>Save as PNG</div>
+                <div class="board-date">High-resolution image for sharing or printing.</div>
+              </div>
+            </button>
             ${this.animationFrames.length > 1 ? html`
-              <button @click="${this.#exportGif}">Save as GIF</button>
+              <button @click="${this.#exportGif}">
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                  <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                  <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">GIF</text>
+                </svg>
+                <div>
+                  <div>Save as GIF</div>
+                  <div class="board-date">Animated image of the playback sequence.</div>
+                </div>
+              </button>
             ` : nothing}
           </div>
           <div class="confirm-actions end">
