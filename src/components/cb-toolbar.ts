@@ -1178,8 +1178,16 @@ export class CbToolbar extends LitElement {
                   @click="${(e: Event) => this.#onTriggerClick(menuId, e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown(menuId, e)}">
             <svg viewBox="0 0 16 16" width="16" height="16">
-              <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="1.8" />
-              <circle cx="8" cy="8" r="3" fill="${COLORS.equipmentBody}" />
+              ${kind === 'pole' ? html`
+                <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
+                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" />
+              ` : kind === 'cone' ? html`
+                <circle cx="8" cy="8" r="5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="3.5" />
+                <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
+              ` : html`
+                <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="1.8" />
+                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" fill-opacity="0.3" />
+              `}
             </svg>
             <span class="caret"></span>
           </button>
@@ -1193,8 +1201,16 @@ export class CbToolbar extends LitElement {
                         aria-label="${c.name}"
                         @click="${() => this.#changeEquipmentColor(items, c.color)}">
                   <svg viewBox="0 0 20 20" width="20" height="20">
-                    <circle cx="10" cy="10" r="7" fill="none" stroke="${c.color}" stroke-width="2" />
-                    <circle cx="10" cy="10" r="4" fill="${COLORS.equipmentBody}" />
+                    ${kind === 'pole' ? html`
+                      <circle cx="10" cy="10" r="7" fill="none" stroke="#d0d0d0" stroke-width="1.8" />
+                      <circle cx="10" cy="10" r="4" fill="${c.color}" />
+                    ` : kind === 'cone' ? html`
+                      <circle cx="10" cy="10" r="6.5" fill="none" stroke="${c.color}" stroke-width="4.5" />
+                      <circle cx="10" cy="10" r="2.5" fill="#d0d0d0" />
+                    ` : html`
+                      <circle cx="10" cy="10" r="7" fill="none" stroke="${c.color}" stroke-width="2" />
+                      <circle cx="10" cy="10" r="4" fill="${c.color}" fill-opacity="0.3" />
+                    `}
                   </svg>
                 </button>
               `)}

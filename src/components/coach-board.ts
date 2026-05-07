@@ -185,6 +185,17 @@ function isModifier(e: PointerEvent | MouseEvent): boolean {
 
 function rad2deg(r: number): number { return r * 180 / Math.PI; }
 
+function lightenHex(hex: string, amount = 0.55): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  const lr = Math.round(r + (255 - r) * amount);
+  const lg = Math.round(g + (255 - g) * amount);
+  const lb = Math.round(b + (255 - b) * amount);
+  return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
+}
+
 function isRotatable(item: Player | Equipment): boolean {
   if ('team' in item) return item.team === 'a';
   return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal' || item.kind === 'dummy';
@@ -2825,7 +2836,7 @@ export class CoachBoard extends LitElement {
                 style="cursor: pointer" />
           <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
                 width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
-                rx="${DUMMY_INNER_RX}" fill="${COLORS.equipmentBody}"
+                rx="${DUMMY_INNER_RX}" fill="${lightenHex(dummyColor)}"
                 style="cursor: pointer" />
           ${this.#shouldShowRotate(eq.id, singleSelected)
             ? this.#renderRectRotateHandles(eq.id, rx1, ry1, rx2, ry2)
@@ -2968,7 +2979,7 @@ export class CoachBoard extends LitElement {
                 stroke-dasharray="0.3,0.2" />
           <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
                 width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
-                rx="${DUMMY_INNER_RX}" fill="${COLORS.equipmentBody}" />
+                rx="${DUMMY_INNER_RX}" fill="${lightenHex(COLORS.coneChartreuse)}" />
         </g>
       `;
     }
