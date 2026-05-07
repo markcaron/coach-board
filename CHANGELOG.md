@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (staging/courage)
+## 1.1.0 — Courage Release (2026-05-07)
 
 ### New Features
 
