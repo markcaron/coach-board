@@ -196,6 +196,7 @@ export function renderField(lineColor = 'white') {
 export function renderHalfField(lineColor = 'white') {
   const H = FIELD_WIDTH;
   const W = HALF_FIELD_LENGTH;
+  const midX = FIELD_LENGTH / 2;
   const midY = H / 2;
 
   return svg`
@@ -208,14 +209,14 @@ export function renderHalfField(lineColor = 'white') {
       <rect x="0" y="0" width="${W}" height="${H}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <line x1="${centerX}" y1="0" x2="${centerX}" y2="${H}"
+      <line x1="${midX}" y1="0" x2="${midX}" y2="${H}"
             stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <g clip-path="url(#half-field-clip-h)">
-        <circle cx="${centerX}" cy="${midY}" r="${CENTER_CIRCLE_R}"
+        <circle cx="${midX}" cy="${midY}" r="${CENTER_CIRCLE_R}"
                 fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       </g>
-      <circle cx="${centerX}" cy="${midY}" r="${SPOT_R}" fill="${lineColor}" />
+      <circle cx="${midX}" cy="${midY}" r="${SPOT_R}" fill="${lineColor}" />
 
       <rect x="0" y="${penaltyTop}"
             width="${PENALTY_AREA_DEPTH}" height="${PENALTY_AREA_WIDTH}"
