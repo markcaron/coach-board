@@ -208,13 +208,13 @@ function circleHeadPath(r: number): string {
   return `M ${-dx},${cutY} A ${r},${r} 0 0 1 ${dx},${cutY} Z`;
 }
 
-const DIAMOND_HH = PLAYER_RADIUS * 0.85;
-const DIAMOND_HW = PLAYER_RADIUS * 0.7;
+const DIAMOND_HH = PLAYER_RADIUS * 0.92;
+const DIAMOND_HW = PLAYER_RADIUS * 0.76;
 
 function diamondHeadPath(): string {
   const cutFrac = 0.25;
   const cutY = -DIAMOND_HH + DIAMOND_HH * 2 * cutFrac;
-  const cutHW = DIAMOND_HW * (1 - cutFrac);
+  const cutHW = DIAMOND_HW * (cutY + DIAMOND_HH) / DIAMOND_HH;
   return `M 0,${-DIAMOND_HH} L ${-cutHW},${cutY} L ${cutHW},${cutY} Z`;
 }
 
