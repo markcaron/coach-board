@@ -242,7 +242,7 @@ export function renderVerticalHalfField(lineColor = 'white') {
   const W = FIELD_WIDTH;
   const H = HALF_FIELD_LENGTH;
   const cx = W / 2;
-  const centerY = FIELD_LENGTH / 2;
+  const midLineY = H - (FIELD_LENGTH / 2);
   const penaltyLeft = (W - PENALTY_AREA_WIDTH) / 2;
   const goalAreaLeft = (W - GOAL_AREA_WIDTH) / 2;
   const goalLeft = (W - GOAL_WIDTH) / 2;
@@ -257,30 +257,30 @@ export function renderVerticalHalfField(lineColor = 'white') {
       <rect x="0" y="0" width="${W}" height="${H}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <line x1="0" y1="${centerY}" x2="${W}" y2="${centerY}"
+      <line x1="0" y1="${midLineY}" x2="${W}" y2="${midLineY}"
             stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <g clip-path="url(#half-field-clip-v)">
-        <circle cx="${cx}" cy="${centerY}" r="${CENTER_CIRCLE_R}"
+        <circle cx="${cx}" cy="${midLineY}" r="${CENTER_CIRCLE_R}"
                 fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
       </g>
-      <circle cx="${cx}" cy="${centerY}" r="${SPOT_R}" fill="${lineColor}" />
+      <circle cx="${cx}" cy="${midLineY}" r="${SPOT_R}" fill="${lineColor}" />
 
-      <rect x="${penaltyLeft}" y="0"
+      <rect x="${penaltyLeft}" y="${H - PENALTY_AREA_DEPTH}"
             width="${PENALTY_AREA_WIDTH}" height="${PENALTY_AREA_DEPTH}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
-      <rect x="${goalAreaLeft}" y="0"
+      <rect x="${goalAreaLeft}" y="${H - GOAL_AREA_DEPTH}"
             width="${GOAL_AREA_WIDTH}" height="${GOAL_AREA_DEPTH}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
-      <circle cx="${cx}" cy="${PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="${lineColor}" />
-      ${penaltyArcVertical(PENALTY_SPOT_DIST, PENALTY_AREA_DEPTH, 'top', lineColor)}
-      <rect x="${goalLeft}" y="${-GOAL_DEPTH}"
+      <circle cx="${cx}" cy="${H - PENALTY_SPOT_DIST}" r="${SPOT_R}" fill="${lineColor}" />
+      ${penaltyArcVertical(H - PENALTY_SPOT_DIST, H - PENALTY_AREA_DEPTH, 'bottom', lineColor)}
+      <rect x="${goalLeft}" y="${H}"
             width="${GOAL_WIDTH}" height="${GOAL_DEPTH}"
             fill="url(#goal-net)" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <path d="M ${CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 0 ${CORNER_ARC_R}"
+      <path d="M 0 ${H - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 1 ${CORNER_ARC_R} ${H}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
-      <path d="M ${W - CORNER_ARC_R} 0 A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${W} ${CORNER_ARC_R}"
+      <path d="M ${W} ${H - CORNER_ARC_R} A ${CORNER_ARC_R} ${CORNER_ARC_R} 0 0 0 ${W - CORNER_ARC_R} ${H}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
     </g>
   `;
