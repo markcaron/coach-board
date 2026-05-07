@@ -1,5 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Player, Line, Equipment, Shape, TextItem, AnimationFrame, FieldTheme } from './types.js';
+import type { Player, Line, Equipment, Shape, TextItem, AnimationFrame, FieldTheme, PitchType } from './types.js';
 import type { FieldOrientation } from './field.js';
 
 export interface SavedBoard {
@@ -9,6 +9,7 @@ export interface SavedBoard {
   updatedAt: number;
   fieldTheme: FieldTheme;
   fieldOrientation: FieldOrientation;
+  pitchType: PitchType;
   animationMode: boolean;
   playbackLoop: boolean;
   players: Player[];
@@ -17,6 +18,7 @@ export interface SavedBoard {
   shapes: Shape[];
   textItems: TextItem[];
   animationFrames: AnimationFrame[];
+  notes?: string;
 }
 
 const DB_NAME = 'coach-board-db';
@@ -60,7 +62,7 @@ export async function deleteBoard(id: string): Promise<void> {
   await db.delete(STORE_NAME, id);
 }
 
-export function createEmptyBoard(name = 'Untitled Board'): SavedBoard {
+export function createEmptyBoard(name = 'Untitled Board', pitchType: PitchType = 'full'): SavedBoard {
   return {
     id: crypto.randomUUID(),
     name,
@@ -68,6 +70,7 @@ export function createEmptyBoard(name = 'Untitled Board'): SavedBoard {
     updatedAt: Date.now(),
     fieldTheme: 'green',
     fieldOrientation: 'horizontal',
+    pitchType,
     animationMode: false,
     playbackLoop: true,
     players: [],

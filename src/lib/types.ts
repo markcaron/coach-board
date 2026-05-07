@@ -1,4 +1,5 @@
 export type FieldTheme = 'green' | 'white';
+export type PitchType = 'full' | 'half' | 'half-attack' | 'open';
 
 export const COLORS = {
   bgBody: '#1a1a2e',
@@ -140,14 +141,14 @@ export interface ConeColor {
 }
 
 export const CONE_COLORS: ConeColor[] = [
-  { name: 'Chartreuse',  color: COLORS.coneChartreuse },
-  { name: 'Neon Orange', color: COLORS.coneNeonOrange },
-  { name: 'Bright Pink', color: COLORS.coneBrightPink },
-  { name: 'Bright Blue', color: COLORS.coneBrightBlue },
+  { name: 'Hi-Vis Yellow', color: COLORS.coneChartreuse },
+  { name: 'Neon Orange',   color: COLORS.coneNeonOrange },
+  { name: 'Bright Pink',   color: COLORS.coneBrightPink },
+  { name: 'Bright Blue',   color: COLORS.coneBrightBlue },
 ];
 
 export const CONE_COLORS_WHITE: ConeColor[] = [
-  { name: 'Chartreuse',  color: COLORS.coneChartreuseW },
+  { name: 'Hi-Vis Yellow', color: COLORS.coneChartreuseW },
   { name: 'Neon Orange', color: COLORS.coneNeonOrangeW },
   { name: 'Bright Pink', color: COLORS.coneBrightPinkW },
   { name: 'Bright Blue', color: COLORS.coneBrightBlueW },
@@ -184,7 +185,7 @@ export function getLineColors(theme: FieldTheme): LineColor[] {
   return theme === 'white' ? LINE_COLORS_WHITE : LINE_COLORS;
 }
 
-export type Team = 'a' | 'b';
+export type Team = 'a' | 'b' | 'neutral';
 
 export interface Player {
   id: string;
@@ -313,4 +314,4 @@ export interface AnimationFrame {
 }
 
 export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text';
-export type EquipmentKind = 'ball' | 'cone' | 'coach' | 'goal' | 'mini-goal' | 'popup-goal';
+export type EquipmentKind = 'ball' | 'cone' | 'coach' | 'goal' | 'mini-goal' | 'popup-goal' | 'dummy' | 'pole';

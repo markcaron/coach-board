@@ -1,20 +1,20 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
-import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
-import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
-import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
+import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
+import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
+import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfField, renderHalfFieldAttacking, renderVerticalHalfFieldAttacking, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
 import './cb-timeline.js';
 import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
 
-const PLAYER_RADIUS = 2.4;
+const PLAYER_RADIUS = 2.16;
 const TEXT_FONT_SIZE = 2;
 
 const WHITE_THEME = {
@@ -31,13 +31,24 @@ function triPoints(cx: number, cy: number, r: number): string {
   return `${cx},${cy - h} ${cx - h * 0.866},${cy + h * 0.5} ${cx + h * 0.866},${cy + h * 0.5}`;
 }
 
-const BALL_RADIUS = 1.575;
-const CONE_RADIUS = 0.9;
-const CONE_BORDER = 0.675;
+const BALL_RADIUS = 1.4175;
+const CONE_OUTER_R = 1.0;
+const CONE_OUTER_STROKE = 0.7;
+const CONE_INNER_R = 0.35;
+const DUMMY_OUTER_HW = 0.9;
+const DUMMY_OUTER_HH = 1.65;
+const DUMMY_OUTER_RX = 0.9;
+const DUMMY_OUTER_STROKE = 0.35;
+const DUMMY_INNER_HW = 0.5;
+const DUMMY_INNER_HH = 1.25;
+const DUMMY_INNER_RX = 0.5;
+const POLE_RADIUS = 0.55;
+const POLE_BASE_RADIUS = 0.85;
+const SILVER_CENTER = '#d0d0d0';
 const GOAL_W = 7.32;
 const GOAL_D = 2;
 const MINI_GOAL_W = 3.66;
-const MINI_GOAL_D = 1;
+const MINI_GOAL_D = 1.5;
 const POPUP_GOAL_W = 3;
 const POPUP_GOAL_D = 1.5;
 const POPUP_GOAL_COLOR = COLORS.popupGoal;
@@ -174,9 +185,49 @@ function isModifier(e: PointerEvent | MouseEvent): boolean {
 
 function rad2deg(r: number): number { return r * 180 / Math.PI; }
 
+function lightenHex(hex: string, amount = 0.55): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  const lr = Math.round(r + (255 - r) * amount);
+  const lg = Math.round(g + (255 - g) * amount);
+  const lb = Math.round(b + (255 - b) * amount);
+  return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
+}
+
 function isRotatable(item: Player | Equipment): boolean {
-  if ('team' in item) return item.team === 'a';
-  return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal';
+  if ('team' in item) return true;
+  return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal' || item.kind === 'dummy';
+}
+
+function circleHeadPath(r: number): string {
+  const cutFrac = 0.22;
+  const cutY = -r + r * cutFrac * 2;
+  const dx = Math.sqrt(r * r - cutY * cutY);
+  return `M ${-dx},${cutY} A ${r},${r} 0 0 1 ${dx},${cutY} Z`;
+}
+
+const DIAMOND_HH = PLAYER_RADIUS * 1.1;
+const DIAMOND_HW = PLAYER_RADIUS * 1.1;
+
+function diamondHeadPath(): string {
+  const cutFrac = 0.25;
+  const cutY = -DIAMOND_HH + DIAMOND_HH * 2 * cutFrac;
+  const cutHW = DIAMOND_HW * (cutY + DIAMOND_HH) / DIAMOND_HH;
+  return `M 0,${-DIAMOND_HH} L ${-cutHW},${cutY} L ${cutHW},${cutY} Z`;
+}
+
+function triHeadPath(r: number): string {
+  const h = r * 1.32;
+  const apex = -h;
+  const baseY = h * 0.5;
+  const hw = h * 0.866;
+  const cutFrac = 0.3;
+  const cutY = apex + (baseY - apex) * cutFrac;
+  const slope = hw / (baseY - apex);
+  const cutHW = slope * (cutY - apex);
+  return `M 0,${apex} L ${-cutHW},${cutY} L ${cutHW},${cutY} Z`;
 }
 
 function renderRotateHandle(hx: number, hy: number, id: string, color = 'white') {
@@ -284,9 +335,13 @@ export class CoachBoard extends LitElement {
       text-align: center;
       padding: 12px 12px 0;
       font-size: 0.75rem;
-      color: var(--pt-text-muted);
+      color: var(--pt-text);
       background: var(--pt-bg-body);
       user-select: none;
+    }
+
+    .board-name-bar .board-label {
+      color: var(--pt-text-muted);
     }
 
     .board-name-bar.theme-white {
@@ -306,7 +361,8 @@ export class CoachBoard extends LitElement {
     .boards-list {
       list-style: none;
       margin: 0;
-      padding: 4px;
+      padding: 0 0 32px;
+      border-bottom: 1px solid var(--pt-border);
       max-height: 300px;
       overflow-y: auto;
       display: flex;
@@ -332,7 +388,7 @@ export class CoachBoard extends LitElement {
       gap: 12px;
       padding: 12px 16px;
       background: var(--pt-bg-surface);
-      border: 1px solid var(--pt-border);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
       color: inherit;
       cursor: pointer;
@@ -373,6 +429,67 @@ export class CoachBoard extends LitElement {
       font-size: 0.7rem;
       color: var(--pt-text-muted);
       margin-top: 4px;
+    }
+
+    .alert-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      background: rgba(180, 130, 20, 0.15);
+      border: 1px solid rgba(255, 200, 60, 0.5);
+      border-radius: 8px;
+      color: #fdd835;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    .alert-warning svg {
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .alert-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      background: rgba(126, 87, 194, 0.12);
+      border: 1px solid rgba(179, 157, 219, 0.45);
+      border-radius: 8px;
+      color: #b39ddb;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      margin-top: 32px;
+    }
+
+    .alert-info svg {
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .boards-list .action-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: none;
+      color: var(--pt-text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      min-width: 32px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .boards-list .action-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .boards-list .action-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .boards-list .delete-btn {
@@ -446,7 +563,7 @@ export class CoachBoard extends LitElement {
       width: 100%;
       padding: 10px 12px;
       background: var(--pt-bg-primary);
-      border: 1px solid var(--pt-border);
+      border: 1.5px solid var(--pt-border-ui);
       border-radius: 6px;
       color: var(--pt-text);
       font-size: 0.85rem;
@@ -477,7 +594,7 @@ export class CoachBoard extends LitElement {
       min-height: 44px;
       margin-top: 16px;
       background: transparent;
-      border: 1px dashed var(--pt-border);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
       color: var(--pt-text-white);
       font-size: 0.85rem;
@@ -585,7 +702,7 @@ export class CoachBoard extends LitElement {
 
     .bottom-left {
       display: flex;
-      gap: 4px;
+      gap: 6px;
       align-items: center;
       justify-self: start;
     }
@@ -599,7 +716,7 @@ export class CoachBoard extends LitElement {
 
     .bottom-right {
       display: flex;
-      gap: 4px;
+      gap: 6px;
       align-items: center;
       justify-self: end;
     }
@@ -930,6 +1047,23 @@ export class CoachBoard extends LitElement {
       justify-content: flex-end;
     }
 
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      cursor: pointer;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--pt-accent);
+      cursor: pointer;
+    }
+
     .confirm-actions-right {
       display: flex;
       gap: 8px;
@@ -993,6 +1127,7 @@ export class CoachBoard extends LitElement {
       right: 0;
       left: auto;
       transform: none;
+      min-width: 240px;
     }
 
     .confirm-actions button {
@@ -1080,6 +1215,89 @@ export class CoachBoard extends LitElement {
       }
     }
 
+    .print-summary-block {
+      display: none;
+    }
+
+    .summary-section {
+      margin-bottom: 12px;
+    }
+
+    .summary-section h3 {
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      margin: 0 0 4px;
+    }
+
+    .summary-section p, .summary-section ul {
+      margin: 0;
+      padding: 0;
+      font-size: 0.8rem;
+      color: var(--pt-text-muted);
+      list-style: none;
+    }
+
+    .summary-section li {
+      padding: 2px 0;
+    }
+
+    .notes-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      border: 1.5px solid var(--pt-border-ui);
+      border-radius: 6px;
+      background: var(--pt-surface);
+      color: var(--pt-text);
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .notes-textarea::placeholder {
+      color: var(--pt-text-muted);
+    }
+
+    .summary-board-name {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--pt-text);
+      margin-bottom: 16px;
+    }
+
+    @media print {
+      :host {
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+      }
+      .toolbar-area, .bottom-bar, .board-name-bar,
+      .play-overlay, .rotate-overlay, dialog {
+        display: none !important;
+      }
+      .field-area {
+        flex: none !important;
+      }
+      .svg-wrap.vertical {
+        max-width: 50% !important;
+      }
+      :host(.print-summary) .print-summary-block {
+        display: block;
+        padding: 16px 4px;
+        font-size: 11px;
+        color: #333;
+        background: white !important;
+        page-break-inside: avoid;
+      }
+      :host(.print-white-bg) .field-area {
+        background: white !important;
+      }
+      :host(.print-white-bg) #grass-stripes rect {
+        fill: white !important;
+      }
+    }
+
   `;
 
   @state() accessor activeTool: Tool = 'select';
@@ -1089,6 +1307,7 @@ export class CoachBoard extends LitElement {
   @state() accessor selectedIds: Set<string> = new Set();
   @state() accessor playerColor: string = COLORS.playerBlue;
   @state() accessor playerTeam: Team = 'a';
+  @state() accessor autoNumber: boolean = false;
   @state() accessor lineStyle: LineStyle = 'solid';
   @state() accessor equipmentKind: EquipmentKind = 'ball';
   @state() accessor shapeKind: ShapeKind = 'rect';
@@ -1096,6 +1315,7 @@ export class CoachBoard extends LitElement {
   @state() accessor textItems: TextItem[] = [];
   @state() accessor fieldOrientation: FieldOrientation = window.innerWidth <= 768 ? 'vertical' : 'horizontal';
   @state() accessor fieldTheme: FieldTheme = 'green';
+  @state() accessor pitchType: PitchType = 'full';
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
@@ -1122,10 +1342,16 @@ export class CoachBoard extends LitElement {
   @query('#my-boards-dialog') accessor _myBoardsDialog!: HTMLDialogElement;
   @query('#delete-board-dialog') accessor _deleteBoardDialog!: HTMLDialogElement;
   @query('#export-dialog') accessor _exportDialog!: HTMLDialogElement;
+  @query('#board-summary-dialog') accessor _boardSummaryDialog!: HTMLDialogElement;
+  @query('#print-dialog') accessor _printDialog!: HTMLDialogElement;
   @state() private accessor _boardName: string = 'Untitled Board';
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _saveBoardName: string = '';
+  @state() private accessor _newBoardPitchType: PitchType = 'full';
   @state() private accessor _deleteBoardName: string = '';
+  @state() private accessor _printSummary: boolean = true;
+  @state() private accessor _printWhiteBg: boolean = true;
+  @state() private accessor _boardNotes: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
@@ -1134,7 +1360,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   #currentBoard: SavedBoard | null = null;
-  #pendingBoardAction: 'new' | 'open' | null = null;
+  #pendingBoardAction: 'new' | 'open' | 'save-as' | null = null;
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1150,12 +1376,17 @@ export class CoachBoard extends LitElement {
   #shapeDraw: ShapeDrawState | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #onDocClickForMenu = (e: PointerEvent) => {
-    if (this._menuOpen && !e.composedPath().includes(this.renderRoot.querySelector('.bottom-right .dropdown-wrap') as EventTarget)) {
+    const path = e.composedPath();
+    if (this._menuOpen && !path.includes(this.renderRoot.querySelector('.bottom-right .dropdown-wrap') as EventTarget)) {
       this._menuOpen = false;
+    }
+    if (this._fieldMenuOpen && !path.includes(this.renderRoot.querySelector('.bottom-center .dropdown-wrap') as EventTarget)) {
+      this._fieldMenuOpen = false;
     }
   };
   #mobileQuery = window.matchMedia('(max-width: 768px)');
   #onMobileChange = (e: MediaQueryListEvent) => {
+    if (this.#isPrinting) return;
     this._isMobile = e.matches;
     if (this._viewMode === 'readonly') {
       if (e.matches && this.fieldOrientation === 'horizontal') {
@@ -1178,6 +1409,15 @@ export class CoachBoard extends LitElement {
   #playbackRaf: number | null = null;
   #playbackLastTime: number | null = null;
   #trailDrag: { id: string; cp: 'cp1' | 'cp2' } | null = null;
+  #isPrinting = false;
+  #cachedSummary: {
+    name: string; pitchLabel: string; orientation: string;
+    playersByColor: Map<string, number>; coachCount: number;
+    equipByKind: Map<string, number>; conesByColor: Map<string, number>;
+    dummiesByColor: Map<string, number>; polesByColor: Map<string, number>;
+    linesByStyle: Map<string, number>;
+    shapeCount: number; textCount: number; frameCount: number;
+  } | null = null;
 
   #snapshot(): Snapshot {
     return {
@@ -1204,6 +1444,7 @@ export class CoachBoard extends LitElement {
       ...this.#currentBoard,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      pitchType: this.pitchType,
       animationMode: this._animationMode,
       playbackLoop: this._playbackLoop,
       players: this.players,
@@ -1212,6 +1453,7 @@ export class CoachBoard extends LitElement {
       shapes: this.shapes,
       textItems: this.textItems,
       animationFrames: this.animationFrames,
+      notes: this._boardNotes || undefined,
     };
     saveBoard(this.#currentBoard).catch(() => { /* storage error */ });
   }
@@ -1271,7 +1513,11 @@ export class CoachBoard extends LitElement {
 
       if (board.players.length) this.players = board.players;
       if (board.lines.length) this.lines = board.lines;
-      if (board.equipment.length) this.equipment = board.equipment;
+      if (board.equipment.length) this.equipment = board.equipment.map(eq =>
+        (eq.kind === 'cone' || eq.kind === 'dummy' || eq.kind === 'pole') && !eq.color
+          ? { ...eq, color: COLORS.coneChartreuse }
+          : eq
+      );
       if (board.shapes.length) this.shapes = board.shapes;
       if (board.textItems.length) this.textItems = board.textItems;
       if (board.animationFrames.length) this.animationFrames = board.animationFrames;
@@ -1284,6 +1530,8 @@ export class CoachBoard extends LitElement {
       if (board.fieldTheme === 'green' || board.fieldTheme === 'white') {
         this.fieldTheme = board.fieldTheme;
       }
+      this.pitchType = board.pitchType ?? 'full';
+      this._boardNotes = board.notes ?? '';
 
       const allIds = [
         ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
@@ -1344,6 +1592,9 @@ export class CoachBoard extends LitElement {
       if (typeof data.playbackLoop === 'boolean') this._playbackLoop = data.playbackLoop;
       if (data.fieldTheme === 'green' || data.fieldTheme === 'white') {
         this.fieldTheme = data.fieldTheme;
+      }
+      if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'half-attack' || data.pitchType === 'open') {
+        this.pitchType = data.pitchType;
       }
       if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') {
         this.fieldOrientation = data.fieldOrientation as FieldOrientation;
@@ -1415,6 +1666,7 @@ export class CoachBoard extends LitElement {
       animationFrames: this.animationFrames,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      pitchType: this.pitchType,
       playbackLoop: this._playbackLoop,
     });
     svgClone.insertBefore(meta, svgClone.firstChild);
@@ -1622,7 +1874,7 @@ export class CoachBoard extends LitElement {
   }
 
   render() {
-    const fd = getFieldDimensions(this.fieldOrientation);
+    const fd = getFieldDimensions(this.fieldOrientation, this.pitchType);
     const vbX = -PADDING;
     const vbY = -PADDING;
     const vbW = fd.w + PADDING * 2;
@@ -1643,6 +1895,7 @@ export class CoachBoard extends LitElement {
             .selectedItems="${this.#selectedItems}"
             .fieldTheme="${this.fieldTheme}"
             .multiSelect="${this._multiSelect}"
+            .autoNumber="${this.autoNumber}"
             @tool-changed="${this.#onToolChanged}"
             @multi-select-toggle="${this.#onMultiSelectToggle}"
             @player-update="${this.#onPlayerUpdate}"
@@ -1653,15 +1906,17 @@ export class CoachBoard extends LitElement {
             @align-items="${this.#onAlignItems}"
             @group-items="${this.#onGroupItems}"
             @ungroup-items="${this.#onUngroupItems}"
-            @delete-items="${this.#onDeleteItems}">
+            @delete-items="${this.#onDeleteItems}"
+            @rotate-items="${this.#onRotateItems}"
+            @auto-number-toggle="${this.#onAutoNumberToggle}">
           </cb-toolbar>
         </div>
       `}
 
       ${this._viewMode !== 'readonly' ? html`
         <div class="board-name-bar ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
-          Board: ${this.#isBoardSaved
-            ? this._boardName
+          <span class="board-label">Board:</span> ${this.#isBoardSaved
+            ? html`<span class="board-name">${this._boardName}</span>`
             : html`<span class="unsaved">${this._boardName} (unsaved)</span>`}
         </div>
       ` : nothing}
@@ -1689,9 +1944,16 @@ export class CoachBoard extends LitElement {
                 width="${fd.w}" height="${fd.h}"
                 fill="${this.fieldTheme === 'white' ? 'white' : 'url(#grass-stripes)'}" rx="0.5" />
 
-          ${this.fieldOrientation === 'vertical'
-            ? renderVerticalField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')
-            : renderField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')}
+          ${(() => {
+            const lc = this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white';
+            const v = this.fieldOrientation === 'vertical';
+            switch (this.pitchType) {
+              case 'open': return nothing;
+              case 'half': return v ? renderVerticalHalfField(lc) : renderHalfField(lc);
+              case 'half-attack': return v ? renderVerticalHalfFieldAttacking(lc) : renderHalfFieldAttacking(lc);
+              default: return v ? renderVerticalField(lc) : renderField(lc);
+            }
+          })()}
 
           <g class="shapes-layer">
             ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
@@ -1729,6 +1991,13 @@ export class CoachBoard extends LitElement {
             ? this.playerTeam === 'a'
               ? svg`
                 <polygon points="${triPoints(this.ghost.x, this.ghost.y, PLAYER_RADIUS)}"
+                         fill="${this.playerColor}" fill-opacity="0.5"
+                         stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
+                         stroke-dasharray="0.4,0.3"
+                         style="pointer-events: none" />`
+              : this.playerTeam === 'neutral'
+              ? svg`
+                <polygon points="${this.ghost.x},${this.ghost.y - DIAMOND_HH} ${this.ghost.x + DIAMOND_HW},${this.ghost.y} ${this.ghost.x},${this.ghost.y + DIAMOND_HH} ${this.ghost.x - DIAMOND_HW},${this.ghost.y}"
                          fill="${this.playerColor}" fill-opacity="0.5"
                          stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
                          stroke-dasharray="0.4,0.3"
@@ -1790,6 +2059,33 @@ export class CoachBoard extends LitElement {
         </cb-timeline>
       ` : nothing}
 
+      <div class="print-summary-block">
+        ${this.#cachedSummary ? html`
+          <div class="summary-board-name">${this.#cachedSummary.name}</div>
+          <div class="summary-section">
+            <h3>Pitch</h3><p>${this.#cachedSummary.pitchLabel} · ${this.#cachedSummary.orientation}</p>
+          </div>
+          ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
+            <div class="summary-section"><h3>Players</h3><p>${[...this.#cachedSummary.playersByColor.entries()].map(([c, n]) => `${n} ${c}`).join(', ')}${this.#cachedSummary.coachCount > 0 ? `${this.#cachedSummary.playersByColor.size > 0 ? ', ' : ''}${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}` : ''}</p></div>
+          ` : nothing}
+          ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 || this.#cachedSummary.dummiesByColor.size > 0 || this.#cachedSummary.polesByColor.size > 0 ? html`
+            <div class="summary-section"><h3>Equipment</h3><p>${[
+              ...this.#cachedSummary.equipByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).concat(
+              this.#cachedSummary.conesByColor.size > 0 ? [`${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []).concat(
+              this.#cachedSummary.dummiesByColor.size > 0 ? [`${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'}`] : []).concat(
+              this.#cachedSummary.polesByColor.size > 0 ? [`${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []
+            ).join(', ')}</p></div>
+          ` : nothing}
+          ${this.#cachedSummary.linesByStyle.size > 0 ? html`
+            <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
+          ` : nothing}
+          ${this.#cachedSummary.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
+          ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
+          ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
+          ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
+        ` : nothing}
+      </div>
+
       <div class="bottom-bar${this._viewMode === 'readonly' ? ' readonly' : ''}">
         ${this._viewMode !== 'readonly' ? html`
         <div class="bottom-left">
@@ -1822,40 +2118,40 @@ export class CoachBoard extends LitElement {
               <span class="btn-text">Animate</span>
             </button>
           ` : nothing}
-          <label class="visually-hidden" for="field-theme-select">Field theme</label>
-          <select id="field-theme-select" class="theme-select" aria-label="Field theme"
+          <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
+          <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
                   @change="${this.#onThemeChange}">
             <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
             <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
           </select>
           ${this._viewMode !== 'readonly' && !this._isMobile ? html`
             <div class="dropdown-wrap">
-              <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
-                      title="Field orientation"
+              <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
+                      title="Pitch orientation"
                       @click="${this.#toggleFieldMenu}">
                 <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                   ${this.fieldOrientation === 'horizontal'
                     ? svg`<path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>`
                     : svg`<path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>`}
                 </svg>
-                <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Field</span>
+                <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Pitch</span>
                 <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
               </button>
               ${this._fieldMenuOpen ? html`
-                <div role="menu" aria-label="Field orientation">
+                <div role="menu" aria-label="Pitch orientation">
                   <button role="menuitem"
                           @click="${() => this.#requestOrientation('horizontal')}">
                     <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                       <path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>
                     </svg>
-                    Horizontal Field
+                    Horizontal Pitch
                   </button>
                   <button role="menuitem"
                           @click="${() => this.#requestOrientation('vertical')}">
                     <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                       <path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>
                     </svg>
-                    Vertical Field
+                    Vertical Pitch
                   </button>
                 </div>
               ` : nothing}
@@ -1921,6 +2217,14 @@ export class CoachBoard extends LitElement {
                   </svg>
                   Save Board
                 </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#handleSaveAs}">
+                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0" fill="none" stroke="currentColor" stroke-width="1.3">
+                    <rect x="5" y="5" width="8" height="8" rx="1"/>
+                    <path d="M3 11V3a1 1 0 0 1 1-1h8" stroke-linecap="round"/>
+                  </svg>
+                  Save As…
+                </button>
                 ` : nothing}
 
                 <div class="menu-divider"></div>
@@ -1933,6 +2237,24 @@ export class CoachBoard extends LitElement {
                 </button>
 
                 <div class="menu-divider"></div>
+                ${this._viewMode !== 'readonly' ? html`
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#showBoardSummary}">
+                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0" fill="none" stroke="currentColor" stroke-width="1.3">
+                    <rect x="2" y="2" width="12" height="12" rx="2"/>
+                    <path d="M5 5h6M5 8h6M5 11h4" stroke-linecap="round"/>
+                  </svg>
+                  Board Summary
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${this.#showPrintDialog}">
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                    <path d="m1012.5 489.64h-82.836v-189.68c0-26.477-10.273-51.336-28.914-69.977l-85.5-85.5c-18.602-18.602-43.461-28.875-69.977-28.875l-373.01 0.003906c-56.25 0-102.04 45.789-102.04 102.04v271.99l-82.723-0.003906c-80.625 0-146.25 65.625-146.25 146.25v302.29c0 80.625 65.625 146.25 146.25 146.25h825c80.625 0 146.25-65.625 146.25-146.25v-302.29c0-80.625-65.625-146.25-146.25-146.25zm-159.49-211.91c5.8516 5.8516 9.0742 13.688 9.1133 22.125h-93.039c-12.863 0-23.324-10.461-23.324-23.324v-93.301c8.2891 0.11328 16.012 3.2617 21.75 9zm-515.25-60.078c0-19.051 15.449-34.5 34.5-34.5h305.96v93.375c0 50.102 40.762 90.863 90.863 90.863h93.039v122.25h-524.36zm556.2 799.24h-587.92v-109.73c0-2.1016 1.6484-3.75 3.75-3.75h580.46c2.1016 0 3.75 1.6484 3.75 3.75v109.73zm197.29-78.711c0 43.426-35.289 78.75-78.75 78.75h-51v-109.73c0-39.301-31.988-71.25-71.25-71.25h-580.46c-39.301 0-71.25 31.988-71.25 71.25v109.73h-51.039c-43.426 0-78.75-35.289-78.75-78.75v-302.29c0-43.426 35.289-78.75 78.75-78.75h825c43.426 0 78.75 35.289 78.75 78.75z"/>
+                    <path d="m289.46 639.64h-64.461c-18.637 0-33.75 15.113-33.75 33.75s15.113 33.75 33.75 33.75h64.461c18.637 0 33.75-15.113 33.75-33.75s-15.109-33.75-33.75-33.75z"/>
+                  </svg>
+                  Print Board
+                </button>
+                ` : nothing}
                 <button role="menuitem" tabindex="-1"
                         @click="${this.#showExportDialog}">
                   <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
@@ -2049,13 +2371,13 @@ export class CoachBoard extends LitElement {
 
       <dialog id="save-board-dialog" @close="${() => { this.#pendingBoardAction = null; this.#pendingOpenBoardId = null; }}">
         <div class="dialog-header">
-          <h2>${this.#pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
+          <h2>${this.#pendingBoardAction === 'save-as' ? 'Save As' : this.#pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
           <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._saveBoardDialog?.close()}">
             <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
           </button>
         </div>
         <div class="dialog-body">
-          <p>${this.#pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
+          <p>${this.#pendingBoardAction === 'save-as' ? 'Save a copy of this board with a new name.' : this.#pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
           <label class="save-board-label" for="save-board-input">Board name</label>
           <input class="save-board-input" id="save-board-input" type="text" placeholder="Board name"
                  .value="${this._saveBoardName}"
@@ -2077,6 +2399,14 @@ export class CoachBoard extends LitElement {
         </div>
         <div class="dialog-body">
           <p>Create a new empty board?</p>
+          <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
+          <select class="theme-select" id="new-board-pitch-type"
+                  @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; }}">
+            <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
+            <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Defensive)</option>
+            <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Attacking)</option>
+            <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
+          </select>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
             <button class="confirm-success" @click="${this.#confirmNewBoard}">Create New Board</button>
@@ -2093,6 +2423,7 @@ export class CoachBoard extends LitElement {
         </div>
         <div class="dialog-body">
           ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
+            <h3 style="font-size: 0.8rem; color: var(--pt-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Saved Boards</h3>
             <ul class="boards-list">
               ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
                 <li>
@@ -2103,8 +2434,15 @@ export class CoachBoard extends LitElement {
                     </svg>
                     <div class="board-info">
                       <div class="board-title">${b.name}</div>
-                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${b.pitchType === 'half' ? 'Half (Def.)' : b.pitchType === 'half-attack' ? 'Half (Att.)' : b.pitchType === 'open' ? 'Open Grass' : 'Full Pitch'}</div>
                     </div>
+                  </button>
+                  <button class="action-btn" title="Duplicate ${b.name}" aria-label="Duplicate ${b.name}"
+                          @click="${() => this.#duplicateBoard(b)}">
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                      <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                      <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    </svg>
                   </button>
                   <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
                           @click="${() => this.#handleDeleteBoard(b)}">
@@ -2116,8 +2454,24 @@ export class CoachBoard extends LitElement {
                 </li>
               `)}
             </ul>
-          ` : html`<p>No saved boards yet.</p>`}
-          <p class="item-description" style="margin-top: 24px;">All board data is saved to your browser's local storage. Exporting boards as backup SVGs (data only, no visual preview) is the best way to keep backups.</p>
+          ` : html`
+            <div class="alert-warning">
+              <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#fdd835">
+                <path d="m600 431.77c-18.637 0-33.75 15.113-33.75 33.75v233.36c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-233.36c0-18.637-15.113-33.75-33.75-33.75z"/>
+                <path d="m600 789.56c-18.637 0-33.75 15.113-33.75 33.75v20.625c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-20.625c0-18.637-15.113-33.75-33.75-33.75z"/>
+                <path d="m1102.7 847.57-401.81-624.9c-22.164-34.426-59.887-55.012-100.88-55.012s-78.711 20.586-100.88 55.051v0.039062l-401.81 624.82c-24.113 37.461-25.762 83.211-4.3867 122.36 21.336 39.113 60.711 62.477 105.3 62.477h803.62c44.551 0 83.926-23.363 105.3-62.477 21.297-39.188 19.648-84.898-4.4648-122.36zm-54.863 89.965c-9.3359 17.137-26.551 27.336-46.051 27.336h-803.59c-19.5 0-36.711-10.164-46.051-27.336-9.3359-17.102-8.625-37.086 1.9141-53.512l401.81-624.83c19.688-30.523 68.551-30.523 88.273 0l401.81 624.82c10.539 16.426 11.215 36.414 1.875 53.516z"/>
+              </svg>
+              <span>No saved boards yet.</span>
+            </div>
+          `}
+          <div class="alert-info">
+            <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#b39ddb">
+              <path d="m600 112.5c-129.29 0-253.29 51.363-344.71 142.79-91.422 91.426-142.79 215.42-142.79 344.71s51.363 253.29 142.79 344.71c91.426 91.422 215.42 142.79 344.71 142.79s253.29-51.363 344.71-142.79c91.422-91.426 142.79-215.42 142.79-344.71-0.14453-129.25-51.555-253.16-142.95-344.55-91.395-91.391-215.3-142.8-344.55-142.95zm0 900c-109.4 0-214.32-43.461-291.68-120.82-77.359-77.355-120.82-182.28-120.82-291.68s43.461-214.32 120.82-291.68c77.355-77.359 182.28-120.82 291.68-120.82s214.32 43.461 291.68 120.82c77.359 77.355 120.82 182.28 120.82 291.68-0.11719 109.37-43.617 214.22-120.95 291.55s-182.18 120.83-291.55 120.95z"/>
+              <path d="m675 812.5h-37.5v-312.5c0-9.9453-3.9492-19.484-10.984-26.516-7.0312-7.0352-16.57-10.984-26.516-10.984h-25c-11.887 0.003906-23.066 5.6445-30.137 15.203-7.0664 9.5586-9.1836 21.898-5.707 33.266s12.137 20.414 23.344 24.383v277.15h-37.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h150c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
+              <path d="m650 350c0 27.613-22.387 50-50 50s-50-22.387-50-50 22.387-50 50-50 50 22.387 50 50z"/>
+            </svg>
+            <span>All board data is saved to your browser's local storage. Exporting boards as backup SVGs is the best way to keep backups.</span>
+          </div>
           <div class="boards-action-row">
             <button class="import-svg-btn" @click="${this.#importSvgFromMyBoards}">
               <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
@@ -2202,6 +2556,103 @@ export class CoachBoard extends LitElement {
           </div>
           <div class="confirm-actions end">
             <button class="cancel-btn" @click="${() => this._exportDialog?.close()}">Close</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="board-summary-dialog" @close="${() => this.#saveToStorage()}">
+        <div class="dialog-header">
+          <h2>Board Summary</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._boardSummaryDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          ${this.#cachedSummary ? html`
+            <div class="summary-board-name">${this.#cachedSummary.name}</div>
+            <div class="summary-section">
+              <h3>Pitch</h3>
+              <p>${this.#cachedSummary.pitchLabel} · ${this.#cachedSummary.orientation}</p>
+            </div>
+            ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
+              <div class="summary-section">
+                <h3>Players</h3>
+                <ul>
+                  ${[...this.#cachedSummary.playersByColor.entries()].map(([color, count]) => html`<li>${count} ${color}</li>`)}
+                  ${this.#cachedSummary.coachCount > 0 ? html`<li>${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}</li>` : nothing}
+                </ul>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 || this.#cachedSummary.dummiesByColor.size > 0 || this.#cachedSummary.polesByColor.size > 0 ? html`
+              <div class="summary-section">
+                <h3>Equipment</h3>
+                <ul>
+                  ${[...this.#cachedSummary.equipByKind.entries()].map(([kind, count]) => html`<li>${count} ${kind}${count > 1 ? 's' : ''}</li>`)}
+                  ${this.#cachedSummary.conesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.#cachedSummary.conesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                  ${this.#cachedSummary.dummiesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'} (${[...this.#cachedSummary.dummiesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                  ${this.#cachedSummary.polesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.#cachedSummary.polesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                </ul>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.linesByStyle.size > 0 ? html`
+              <div class="summary-section">
+                <h3>Lines</h3>
+                <ul>
+                  ${[...this.#cachedSummary.linesByStyle.entries()].map(([style, count]) => html`<li>${count} ${style}${count > 1 ? 's' : ''}</li>`)}
+                </ul>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.shapeCount > 0 ? html`
+              <div class="summary-section">
+                <h3>Shapes</h3>
+                <p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.textCount > 0 ? html`
+              <div class="summary-section">
+                <h3>Text</h3>
+                <p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.frameCount > 0 ? html`
+              <div class="summary-section">
+                <h3>Animation</h3>
+                <p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p>
+              </div>
+            ` : nothing}
+          ` : nothing}
+          <div class="summary-section">
+            <h3>Notes &amp; Instructions</h3>
+            <textarea class="notes-textarea" rows="4" placeholder="Add notes, drills, instructions…"
+                      .value="${this._boardNotes}"
+                      @input="${(e: Event) => { this._boardNotes = (e.target as HTMLTextAreaElement).value; }}"></textarea>
+          </div>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._boardSummaryDialog?.close()}">Close</button>
+            <button class="confirm-success" @click="${this.#saveBoardNotes}">Save</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="print-dialog">
+        <div class="dialog-header">
+          <h2>Print Board</h2>
+          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._printDialog?.close()}">
+            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <label class="checkbox-label">
+            <input type="checkbox" .checked="${this._printSummary}" @change="${(e: Event) => { this._printSummary = (e.target as HTMLInputElement).checked; }}">
+            Include board summary
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" .checked="${this._printWhiteBg}" @change="${(e: Event) => { this._printWhiteBg = (e.target as HTMLInputElement).checked; }}">
+            Use white background for printing
+          </label>
+          <div class="confirm-actions">
+            <button class="cancel-btn" @click="${() => this._printDialog?.close()}">Cancel</button>
+            <button class="confirm-success" @click="${this.#handlePrint}">Print</button>
           </div>
         </div>
       </dialog>
@@ -2295,10 +2746,12 @@ export class CoachBoard extends LitElement {
                    stroke-linejoin="round"
                    filter="url(#player-shadow)"
                    style="cursor: pointer" />
+          <path d="${triHeadPath(PLAYER_RADIUS)}"
+                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
           ${p.label ? svg`
             <text x="0" y="${textOff}"
                   text-anchor="middle" dominant-baseline="central"
-                  fill="${textColor}" font-size="1.9" font-weight="bold"
+                  fill="${textColor}" font-size="${(p.label?.length ?? 0) > 2 ? '1.4' : '1.9'}" font-weight="bold"
                   font-family="system-ui, sans-serif"
                   transform="rotate(${-angle}, 0, ${textOff})"
                   style="pointer-events: none">
@@ -2310,28 +2763,72 @@ export class CoachBoard extends LitElement {
       `;
     }
 
+    if (p.team === 'neutral') {
+      const hh = DIAMOND_HH;
+      const hw = DIAMOND_HW;
+      const selHH = hh + 0.4;
+      const selHW = hw + 0.4;
+      const dPts = `0,${-hh} ${hw},0 0,${hh} ${-hw},0`;
+      const selPts = `0,${-selHH} ${selHW},0 0,${selHH} ${-selHW},0`;
+      const fontSize = (p.label?.length ?? 0) > 2 ? '1.4' : '1.9';
+      return svg`
+        <g data-id="${p.id}" data-kind="player"
+           transform="translate(${p.x}, ${p.y}) rotate(${angle})">
+          ${selected ? svg`
+            <polygon points="${selPts}"
+                     fill="none" stroke="${this.#selColor}" stroke-width="0.2"
+                     stroke-linejoin="round" stroke-dasharray="0.5,0.3" />
+          ` : nothing}
+          <polygon points="${dPts}"
+                   fill="${p.color}" stroke="white" stroke-width="0.15"
+                   stroke-linejoin="round"
+                   filter="url(#player-shadow)"
+                   style="cursor: pointer" />
+          <path d="${diamondHeadPath()}"
+                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
+          ${p.label ? svg`
+            <text x="0" y="0"
+                  text-anchor="middle" dominant-baseline="central"
+                  fill="${textColor}" font-size="${fontSize}" font-weight="bold"
+                  font-family="system-ui, sans-serif"
+                  transform="rotate(${-angle})"
+                  style="pointer-events: none">
+              ${p.label}
+            </text>
+          ` : nothing}
+          ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS + 0.7) : nothing}
+        </g>
+      `;
+    }
+
+    const fontSize = (p.label?.length ?? 0) > 2 ? '1.4' : '1.9';
     return svg`
       <g class="player"
          data-id="${p.id}"
-         data-kind="player">
+         data-kind="player"
+         transform="translate(${p.x}, ${p.y}) rotate(${angle})">
         ${selected ? svg`
-          <circle cx="${p.x}" cy="${p.y}" r="${PLAYER_RADIUS + 0.4}"
+          <circle cx="0" cy="0" r="${PLAYER_RADIUS + 0.4}"
                    fill="none" stroke="${this.#selColor}" stroke-width="0.2"
                    stroke-dasharray="0.5,0.3" />
         ` : nothing}
-        <circle cx="${p.x}" cy="${p.y}" r="${PLAYER_RADIUS}"
+        <circle cx="0" cy="0" r="${PLAYER_RADIUS}"
                 fill="${p.color}" stroke="white" stroke-width="0.15"
                 filter="url(#player-shadow)"
                 style="cursor: pointer" />
+        <path d="${circleHeadPath(PLAYER_RADIUS)}"
+              fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
         ${p.label ? svg`
-          <text x="${p.x}" y="${p.y}"
+          <text x="0" y="0"
                 text-anchor="middle" dominant-baseline="central"
-                fill="${textColor}" font-size="1.9" font-weight="bold"
+                fill="${textColor}" font-size="${fontSize}" font-weight="bold"
                 font-family="system-ui, sans-serif"
+                transform="rotate(${-angle})"
                 style="pointer-events: none">
             ${p.label}
           </text>
         ` : nothing}
+        ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS + 0.7) : nothing}
       </g>
     `;
   }
@@ -2454,17 +2951,68 @@ export class CoachBoard extends LitElement {
       `;
     }
     if (eq.kind === 'cone') {
-      const coneColor = eq.color ?? COLORS.coneChartreuse;
+      const coneColor = eq.color ?? COLORS.coneNeonOrange;
       return svg`
         <g data-id="${eq.id}" data-kind="equipment">
           ${selected ? svg`
-            <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_RADIUS + CONE_BORDER + 0.15}"
+            <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_OUTER_R + CONE_OUTER_STROKE / 2 + 0.2}"
                     fill="none" stroke="${this.#selColor}" stroke-width="0.15"
                     stroke-dasharray="0.4,0.25" />
           ` : nothing}
-          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_RADIUS}"
-                  fill="${COLORS.equipmentBody}" stroke="${coneColor}" stroke-width="${CONE_BORDER}"
+          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_OUTER_R}"
+                  fill="none" stroke="${coneColor}" stroke-width="${CONE_OUTER_STROKE}"
                   style="cursor: pointer" />
+          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_INNER_R}"
+                  fill="${SILVER_CENTER}" style="cursor: pointer" />
+        </g>
+      `;
+    }
+    if (eq.kind === 'dummy') {
+      const dummyColor = eq.color ?? COLORS.coneChartreuse;
+      const angle = eq.angle ?? 0;
+      const pad = 0.5;
+      const rx1 = -DUMMY_OUTER_HW - pad;
+      const ry1 = -DUMMY_OUTER_HH - pad;
+      const rx2 = DUMMY_OUTER_HW + pad;
+      const ry2 = DUMMY_OUTER_HH + pad;
+      return svg`
+        <g data-id="${eq.id}" data-kind="equipment"
+           transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
+          ${selected ? svg`
+            <rect x="${-DUMMY_OUTER_HW - DUMMY_OUTER_STROKE / 2 - 0.25}" y="${-DUMMY_OUTER_HH - DUMMY_OUTER_STROKE / 2 - 0.25}"
+                  width="${(DUMMY_OUTER_HW + DUMMY_OUTER_STROKE / 2 + 0.25) * 2}" height="${(DUMMY_OUTER_HH + DUMMY_OUTER_STROKE / 2 + 0.25) * 2}"
+                  rx="${DUMMY_OUTER_RX + 0.4}" fill="none" stroke="${this.#selColor}"
+                  stroke-width="0.15" stroke-dasharray="0.4,0.25" />
+          ` : nothing}
+          <rect x="${-DUMMY_OUTER_HW}" y="${-DUMMY_OUTER_HH}"
+                width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
+                rx="${DUMMY_OUTER_RX}" fill="none"
+                stroke="${dummyColor}" stroke-width="${DUMMY_OUTER_STROKE}"
+                style="cursor: pointer" />
+          <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
+                width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
+                rx="${DUMMY_INNER_RX}" fill="${lightenHex(dummyColor)}"
+                style="cursor: pointer" />
+          ${this.#shouldShowRotate(eq.id, singleSelected)
+            ? this.#renderRectRotateHandles(eq.id, rx1, ry1, rx2, ry2)
+            : nothing}
+        </g>
+      `;
+    }
+    if (eq.kind === 'pole') {
+      const poleColor = eq.color ?? COLORS.coneChartreuse;
+      return svg`
+        <g data-id="${eq.id}" data-kind="equipment">
+          ${selected ? svg`
+            <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS + 0.3}"
+                    fill="none" stroke="${this.#selColor}" stroke-width="0.15"
+                    stroke-dasharray="0.4,0.25" />
+          ` : nothing}
+          <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS}"
+                  fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3"
+                  style="cursor: pointer" />
+          <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_RADIUS}"
+                  fill="${poleColor}" style="cursor: pointer" />
         </g>
       `;
     }
@@ -2566,10 +3114,38 @@ export class CoachBoard extends LitElement {
     }
     if (this.equipmentKind === 'cone') {
       return svg`
-        <circle cx="${x}" cy="${y}" r="${CONE_RADIUS}"
-                fill="${COLORS.equipmentBody}" fill-opacity="0.5" stroke="${COLORS.coneChartreuse}" stroke-width="${CONE_BORDER}"
-                stroke-dasharray="0.3,0.2" opacity="0.5"
-                style="pointer-events: none" />
+        <g opacity="0.5" style="pointer-events: none">
+          <circle cx="${x}" cy="${y}" r="${CONE_OUTER_R}"
+                  fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="${CONE_OUTER_STROKE}"
+                  stroke-dasharray="0.3,0.2" />
+          <circle cx="${x}" cy="${y}" r="${CONE_INNER_R}"
+                  fill="${SILVER_CENTER}" />
+        </g>
+      `;
+    }
+    if (this.equipmentKind === 'dummy') {
+      return svg`
+        <g transform="translate(${x}, ${y})" opacity="0.5"
+           style="pointer-events: none">
+          <rect x="${-DUMMY_OUTER_HW}" y="${-DUMMY_OUTER_HH}"
+                width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
+                rx="${DUMMY_OUTER_RX}" fill="none"
+                stroke="${COLORS.coneChartreuse}" stroke-width="${DUMMY_OUTER_STROKE}"
+                stroke-dasharray="0.3,0.2" />
+          <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
+                width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
+                rx="${DUMMY_INNER_RX}" fill="${lightenHex(COLORS.coneChartreuse)}" />
+        </g>
+      `;
+    }
+    if (this.equipmentKind === 'pole') {
+      return svg`
+        <g opacity="0.5" style="pointer-events: none">
+          <circle cx="${x}" cy="${y}" r="${POLE_BASE_RADIUS}"
+                  fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3" />
+          <circle cx="${x}" cy="${y}" r="${POLE_RADIUS}"
+                  fill="${COLORS.coneChartreuse}" />
+        </g>
       `;
     }
     if (this.equipmentKind === 'goal' || this.equipmentKind === 'mini-goal') {
@@ -2918,20 +3494,154 @@ export class CoachBoard extends LitElement {
     });
   }
 
-  #confirmSaveBoard() {
+  #handleSaveAs() {
+    this._menuOpen = false;
+    this.#pendingBoardAction = 'save-as';
+    this.#pendingOpenBoardId = null;
+    this._saveBoardName = `Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`;
+    this.#openSaveBoardDialog();
+  }
+
+  async #confirmSaveBoard() {
     const name = this._saveBoardName.trim();
     if (!name || !this.#currentBoard) return;
-    this.#currentBoard = { ...this.#currentBoard, name };
-    this._boardName = name;
-    saveBoard(this.#currentBoard).catch(() => {});
     const pendingAction = this.#pendingBoardAction;
     const pendingId = this.#pendingOpenBoardId;
     this._saveBoardDialog?.close();
-    if (pendingAction === 'new') {
-      requestAnimationFrame(() => this._newBoardDialog?.showModal());
-    } else if (pendingAction === 'open') {
-      this.#doOpenBoard(pendingId!);
+
+    if (pendingAction === 'save-as') {
+      const newBoard: SavedBoard = {
+        ...this.#currentBoard,
+        id: crypto.randomUUID(),
+        name,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        players: structuredClone(this.players),
+        lines: structuredClone(this.lines),
+        equipment: structuredClone(this.equipment),
+        shapes: structuredClone(this.shapes),
+        textItems: structuredClone(this.textItems),
+        animationFrames: structuredClone(this.animationFrames),
+        notes: this._boardNotes || undefined,
+      };
+      await saveBoard(newBoard);
+      this.#currentBoard = newBoard;
+      this._boardName = name;
+      setActiveBoardId(newBoard.id);
+    } else {
+      this.#currentBoard = { ...this.#currentBoard, name };
+      this._boardName = name;
+      saveBoard(this.#currentBoard).catch(() => {});
+      if (pendingAction === 'new') {
+        requestAnimationFrame(() => this._newBoardDialog?.showModal());
+      } else if (pendingAction === 'open') {
+        this.#doOpenBoard(pendingId!);
+      }
     }
+  }
+
+  #getBoardSummary() {
+    const allPlayerColors = [...PLAYER_COLORS, ...PLAYER_COLORS_WHITE];
+    const allConeColors = [...CONE_COLORS, ...CONE_COLORS_WHITE];
+
+    const playersByColor = new Map<string, number>();
+    let coachCount = 0;
+    for (const p of this.players) {
+      const name = allPlayerColors.find(c => c.color === p.color)?.name ?? 'Other';
+      playersByColor.set(name, (playersByColor.get(name) ?? 0) + 1);
+    }
+
+    const equipByKind = new Map<string, number>();
+    const conesByColor = new Map<string, number>();
+    const dummiesByColor = new Map<string, number>();
+    const polesByColor = new Map<string, number>();
+    for (const e of this.equipment) {
+      if (e.kind === 'coach') {
+        coachCount++;
+      } else if (e.kind === 'cone') {
+        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneNeonOrange))?.name ?? 'Other';
+        conesByColor.set(name, (conesByColor.get(name) ?? 0) + 1);
+      } else if (e.kind === 'dummy') {
+        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
+        dummiesByColor.set(name, (dummiesByColor.get(name) ?? 0) + 1);
+      } else if (e.kind === 'pole') {
+        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
+        polesByColor.set(name, (polesByColor.get(name) ?? 0) + 1);
+      } else {
+        const label = e.kind === 'ball' ? 'Ball' : e.kind === 'goal' ? 'Goal' : e.kind === 'mini-goal' ? 'Mini Goal' : 'Pop-up Goal';
+        equipByKind.set(label, (equipByKind.get(label) ?? 0) + 1);
+      }
+    }
+
+    const linesByStyle = new Map<string, number>();
+    for (const l of this.lines) {
+      const hasArrow = l.arrowStart || l.arrowEnd;
+      const label = `${l.style === 'solid' ? 'Solid' : l.style === 'dashed' ? 'Dashed' : 'Wavy'}${hasArrow ? ' arrow' : ''}`;
+      linesByStyle.set(label, (linesByStyle.get(label) ?? 0) + 1);
+    }
+
+    const pitchLabel = this.pitchType === 'half' ? 'Half Pitch (Def.)'
+      : this.pitchType === 'half-attack' ? 'Half Pitch (Att.)'
+      : this.pitchType === 'open' ? 'Open Grass'
+      : 'Full Pitch';
+
+    return {
+      name: this._boardName || 'Untitled Board',
+      pitchLabel,
+      orientation: this.fieldOrientation === 'vertical' ? 'Vertical' : 'Horizontal',
+      playersByColor,
+      coachCount,
+      equipByKind,
+      conesByColor,
+      dummiesByColor,
+      polesByColor,
+      linesByStyle,
+      shapeCount: this.shapes.length,
+      textCount: this.textItems.length,
+      frameCount: this.animationFrames.length,
+    };
+  }
+
+  #showBoardSummary() {
+    this._menuOpen = false;
+    this.#cachedSummary = this.#getBoardSummary();
+    requestAnimationFrame(() => this._boardSummaryDialog?.showModal());
+  }
+
+  #saveBoardNotes() {
+    this._boardSummaryDialog?.close();
+  }
+
+  #showPrintDialog() {
+    this._menuOpen = false;
+    requestAnimationFrame(() => this._printDialog?.showModal());
+  }
+
+  #handlePrint() {
+    this._printDialog?.close();
+    this.#isPrinting = true;
+    this.#cachedSummary = this.#getBoardSummary();
+    const host = this as unknown as HTMLElement;
+    const savedTheme = this.fieldTheme;
+    if (this._printSummary) host.classList.add('print-summary');
+    if (this._printWhiteBg) {
+      host.classList.add('print-white-bg');
+      this.fieldTheme = 'white';
+    }
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      host.classList.remove('print-summary', 'print-white-bg');
+      if (this._printWhiteBg) this.fieldTheme = savedTheme;
+      this.#isPrinting = false;
+    };
+    window.addEventListener('afterprint', cleanup, { once: true });
+    setTimeout(() => {
+      window.print();
+      setTimeout(cleanup, 2000);
+    }, 100);
   }
 
   #showExportDialog() {
@@ -2945,6 +3655,7 @@ export class CoachBoard extends LitElement {
 
   #handleNewBoard() {
     this._menuOpen = false;
+    this._newBoardPitchType = 'full';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingBoardAction = 'new';
       this._saveBoardName = '';
@@ -2959,7 +3670,7 @@ export class CoachBoard extends LitElement {
 
   async #confirmNewBoard() {
     this._newBoardDialog?.close();
-    const board = createEmptyBoard();
+    const board = createEmptyBoard('Untitled Board', this._newBoardPitchType);
     await saveBoard(board);
     this.#currentBoard = board;
     this._boardName = board.name;
@@ -2979,6 +3690,8 @@ export class CoachBoard extends LitElement {
     this.#undoStack = [];
     this.#redoStack = [];
     this.fieldTheme = 'green';
+    this.pitchType = board.pitchType;
+    this._boardNotes = '';
     this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
   }
 
@@ -3016,7 +3729,11 @@ export class CoachBoard extends LitElement {
     setActiveBoardId(board.id);
     this.players = board.players;
     this.lines = board.lines;
-    this.equipment = board.equipment;
+    this.equipment = board.equipment.map(eq =>
+      (eq.kind === 'cone' || eq.kind === 'dummy' || eq.kind === 'pole') && !eq.color
+        ? { ...eq, color: COLORS.coneChartreuse }
+        : eq
+    );
     this.shapes = board.shapes;
     this.textItems = board.textItems;
     this.animationFrames = board.animationFrames;
@@ -3030,6 +3747,8 @@ export class CoachBoard extends LitElement {
     this.#redoStack = [];
     if (!this._isMobile) this.fieldOrientation = board.fieldOrientation;
     this.fieldTheme = board.fieldTheme;
+    this.pitchType = board.pitchType ?? 'full';
+    this._boardNotes = board.notes ?? '';
     const allIds = [
       ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
     ].map(i => i.id)
@@ -3039,6 +3758,24 @@ export class CoachBoard extends LitElement {
       const num = parseInt(aid.split('-').pop() ?? '0', 10);
       if (!isNaN(num)) ensureMinId(num);
     }
+  }
+
+  async #duplicateBoard(board: SavedBoard) {
+    const dup: SavedBoard = {
+      ...board,
+      id: crypto.randomUUID(),
+      name: `Copy of ${board.name}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      players: structuredClone(board.players),
+      lines: structuredClone(board.lines),
+      equipment: structuredClone(board.equipment),
+      shapes: structuredClone(board.shapes),
+      textItems: structuredClone(board.textItems),
+      animationFrames: structuredClone(board.animationFrames),
+    };
+    await saveBoard(dup);
+    this._myBoards = await listBoards();
   }
 
   #handleDeleteBoard(board: SavedBoard) {
@@ -3083,6 +3820,7 @@ export class CoachBoard extends LitElement {
           animationFrames: board.animationFrames,
           fieldTheme: board.fieldTheme,
           fieldOrientation: board.fieldOrientation,
+          pitchType: board.pitchType,
           playbackLoop: board.playbackLoop,
         }).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -3128,6 +3866,7 @@ export class CoachBoard extends LitElement {
       animationFrames: this.animationFrames,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      pitchType: this.pitchType,
       playbackLoop: this._playbackLoop,
     });
 
@@ -3246,6 +3985,7 @@ export class CoachBoard extends LitElement {
     }
     if (typeof data.playbackLoop === 'boolean') board.playbackLoop = data.playbackLoop;
     if (data.fieldTheme === 'green' || data.fieldTheme === 'white') board.fieldTheme = data.fieldTheme;
+    if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'half-attack' || data.pitchType === 'open') board.pitchType = data.pitchType;
     if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') board.fieldOrientation = data.fieldOrientation as FieldOrientation;
 
     await saveBoard(board);
@@ -3482,11 +4222,14 @@ export class CoachBoard extends LitElement {
       const cp2x = trail?.cp2x ?? prev.x + (curr.x - prev.x) * 2 / 3;
       const cp2y = trail?.cp2y ?? prev.y + (curr.y - prev.y) * 2 / 3;
 
-      const isTriangle = p.team === 'a';
       trails.push(svg`
         <g opacity="0.3">
-          ${isTriangle
+          ${p.team === 'a'
             ? svg`<polygon points="${triPoints(prev.x, prev.y, PLAYER_RADIUS)}"
+                           fill="${p.color}" stroke="white" stroke-width="0.15"
+                           stroke-linejoin="round" style="pointer-events:none" />`
+            : p.team === 'neutral'
+            ? svg`<polygon points="${prev.x},${prev.y - DIAMOND_HH} ${prev.x + DIAMOND_HW},${prev.y} ${prev.x},${prev.y + DIAMOND_HH} ${prev.x - DIAMOND_HW},${prev.y}"
                            fill="${p.color}" stroke="white" stroke-width="0.15"
                            stroke-linejoin="round" style="pointer-events:none" />`
             : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
@@ -3691,7 +4434,7 @@ export class CoachBoard extends LitElement {
   // Supports both directions, but currently only called for horizontal→vertical
   // (mobile forces vertical). Also used by #applyOrientation for manual changes.
   #rotateLoadedData(targetOrientation: FieldOrientation) {
-    const oldDim = getFieldDimensions(this.fieldOrientation);
+    const oldDim = getFieldDimensions(this.fieldOrientation, this.pitchType);
     const toVertical = targetOrientation === 'vertical';
 
     const rotatePoint = toVertical
@@ -3838,6 +4581,27 @@ export class CoachBoard extends LitElement {
       this.activeTool = 'select';
       this.ghost = null;
     }
+  }
+
+  #onAutoNumberToggle(e: AutoNumberToggleEvent) {
+    this.autoNumber = e.enabled;
+  }
+
+  #onRotateItems(e: RotateItemsEvent) {
+    if (this.selectedIds.size === 0) return;
+    this.#pushUndo();
+    const ids = this.selectedIds;
+    const delta = e.delta;
+    this.players = this.players.map(p =>
+      ids.has(p.id) ? { ...p, angle: ((p.angle ?? 0) + delta + 360) % 360 } : p
+    );
+    this.equipment = this.equipment.map(eq => {
+      if (!ids.has(eq.id)) return eq;
+      if (eq.kind === 'goal' || eq.kind === 'mini-goal' || eq.kind === 'popup-goal' || eq.kind === 'dummy') {
+        return { ...eq, angle: ((eq.angle ?? 0) + delta + 360) % 360 };
+      }
+      return eq;
+    });
   }
 
   #onDeleteItems(_e: DeleteItemsEvent) {
@@ -4442,22 +5206,31 @@ export class CoachBoard extends LitElement {
   #addPlayer(x: number, y: number) {
     const color = this.playerColor;
     const team = this.playerTeam;
-    const sameTeamCount = this.players.filter(p => p.team === team).length;
+    let label: string | undefined;
+    if (team === 'neutral') {
+      label = 'N';
+    } else if (this.autoNumber) {
+      const sameTeamCount = this.players.filter(p => p.team === team).length;
+      label = String(sameTeamCount + 1);
+    }
     const newPlayer: Player = {
       id: uid('player'),
       x, y,
       team,
       color,
-      label: String(sameTeamCount + 1),
+      label,
     };
     this.players = [...this.players, newPlayer];
   }
 
   #addEquipment(x: number, y: number) {
+    const kind = this.equipmentKind;
+    const needsAngle = kind === 'dummy' || kind === 'goal' || kind === 'mini-goal' || kind === 'popup-goal';
     const newEq: Equipment = {
       id: uid('eq'),
       x, y,
-      kind: this.equipmentKind,
+      kind,
+      ...(needsAngle ? { angle: 0 } : {}),
     };
     this.equipment = [...this.equipment, newEq];
   }
