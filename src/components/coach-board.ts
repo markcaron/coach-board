@@ -208,8 +208,8 @@ function circleHeadPath(r: number): string {
   return `M ${-dx},${cutY} A ${r},${r} 0 0 1 ${dx},${cutY} Z`;
 }
 
-const DIAMOND_HH = PLAYER_RADIUS * 0.92;
-const DIAMOND_HW = PLAYER_RADIUS * 0.76;
+const DIAMOND_HH = PLAYER_RADIUS * 1.1;
+const DIAMOND_HW = PLAYER_RADIUS * 1.1;
 
 function diamondHeadPath(): string {
   const cutFrac = 0.25;
@@ -1372,8 +1372,12 @@ export class CoachBoard extends LitElement {
   #shapeDraw: ShapeDrawState | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #onDocClickForMenu = (e: PointerEvent) => {
-    if (this._menuOpen && !e.composedPath().includes(this.renderRoot.querySelector('.bottom-right .dropdown-wrap') as EventTarget)) {
+    const path = e.composedPath();
+    if (this._menuOpen && !path.includes(this.renderRoot.querySelector('.bottom-right .dropdown-wrap') as EventTarget)) {
       this._menuOpen = false;
+    }
+    if (this._fieldMenuOpen && !path.includes(this.renderRoot.querySelector('.bottom-center .dropdown-wrap') as EventTarget)) {
+      this._fieldMenuOpen = false;
     }
   };
   #mobileQuery = window.matchMedia('(max-width: 768px)');

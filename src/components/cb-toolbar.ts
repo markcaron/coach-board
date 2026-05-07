@@ -398,7 +398,7 @@ export class CbToolbar extends LitElement {
     }
 
     .number-input {
-      width: 44px;
+      width: 52px;
       height: 44px;
       text-align: center;
       font: bold 0.85rem system-ui, sans-serif;
@@ -1145,7 +1145,7 @@ export class CbToolbar extends LitElement {
         <label>#</label>
         <input class="number-input"
                type="text"
-               maxlength="2"
+               maxlength="3"
                aria-label="Player number"
                .value="${p.label ?? ''}"
                @blur="${this.#onNumberBlur}"
@@ -1641,7 +1641,7 @@ export class CbToolbar extends LitElement {
 
   #onNumberBlur(e: FocusEvent) {
     const input = e.target as HTMLInputElement;
-    const value = input.value.trim().slice(0, 2);
+    const value = input.value.trim().slice(0, 3);
     const p = this.#singlePlayer;
     if (p && value !== (p.label ?? '')) {
       this.dispatchEvent(new PlayerUpdateEvent([p.id], { label: value || undefined }));
