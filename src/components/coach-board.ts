@@ -3,7 +3,7 @@ import { customElement, state, query } from 'lit/decorators.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
-import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfField, getFieldDimensions, FIELD } from '../lib/field.js';
+import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfField, renderHalfFieldAttacking, renderVerticalHalfFieldAttacking, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
@@ -1349,7 +1349,7 @@ export class CoachBoard extends LitElement {
       if (data.fieldTheme === 'green' || data.fieldTheme === 'white') {
         this.fieldTheme = data.fieldTheme;
       }
-      if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'open') {
+      if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'half-attack' || data.pitchType === 'open') {
         this.pitchType = data.pitchType;
       }
       if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') {
@@ -1697,14 +1697,16 @@ export class CoachBoard extends LitElement {
                 width="${fd.w}" height="${fd.h}"
                 fill="${this.fieldTheme === 'white' ? 'white' : 'url(#grass-stripes)'}" rx="0.5" />
 
-          ${this.pitchType === 'open' ? nothing
-            : this.pitchType === 'half'
-              ? (this.fieldOrientation === 'vertical'
-                  ? renderVerticalHalfField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')
-                  : renderHalfField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'))
-              : (this.fieldOrientation === 'vertical'
-                  ? renderVerticalField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')
-                  : renderField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'))}
+          ${(() => {
+            const lc = this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white';
+            const v = this.fieldOrientation === 'vertical';
+            switch (this.pitchType) {
+              case 'open': return nothing;
+              case 'half': return v ? renderVerticalHalfField(lc) : renderHalfField(lc);
+              case 'half-attack': return v ? renderVerticalHalfFieldAttacking(lc) : renderHalfFieldAttacking(lc);
+              default: return v ? renderVerticalField(lc) : renderField(lc);
+            }
+          })()}
 
           <g class="shapes-layer">
             ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
@@ -2094,7 +2096,8 @@ export class CoachBoard extends LitElement {
           <select class="theme-select" id="new-board-pitch-type"
                   @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; }}">
             <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
-            <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch</option>
+            <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Defensive)</option>
+            <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Attacking)</option>
             <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
           </select>
           <div class="confirm-actions">
@@ -2123,7 +2126,7 @@ export class CoachBoard extends LitElement {
                     </svg>
                     <div class="board-info">
                       <div class="board-title">${b.name}</div>
-                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${b.pitchType === 'half' ? 'Half Pitch' : b.pitchType === 'open' ? 'Open Grass' : 'Full Pitch'}</div>
+                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${b.pitchType === 'half' ? 'Half (Def.)' : b.pitchType === 'half-attack' ? 'Half (Att.)' : b.pitchType === 'open' ? 'Open Grass' : 'Full Pitch'}</div>
                     </div>
                   </button>
                   <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
@@ -3271,7 +3274,7 @@ export class CoachBoard extends LitElement {
     }
     if (typeof data.playbackLoop === 'boolean') board.playbackLoop = data.playbackLoop;
     if (data.fieldTheme === 'green' || data.fieldTheme === 'white') board.fieldTheme = data.fieldTheme;
-    if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'open') board.pitchType = data.pitchType;
+    if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'half-attack' || data.pitchType === 'open') board.pitchType = data.pitchType;
     if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') board.fieldOrientation = data.fieldOrientation as FieldOrientation;
 
     await saveBoard(board);
