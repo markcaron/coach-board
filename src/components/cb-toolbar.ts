@@ -932,7 +932,7 @@ export class CbToolbar extends LitElement {
                 <rect x="4.5" y="1.5" width="7" height="13" rx="3.5"
                       fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="1.8" />
                 <rect x="6.5" y="3.5" width="3" height="9" rx="1.5"
-                      fill="${COLORS.coneChartreuse}" fill-opacity="0.3" />
+                      fill="${COLORS.coneChartreuse}" fill-opacity="0.6" />
               </svg>
               Dummy
             </button>
@@ -1186,7 +1186,7 @@ export class CbToolbar extends LitElement {
                 <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
               ` : svg`
                 <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="1.8" />
-                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" fill-opacity="0.3" />
+                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" fill-opacity="0.6" />
               `}
             </svg>
             <span class="caret"></span>
@@ -1209,7 +1209,7 @@ export class CbToolbar extends LitElement {
                       <circle cx="10" cy="10" r="2.5" fill="#d0d0d0" />
                     ` : svg`
                       <circle cx="10" cy="10" r="7" fill="none" stroke="${c.color}" stroke-width="2" />
-                      <circle cx="10" cy="10" r="4" fill="${c.color}" fill-opacity="0.3" />
+                      <circle cx="10" cy="10" r="4" fill="${c.color}" fill-opacity="0.6" />
                     `}
                   </svg>
                 </button>
