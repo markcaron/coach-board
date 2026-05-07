@@ -208,11 +208,14 @@ function circleHeadPath(r: number): string {
   return `M ${-dx},${cutY} A ${r},${r} 0 0 1 ${dx},${cutY} Z`;
 }
 
-function diamondHeadPath(r: number): string {
-  const s = r * 0.95;
-  const cutFrac = 0.22;
-  const cutY = -s + s * cutFrac * 2;
-  return `M 0,${-s} L ${-(cutY + s)},${cutY} L ${(cutY + s)},${cutY} Z`;
+const DIAMOND_HH = PLAYER_RADIUS * 0.85;
+const DIAMOND_HW = PLAYER_RADIUS * 0.7;
+
+function diamondHeadPath(): string {
+  const cutFrac = 0.25;
+  const cutY = -DIAMOND_HH + DIAMOND_HH * 2 * cutFrac;
+  const cutHW = DIAMOND_HW * (1 - cutFrac);
+  return `M 0,${-DIAMOND_HH} L ${-cutHW},${cutY} L ${cutHW},${cutY} Z`;
 }
 
 function triHeadPath(r: number): string {
@@ -1982,12 +1985,11 @@ export class CoachBoard extends LitElement {
                          style="pointer-events: none" />`
               : this.playerTeam === 'neutral'
               ? svg`
-                <rect x="${this.ghost.x - PLAYER_RADIUS * 0.95}" y="${this.ghost.y - PLAYER_RADIUS * 0.95}"
-                      width="${PLAYER_RADIUS * 0.95 * 2}" height="${PLAYER_RADIUS * 0.95 * 2}"
-                      rx="0.3" fill="${this.playerColor}" fill-opacity="0.5"
-                      stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3"
-                      transform="rotate(45 ${this.ghost.x} ${this.ghost.y})"
-                      style="pointer-events: none" />`
+                <polygon points="${this.ghost.x},${this.ghost.y - DIAMOND_HH} ${this.ghost.x + DIAMOND_HW},${this.ghost.y} ${this.ghost.x},${this.ghost.y + DIAMOND_HH} ${this.ghost.x - DIAMOND_HW},${this.ghost.y}"
+                         fill="${this.playerColor}" fill-opacity="0.5"
+                         stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
+                         stroke-dasharray="0.4,0.3"
+                         style="pointer-events: none" />`
               : svg`
                 <circle cx="${this.ghost.x}" cy="${this.ghost.y}" r="${PLAYER_RADIUS}"
                         fill="${this.playerColor}" fill-opacity="0.5"
@@ -2750,23 +2752,27 @@ export class CoachBoard extends LitElement {
     }
 
     if (p.team === 'neutral') {
-      const ds = PLAYER_RADIUS * 0.95;
-      const selDs = ds + 0.5;
+      const hh = DIAMOND_HH;
+      const hw = DIAMOND_HW;
+      const selHH = hh + 0.4;
+      const selHW = hw + 0.4;
+      const dPts = `0,${-hh} ${hw},0 0,${hh} ${-hw},0`;
+      const selPts = `0,${-selHH} ${selHW},0 0,${selHH} ${-selHW},0`;
       const fontSize = (p.label?.length ?? 0) > 2 ? '1.4' : '1.9';
       return svg`
         <g data-id="${p.id}" data-kind="player"
            transform="translate(${p.x}, ${p.y}) rotate(${angle})">
           ${selected ? svg`
-            <rect x="${-selDs}" y="${-selDs}" width="${selDs * 2}" height="${selDs * 2}"
-                  rx="0.3" fill="none" stroke="${this.#selColor}" stroke-width="0.2"
-                  stroke-dasharray="0.5,0.3" transform="rotate(45)" />
+            <polygon points="${selPts}"
+                     fill="none" stroke="${this.#selColor}" stroke-width="0.2"
+                     stroke-linejoin="round" stroke-dasharray="0.5,0.3" />
           ` : nothing}
-          <rect x="${-ds}" y="${-ds}" width="${ds * 2}" height="${ds * 2}"
-                rx="0.3" fill="${p.color}" stroke="white" stroke-width="0.15"
-                transform="rotate(45)"
-                filter="url(#player-shadow)"
-                style="cursor: pointer" />
-          <path d="${diamondHeadPath(PLAYER_RADIUS)}"
+          <polygon points="${dPts}"
+                   fill="${p.color}" stroke="white" stroke-width="0.15"
+                   stroke-linejoin="round"
+                   filter="url(#player-shadow)"
+                   style="cursor: pointer" />
+          <path d="${diamondHeadPath()}"
                 fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
           ${p.label ? svg`
             <text x="0" y="0"
@@ -4207,11 +4213,9 @@ export class CoachBoard extends LitElement {
                            fill="${p.color}" stroke="white" stroke-width="0.15"
                            stroke-linejoin="round" style="pointer-events:none" />`
             : p.team === 'neutral'
-            ? svg`<rect x="${prev.x - PLAYER_RADIUS * 0.95}" y="${prev.y - PLAYER_RADIUS * 0.95}"
-                        width="${PLAYER_RADIUS * 0.95 * 2}" height="${PLAYER_RADIUS * 0.95 * 2}"
-                        rx="0.3" fill="${p.color}" stroke="white" stroke-width="0.15"
-                        transform="rotate(45 ${prev.x} ${prev.y})"
-                        style="pointer-events:none" />`
+            ? svg`<polygon points="${prev.x},${prev.y - DIAMOND_HH} ${prev.x + DIAMOND_HW},${prev.y} ${prev.x},${prev.y + DIAMOND_HH} ${prev.x - DIAMOND_HW},${prev.y}"
+                           fill="${p.color}" stroke="white" stroke-width="0.15"
+                           stroke-linejoin="round" style="pointer-events:none" />`
             : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
                           fill="${p.color}" stroke="white" stroke-width="0.15"
                           style="pointer-events:none" />`
