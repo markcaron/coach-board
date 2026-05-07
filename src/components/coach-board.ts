@@ -3292,7 +3292,7 @@ export class CoachBoard extends LitElement {
       if (e.kind === 'coach') {
         coachCount++;
       } else if (e.kind === 'cone') {
-        const name = allConeColors.find(c => c.color === e.color)?.name ?? 'Other';
+        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
         conesByColor.set(name, (conesByColor.get(name) ?? 0) + 1);
       } else {
         const label = e.kind === 'ball' ? 'Ball' : e.kind === 'goal' ? 'Goal' : e.kind === 'mini-goal' ? 'Mini Goal' : 'Pop-up Goal';
