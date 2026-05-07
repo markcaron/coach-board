@@ -3336,7 +3336,6 @@ export class CoachBoard extends LitElement {
 
   #saveBoardNotes() {
     this._boardSummaryDialog?.close();
-    this.#saveToStorage();
   }
 
   #showPrintDialog() {
