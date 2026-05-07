@@ -945,25 +945,25 @@ export class CbToolbar extends LitElement {
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('goal')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <rect x="3" y="2" width="5" height="12" fill="none" stroke="white" stroke-width="1.2"
-                      stroke-dasharray="1.5,1" />
-                <line x1="3" y1="2" x2="3" y2="14" stroke="white" stroke-width="1.2" stroke-dasharray="none" />
+                <rect x="3" y="1" width="7" height="14" fill="none" stroke="white" stroke-width="1.3"
+                      stroke-dasharray="1.8,1" />
+                <line x1="3" y1="1" x2="3" y2="15" stroke="white" stroke-width="1.3" stroke-dasharray="none" />
               </svg>
               Goal
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('mini-goal')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <rect x="4" y="4" width="3.5" height="8" fill="none" stroke="white" stroke-width="1.2"
-                      stroke-dasharray="1.5,1" />
-                <line x1="4" y1="4" x2="4" y2="12" stroke="white" stroke-width="1.2" stroke-dasharray="none" />
+                <rect x="3" y="3" width="5" height="10" fill="none" stroke="white" stroke-width="1.3"
+                      stroke-dasharray="1.8,1" />
+                <line x1="3" y1="3" x2="3" y2="13" stroke="white" stroke-width="1.3" stroke-dasharray="none" />
               </svg>
               Mini Goal
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('popup-goal')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <path d="M 6,3 A 5,5 0 0 1 6,13" fill="none" stroke="${COLORS.popupGoal}" stroke-width="1.2"
-                      stroke-dasharray="1.5,1" />
-                <line x1="6" y1="3" x2="6" y2="13" stroke="${COLORS.popupGoal}" stroke-width="1.2" stroke-dasharray="none" />
+                <path d="M 5,1.5 A 6.5,6.5 0 0 1 5,14.5" fill="none" stroke="${COLORS.popupGoal}" stroke-width="1.3"
+                      stroke-dasharray="1.8,1" />
+                <line x1="5" y1="1.5" x2="5" y2="14.5" stroke="${COLORS.popupGoal}" stroke-width="1.3" stroke-dasharray="none" />
               </svg>
               Pop-up Goal
             </button>
