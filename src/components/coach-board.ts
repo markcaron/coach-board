@@ -1,9 +1,9 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 
-import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
+import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors } from '../lib/types.js';
-import { renderField, renderVerticalField, getFieldDimensions, FIELD } from '../lib/field.js';
+import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfField, getFieldDimensions, FIELD } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
@@ -14,7 +14,7 @@ import './cb-toolbar.js';
 import './cb-timeline.js';
 import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
 
-const PLAYER_RADIUS = 2.4;
+const PLAYER_RADIUS = 2.16;
 const TEXT_FONT_SIZE = 2;
 
 const WHITE_THEME = {
@@ -31,9 +31,9 @@ function triPoints(cx: number, cy: number, r: number): string {
   return `${cx},${cy - h} ${cx - h * 0.866},${cy + h * 0.5} ${cx + h * 0.866},${cy + h * 0.5}`;
 }
 
-const BALL_RADIUS = 1.575;
-const CONE_RADIUS = 0.9;
-const CONE_BORDER = 0.675;
+const BALL_RADIUS = 1.4175;
+const CONE_RADIUS = 0.81;
+const CONE_BORDER = 0.6075;
 const GOAL_W = 7.32;
 const GOAL_D = 2;
 const MINI_GOAL_W = 3.66;
@@ -1096,6 +1096,7 @@ export class CoachBoard extends LitElement {
   @state() accessor textItems: TextItem[] = [];
   @state() accessor fieldOrientation: FieldOrientation = window.innerWidth <= 768 ? 'vertical' : 'horizontal';
   @state() accessor fieldTheme: FieldTheme = 'green';
+  @state() accessor pitchType: PitchType = 'full';
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
@@ -1125,6 +1126,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _boardName: string = 'Untitled Board';
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _saveBoardName: string = '';
+  @state() private accessor _newBoardPitchType: PitchType = 'full';
   @state() private accessor _deleteBoardName: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _shareEditable: boolean = false;
@@ -1204,6 +1206,7 @@ export class CoachBoard extends LitElement {
       ...this.#currentBoard,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      pitchType: this.pitchType,
       animationMode: this._animationMode,
       playbackLoop: this._playbackLoop,
       players: this.players,
@@ -1284,6 +1287,7 @@ export class CoachBoard extends LitElement {
       if (board.fieldTheme === 'green' || board.fieldTheme === 'white') {
         this.fieldTheme = board.fieldTheme;
       }
+      this.pitchType = board.pitchType ?? 'full';
 
       const allIds = [
         ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
@@ -1344,6 +1348,9 @@ export class CoachBoard extends LitElement {
       if (typeof data.playbackLoop === 'boolean') this._playbackLoop = data.playbackLoop;
       if (data.fieldTheme === 'green' || data.fieldTheme === 'white') {
         this.fieldTheme = data.fieldTheme;
+      }
+      if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'open') {
+        this.pitchType = data.pitchType;
       }
       if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') {
         this.fieldOrientation = data.fieldOrientation as FieldOrientation;
@@ -1415,6 +1422,7 @@ export class CoachBoard extends LitElement {
       animationFrames: this.animationFrames,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      pitchType: this.pitchType,
       playbackLoop: this._playbackLoop,
     });
     svgClone.insertBefore(meta, svgClone.firstChild);
@@ -1622,7 +1630,7 @@ export class CoachBoard extends LitElement {
   }
 
   render() {
-    const fd = getFieldDimensions(this.fieldOrientation);
+    const fd = getFieldDimensions(this.fieldOrientation, this.pitchType);
     const vbX = -PADDING;
     const vbY = -PADDING;
     const vbW = fd.w + PADDING * 2;
@@ -1689,9 +1697,14 @@ export class CoachBoard extends LitElement {
                 width="${fd.w}" height="${fd.h}"
                 fill="${this.fieldTheme === 'white' ? 'white' : 'url(#grass-stripes)'}" rx="0.5" />
 
-          ${this.fieldOrientation === 'vertical'
-            ? renderVerticalField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')
-            : renderField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')}
+          ${this.pitchType === 'open' ? nothing
+            : this.pitchType === 'half'
+              ? (this.fieldOrientation === 'vertical'
+                  ? renderVerticalHalfField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')
+                  : renderHalfField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'))
+              : (this.fieldOrientation === 'vertical'
+                  ? renderVerticalField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white')
+                  : renderField(this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'))}
 
           <g class="shapes-layer">
             ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
@@ -1822,40 +1835,40 @@ export class CoachBoard extends LitElement {
               <span class="btn-text">Animate</span>
             </button>
           ` : nothing}
-          <label class="visually-hidden" for="field-theme-select">Field theme</label>
-          <select id="field-theme-select" class="theme-select" aria-label="Field theme"
+          <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
+          <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
                   @change="${this.#onThemeChange}">
             <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
             <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
           </select>
           ${this._viewMode !== 'readonly' && !this._isMobile ? html`
             <div class="dropdown-wrap">
-              <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal field' : 'Vertical field'}"
-                      title="Field orientation"
+              <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
+                      title="Pitch orientation"
                       @click="${this.#toggleFieldMenu}">
                 <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                   ${this.fieldOrientation === 'horizontal'
                     ? svg`<path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>`
                     : svg`<path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>`}
                 </svg>
-                <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Field</span>
+                <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Pitch</span>
                 <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
               </button>
               ${this._fieldMenuOpen ? html`
-                <div role="menu" aria-label="Field orientation">
+                <div role="menu" aria-label="Pitch orientation">
                   <button role="menuitem"
                           @click="${() => this.#requestOrientation('horizontal')}">
                     <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                       <path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>
                     </svg>
-                    Horizontal Field
+                    Horizontal Pitch
                   </button>
                   <button role="menuitem"
                           @click="${() => this.#requestOrientation('vertical')}">
                     <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
                       <path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>
                     </svg>
-                    Vertical Field
+                    Vertical Pitch
                   </button>
                 </div>
               ` : nothing}
@@ -2077,6 +2090,13 @@ export class CoachBoard extends LitElement {
         </div>
         <div class="dialog-body">
           <p>Create a new empty board?</p>
+          <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
+          <select class="save-board-input" id="new-board-pitch-type"
+                  @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; }}">
+            <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
+            <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch</option>
+            <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
+          </select>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
             <button class="confirm-success" @click="${this.#confirmNewBoard}">Create New Board</button>
@@ -2103,7 +2123,7 @@ export class CoachBoard extends LitElement {
                     </svg>
                     <div class="board-info">
                       <div class="board-title">${b.name}</div>
-                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${b.pitchType === 'half' ? 'Half Pitch' : b.pitchType === 'open' ? 'Open Grass' : 'Full Pitch'}</div>
                     </div>
                   </button>
                   <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
@@ -2945,6 +2965,7 @@ export class CoachBoard extends LitElement {
 
   #handleNewBoard() {
     this._menuOpen = false;
+    this._newBoardPitchType = 'full';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingBoardAction = 'new';
       this._saveBoardName = '';
@@ -2959,7 +2980,7 @@ export class CoachBoard extends LitElement {
 
   async #confirmNewBoard() {
     this._newBoardDialog?.close();
-    const board = createEmptyBoard();
+    const board = createEmptyBoard('Untitled Board', this._newBoardPitchType);
     await saveBoard(board);
     this.#currentBoard = board;
     this._boardName = board.name;
@@ -2979,6 +3000,7 @@ export class CoachBoard extends LitElement {
     this.#undoStack = [];
     this.#redoStack = [];
     this.fieldTheme = 'green';
+    this.pitchType = board.pitchType;
     this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
   }
 
@@ -3030,6 +3052,7 @@ export class CoachBoard extends LitElement {
     this.#redoStack = [];
     if (!this._isMobile) this.fieldOrientation = board.fieldOrientation;
     this.fieldTheme = board.fieldTheme;
+    this.pitchType = board.pitchType ?? 'full';
     const allIds = [
       ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
     ].map(i => i.id)
@@ -3083,6 +3106,7 @@ export class CoachBoard extends LitElement {
           animationFrames: board.animationFrames,
           fieldTheme: board.fieldTheme,
           fieldOrientation: board.fieldOrientation,
+          pitchType: board.pitchType,
           playbackLoop: board.playbackLoop,
         }).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -3128,6 +3152,7 @@ export class CoachBoard extends LitElement {
       animationFrames: this.animationFrames,
       fieldTheme: this.fieldTheme,
       fieldOrientation: this.fieldOrientation,
+      pitchType: this.pitchType,
       playbackLoop: this._playbackLoop,
     });
 
@@ -3246,6 +3271,7 @@ export class CoachBoard extends LitElement {
     }
     if (typeof data.playbackLoop === 'boolean') board.playbackLoop = data.playbackLoop;
     if (data.fieldTheme === 'green' || data.fieldTheme === 'white') board.fieldTheme = data.fieldTheme;
+    if (data.pitchType === 'full' || data.pitchType === 'half' || data.pitchType === 'open') board.pitchType = data.pitchType;
     if (data.fieldOrientation === 'horizontal' || data.fieldOrientation === 'vertical') board.fieldOrientation = data.fieldOrientation as FieldOrientation;
 
     await saveBoard(board);
@@ -3691,7 +3717,7 @@ export class CoachBoard extends LitElement {
   // Supports both directions, but currently only called for horizontal→vertical
   // (mobile forces vertical). Also used by #applyOrientation for manual changes.
   #rotateLoadedData(targetOrientation: FieldOrientation) {
-    const oldDim = getFieldDimensions(this.fieldOrientation);
+    const oldDim = getFieldDimensions(this.fieldOrientation, this.pitchType);
     const toVertical = targetOrientation === 'vertical';
 
     const rotatePoint = toVertical
