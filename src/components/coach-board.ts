@@ -44,7 +44,7 @@ const DUMMY_INNER_HH = 1.25;
 const DUMMY_INNER_RX = 0.5;
 const POLE_RADIUS = 0.55;
 const POLE_BASE_RADIUS = 0.85;
-const POLE_BASE_COLOR = '#d0d0d0';
+const SILVER_CENTER = '#d0d0d0';
 const GOAL_W = 7.32;
 const GOAL_D = 2;
 const MINI_GOAL_W = 3.66;
@@ -1509,7 +1509,11 @@ export class CoachBoard extends LitElement {
 
       if (board.players.length) this.players = board.players;
       if (board.lines.length) this.lines = board.lines;
-      if (board.equipment.length) this.equipment = board.equipment;
+      if (board.equipment.length) this.equipment = board.equipment.map(eq =>
+        (eq.kind === 'cone' || eq.kind === 'dummy' || eq.kind === 'pole') && !eq.color
+          ? { ...eq, color: COLORS.coneChartreuse }
+          : eq
+      );
       if (board.shapes.length) this.shapes = board.shapes;
       if (board.textItems.length) this.textItems = board.textItems;
       if (board.animationFrames.length) this.animationFrames = board.animationFrames;
@@ -2955,7 +2959,7 @@ export class CoachBoard extends LitElement {
                   fill="none" stroke="${coneColor}" stroke-width="${CONE_OUTER_STROKE}"
                   style="cursor: pointer" />
           <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_INNER_R}"
-                  fill="${POLE_BASE_COLOR}" style="cursor: pointer" />
+                  fill="${SILVER_CENTER}" style="cursor: pointer" />
         </g>
       `;
     }
@@ -3001,7 +3005,7 @@ export class CoachBoard extends LitElement {
                     stroke-dasharray="0.4,0.25" />
           ` : nothing}
           <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS}"
-                  fill="none" stroke="${POLE_BASE_COLOR}" stroke-width="0.3"
+                  fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3"
                   style="cursor: pointer" />
           <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_RADIUS}"
                   fill="${poleColor}" style="cursor: pointer" />
@@ -3111,7 +3115,7 @@ export class CoachBoard extends LitElement {
                   fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="${CONE_OUTER_STROKE}"
                   stroke-dasharray="0.3,0.2" />
           <circle cx="${x}" cy="${y}" r="${CONE_INNER_R}"
-                  fill="${POLE_BASE_COLOR}" />
+                  fill="${SILVER_CENTER}" />
         </g>
       `;
     }
@@ -3134,7 +3138,7 @@ export class CoachBoard extends LitElement {
       return svg`
         <g opacity="0.5" style="pointer-events: none">
           <circle cx="${x}" cy="${y}" r="${POLE_BASE_RADIUS}"
-                  fill="none" stroke="${POLE_BASE_COLOR}" stroke-width="0.3" />
+                  fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3" />
           <circle cx="${x}" cy="${y}" r="${POLE_RADIUS}"
                   fill="${COLORS.coneChartreuse}" />
         </g>
@@ -3721,7 +3725,11 @@ export class CoachBoard extends LitElement {
     setActiveBoardId(board.id);
     this.players = board.players;
     this.lines = board.lines;
-    this.equipment = board.equipment;
+    this.equipment = board.equipment.map(eq =>
+      (eq.kind === 'cone' || eq.kind === 'dummy' || eq.kind === 'pole') && !eq.color
+        ? { ...eq, color: COLORS.coneChartreuse }
+        : eq
+    );
     this.shapes = board.shapes;
     this.textItems = board.textItems;
     this.animationFrames = board.animationFrames;
