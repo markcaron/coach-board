@@ -183,7 +183,7 @@ function rad2deg(r: number): number { return r * 180 / Math.PI; }
 
 function isRotatable(item: Player | Equipment): boolean {
   if ('team' in item) return item.team === 'a';
-  return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal';
+  return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal' || item.kind === 'dummy';
 }
 
 function renderRotateHandle(hx: number, hy: number, id: string, color = 'white') {
