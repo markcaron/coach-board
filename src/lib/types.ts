@@ -1,4 +1,5 @@
 export type FieldTheme = 'green' | 'white';
+export type PitchType = 'full' | 'half' | 'half-attack' | 'open';
 
 export const COLORS = {
   bgBody: '#1a1a2e',
