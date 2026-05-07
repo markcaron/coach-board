@@ -1147,6 +1147,24 @@ export class CoachBoard extends LitElement {
       padding: 2px 0;
     }
 
+    .notes-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      border: 1px solid var(--pt-border);
+      border-radius: 6px;
+      background: var(--pt-surface);
+      color: var(--pt-text);
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .notes-textarea::placeholder {
+      color: var(--pt-text-muted);
+    }
+
     .summary-board-name {
       font-size: 1.1rem;
       font-weight: bold;
@@ -1165,6 +1183,9 @@ export class CoachBoard extends LitElement {
       }
       .field-area {
         flex: none !important;
+      }
+      .svg-wrap.vertical {
+        max-width: 50% !important;
       }
       :host(.print-summary) .print-summary-block {
         display: block;
@@ -1233,6 +1254,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _deleteBoardName: string = '';
   @state() private accessor _printSummary: boolean = true;
   @state() private accessor _printWhiteBg: boolean = true;
+  @state() private accessor _boardNotes: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
@@ -1263,6 +1285,7 @@ export class CoachBoard extends LitElement {
   };
   #mobileQuery = window.matchMedia('(max-width: 768px)');
   #onMobileChange = (e: MediaQueryListEvent) => {
+    if (this.#isPrinting) return;
     this._isMobile = e.matches;
     if (this._viewMode === 'readonly') {
       if (e.matches && this.fieldOrientation === 'horizontal') {
@@ -1285,6 +1308,7 @@ export class CoachBoard extends LitElement {
   #playbackRaf: number | null = null;
   #playbackLastTime: number | null = null;
   #trailDrag: { id: string; cp: 'cp1' | 'cp2' } | null = null;
+  #isPrinting = false;
 
   #snapshot(): Snapshot {
     return {
@@ -1320,6 +1344,7 @@ export class CoachBoard extends LitElement {
       shapes: this.shapes,
       textItems: this.textItems,
       animationFrames: this.animationFrames,
+      notes: this._boardNotes || undefined,
     };
     saveBoard(this.#currentBoard).catch(() => { /* storage error */ });
   }
@@ -1393,6 +1418,7 @@ export class CoachBoard extends LitElement {
         this.fieldTheme = board.fieldTheme;
       }
       this.pitchType = board.pitchType ?? 'full';
+      this._boardNotes = board.notes ?? '';
 
       const allIds = [
         ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
@@ -1929,7 +1955,8 @@ export class CoachBoard extends LitElement {
             ` : nothing}
             ${s.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${s.shapeCount} shape${s.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
             ${s.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${s.textCount} text item${s.textCount > 1 ? 's' : ''}</p></div>` : nothing}
-            <div class="summary-section"><h3>Animation</h3><p>${s.frameCount > 0 ? `${s.frameCount} frame${s.frameCount > 1 ? 's' : ''}` : 'No animation'}</p></div>
+            ${s.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${s.frameCount} frame${s.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
+            ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
           `;
         })()}
       </div>
@@ -2446,14 +2473,23 @@ export class CoachBoard extends LitElement {
                   <p>${s.textCount} text item${s.textCount > 1 ? 's' : ''}</p>
                 </div>
               ` : nothing}
-              <div class="summary-section">
-                <h3>Animation</h3>
-                <p>${s.frameCount > 0 ? `${s.frameCount} frame${s.frameCount > 1 ? 's' : ''}` : 'No animation'}</p>
-              </div>
+              ${s.frameCount > 0 ? html`
+                <div class="summary-section">
+                  <h3>Animation</h3>
+                  <p>${s.frameCount} frame${s.frameCount > 1 ? 's' : ''}</p>
+                </div>
+              ` : nothing}
             `;
           })()}
-          <div class="confirm-actions end">
+          <div class="summary-section">
+            <h3>Notes &amp; Instructions</h3>
+            <textarea class="notes-textarea" rows="4" placeholder="Add notes, drills, instructions…"
+                      .value="${this._boardNotes}"
+                      @input="${(e: Event) => { this._boardNotes = (e.target as HTMLTextAreaElement).value; }}"></textarea>
+          </div>
+          <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._boardSummaryDialog?.close()}">Close</button>
+            <button class="confirm-success" @click="${this.#saveBoardNotes}">Save</button>
           </div>
         </div>
       </dialog>
@@ -3221,6 +3257,7 @@ export class CoachBoard extends LitElement {
         shapes: structuredClone(this.shapes),
         textItems: structuredClone(this.textItems),
         animationFrames: structuredClone(this.animationFrames),
+        notes: this._boardNotes || undefined,
       };
       await saveBoard(newBoard);
       this.#currentBoard = newBoard;
@@ -3295,6 +3332,11 @@ export class CoachBoard extends LitElement {
     requestAnimationFrame(() => this._boardSummaryDialog?.showModal());
   }
 
+  #saveBoardNotes() {
+    this._boardSummaryDialog?.close();
+    this.#saveToStorage();
+  }
+
   #showPrintDialog() {
     this._menuOpen = false;
     requestAnimationFrame(() => this._printDialog?.showModal());
@@ -3302,13 +3344,23 @@ export class CoachBoard extends LitElement {
 
   #handlePrint() {
     this._printDialog?.close();
+    this.#isPrinting = true;
     const host = this as unknown as HTMLElement;
+    const savedTheme = this.fieldTheme;
     host.classList.add('printing');
     if (this._printSummary) host.classList.add('print-summary');
-    if (this._printWhiteBg) host.classList.add('print-white-bg');
+    if (this._printWhiteBg) {
+      host.classList.add('print-white-bg');
+      this.fieldTheme = 'white';
+    }
 
+    let cleaned = false;
     const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       host.classList.remove('printing', 'print-summary', 'print-white-bg');
+      if (this._printWhiteBg) this.fieldTheme = savedTheme;
+      this.#isPrinting = false;
     };
     window.addEventListener('afterprint', cleanup, { once: true });
     setTimeout(() => {
@@ -3364,6 +3416,7 @@ export class CoachBoard extends LitElement {
     this.#redoStack = [];
     this.fieldTheme = 'green';
     this.pitchType = board.pitchType;
+    this._boardNotes = '';
     this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
   }
 
@@ -3416,6 +3469,7 @@ export class CoachBoard extends LitElement {
     if (!this._isMobile) this.fieldOrientation = board.fieldOrientation;
     this.fieldTheme = board.fieldTheme;
     this.pitchType = board.pitchType ?? 'full';
+    this._boardNotes = board.notes ?? '';
     const allIds = [
       ...this.players, ...this.equipment, ...this.shapes, ...this.textItems,
     ].map(i => i.id)

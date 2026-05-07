@@ -18,6 +18,7 @@ export interface SavedBoard {
   shapes: Shape[];
   textItems: TextItem[];
   animationFrames: AnimationFrame[];
+  notes?: string;
 }
 
 const DB_NAME = 'coach-board-db';
