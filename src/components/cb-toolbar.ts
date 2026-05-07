@@ -127,6 +127,13 @@ export class MultiSelectToggleEvent extends Event {
   }
 }
 
+export class AutoNumberToggleEvent extends Event {
+  static readonly eventName = 'auto-number-toggle' as const;
+  constructor(public enabled: boolean) {
+    super(AutoNumberToggleEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 export class RotateItemsEvent extends Event {
   static readonly eventName = 'rotate-items' as const;
   constructor(public delta: number) {
@@ -161,11 +168,13 @@ function isTextItem(item: AnyItem): item is TextItem {
 const TEAMS_GREEN: { label: string; color: string; team: Team }[] = [
   { label: 'Team A', color: COLORS.playerBlue, team: 'a' },
   { label: 'Team B', color: COLORS.playerRed, team: 'b' },
+  { label: 'Neutral', color: COLORS.playerYellow, team: 'neutral' },
 ];
 
 const TEAMS_WHITE: { label: string; color: string; team: Team }[] = [
   { label: 'Team A', color: COLORS.playerBlueW, team: 'a' },
   { label: 'Team B', color: COLORS.playerRedW, team: 'b' },
+  { label: 'Neutral', color: COLORS.playerYellowW, team: 'neutral' },
 ];
 
 const LINE_STYLES: { label: string; value: LineStyle }[] = [
@@ -696,6 +705,9 @@ export class CbToolbar extends LitElement {
   @property({ type: String })
   accessor fieldTheme: FieldTheme = 'green';
 
+  @property({ type: Boolean })
+  accessor autoNumber: boolean = false;
+
   @property({ attribute: false })
   accessor selectedItems: AnyItem[] = [];
 
@@ -898,12 +910,16 @@ export class CbToolbar extends LitElement {
         ${this._openMenu === 'player' ? html`
           <div role="menu" id="menu-player" aria-label="Add Player"
                @keydown="${this.#onMenuKeyDown}">
-            ${(this.fieldTheme === 'white' ? TEAMS_WHITE : TEAMS_GREEN).map((t, i) => html`
+            ${(this.fieldTheme === 'white' ? TEAMS_WHITE : TEAMS_GREEN).map(t => html`
               <button role="menuitem" tabindex="-1"
                       @click="${() => this.#pickPlayer(t.color, t.team)}">
-                ${i === 0 ? html`
+                ${t.team === 'a' ? html`
                   <svg viewBox="0 0 14 14" width="12" height="12" style="flex-shrink:0">
                     <polygon points="7,1 13,13 1,13" fill="${t.color}" stroke="white" stroke-width="1" stroke-linejoin="round" />
+                  </svg>
+                ` : t.team === 'neutral' ? html`
+                  <svg viewBox="0 0 14 14" width="12" height="12" style="flex-shrink:0">
+                    <rect x="2" y="2" width="10" height="10" rx="1" fill="${t.color}" stroke="white" stroke-width="1" transform="rotate(45 7 7)" />
                   </svg>
                 ` : html`
                   <span class="color-dot" style="background: ${t.color}"></span>
@@ -911,6 +927,14 @@ export class CbToolbar extends LitElement {
                 ${t.label}
               </button>
             `)}
+            <div style="border-top: 1px solid var(--pt-border); margin-top: 4px; padding-top: 4px;">
+              <label style="display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 0.85rem; color: var(--pt-text); cursor: pointer;">
+                <input type="checkbox" .checked="${this.autoNumber}"
+                       @change="${(e: Event) => this.#toggleAutoNumber((e.target as HTMLInputElement).checked)}"
+                       style="width: 16px; height: 16px; accent-color: var(--pt-accent); cursor: pointer;">
+                Auto-number
+              </label>
+            </div>
           </div>
         ` : ''}
       </div>
@@ -1592,6 +1616,10 @@ export class CbToolbar extends LitElement {
     this._openMenu = null;
     this.activeTool = tool;
     this.dispatchEvent(new ToolChangedEvent(tool));
+  }
+
+  #toggleAutoNumber(enabled: boolean) {
+    this.dispatchEvent(new AutoNumberToggleEvent(enabled));
   }
 
   #rotateItems() {

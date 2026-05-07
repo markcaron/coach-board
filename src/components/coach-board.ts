@@ -7,7 +7,7 @@ import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfFi
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -206,6 +206,13 @@ function circleHeadPath(r: number): string {
   const cutY = -r + r * cutFrac * 2;
   const dx = Math.sqrt(r * r - cutY * cutY);
   return `M ${-dx},${cutY} A ${r},${r} 0 0 1 ${dx},${cutY} Z`;
+}
+
+function diamondHeadPath(r: number): string {
+  const s = r * 0.95;
+  const cutFrac = 0.22;
+  const cutY = -s + s * cutFrac * 2;
+  return `M 0,${-s} L ${-(cutY + s)},${cutY} L ${(cutY + s)},${cutY} Z`;
 }
 
 function triHeadPath(r: number): string {
@@ -1293,6 +1300,7 @@ export class CoachBoard extends LitElement {
   @state() accessor selectedIds: Set<string> = new Set();
   @state() accessor playerColor: string = COLORS.playerBlue;
   @state() accessor playerTeam: Team = 'a';
+  @state() accessor autoNumber: boolean = false;
   @state() accessor lineStyle: LineStyle = 'solid';
   @state() accessor equipmentKind: EquipmentKind = 'ball';
   @state() accessor shapeKind: ShapeKind = 'rect';
@@ -1872,6 +1880,7 @@ export class CoachBoard extends LitElement {
             .selectedItems="${this.#selectedItems}"
             .fieldTheme="${this.fieldTheme}"
             .multiSelect="${this._multiSelect}"
+            .autoNumber="${this.autoNumber}"
             @tool-changed="${this.#onToolChanged}"
             @multi-select-toggle="${this.#onMultiSelectToggle}"
             @player-update="${this.#onPlayerUpdate}"
@@ -1883,7 +1892,8 @@ export class CoachBoard extends LitElement {
             @group-items="${this.#onGroupItems}"
             @ungroup-items="${this.#onUngroupItems}"
             @delete-items="${this.#onDeleteItems}"
-            @rotate-items="${this.#onRotateItems}">
+            @rotate-items="${this.#onRotateItems}"
+            @auto-number-toggle="${this.#onAutoNumberToggle}">
           </cb-toolbar>
         </div>
       `}
@@ -1970,6 +1980,14 @@ export class CoachBoard extends LitElement {
                          stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
                          stroke-dasharray="0.4,0.3"
                          style="pointer-events: none" />`
+              : this.playerTeam === 'neutral'
+              ? svg`
+                <rect x="${this.ghost.x - PLAYER_RADIUS * 0.95}" y="${this.ghost.y - PLAYER_RADIUS * 0.95}"
+                      width="${PLAYER_RADIUS * 0.95 * 2}" height="${PLAYER_RADIUS * 0.95 * 2}"
+                      rx="0.3" fill="${this.playerColor}" fill-opacity="0.5"
+                      stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3"
+                      transform="rotate(45 ${this.ghost.x} ${this.ghost.y})"
+                      style="pointer-events: none" />`
               : svg`
                 <circle cx="${this.ghost.x}" cy="${this.ghost.y}" r="${PLAYER_RADIUS}"
                         fill="${this.playerColor}" fill-opacity="0.5"
@@ -2719,7 +2737,7 @@ export class CoachBoard extends LitElement {
           ${p.label ? svg`
             <text x="0" y="${textOff}"
                   text-anchor="middle" dominant-baseline="central"
-                  fill="${textColor}" font-size="1.9" font-weight="bold"
+                  fill="${textColor}" font-size="${(p.label?.length ?? 0) > 2 ? '1.4' : '1.9'}" font-weight="bold"
                   font-family="system-ui, sans-serif"
                   transform="rotate(${-angle}, 0, ${textOff})"
                   style="pointer-events: none">
@@ -2731,6 +2749,41 @@ export class CoachBoard extends LitElement {
       `;
     }
 
+    if (p.team === 'neutral') {
+      const ds = PLAYER_RADIUS * 0.95;
+      const selDs = ds + 0.5;
+      const fontSize = (p.label?.length ?? 0) > 2 ? '1.4' : '1.9';
+      return svg`
+        <g data-id="${p.id}" data-kind="player"
+           transform="translate(${p.x}, ${p.y}) rotate(${angle})">
+          ${selected ? svg`
+            <rect x="${-selDs}" y="${-selDs}" width="${selDs * 2}" height="${selDs * 2}"
+                  rx="0.3" fill="none" stroke="${this.#selColor}" stroke-width="0.2"
+                  stroke-dasharray="0.5,0.3" transform="rotate(45)" />
+          ` : nothing}
+          <rect x="${-ds}" y="${-ds}" width="${ds * 2}" height="${ds * 2}"
+                rx="0.3" fill="${p.color}" stroke="white" stroke-width="0.15"
+                transform="rotate(45)"
+                filter="url(#player-shadow)"
+                style="cursor: pointer" />
+          <path d="${diamondHeadPath(PLAYER_RADIUS)}"
+                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
+          ${p.label ? svg`
+            <text x="0" y="0"
+                  text-anchor="middle" dominant-baseline="central"
+                  fill="${textColor}" font-size="${fontSize}" font-weight="bold"
+                  font-family="system-ui, sans-serif"
+                  transform="rotate(${-angle})"
+                  style="pointer-events: none">
+              ${p.label}
+            </text>
+          ` : nothing}
+          ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS + 0.7) : nothing}
+        </g>
+      `;
+    }
+
+    const fontSize = (p.label?.length ?? 0) > 2 ? '1.4' : '1.9';
     return svg`
       <g class="player"
          data-id="${p.id}"
@@ -2750,7 +2803,7 @@ export class CoachBoard extends LitElement {
         ${p.label ? svg`
           <text x="0" y="0"
                 text-anchor="middle" dominant-baseline="central"
-                fill="${textColor}" font-size="1.9" font-weight="bold"
+                fill="${textColor}" font-size="${fontSize}" font-weight="bold"
                 font-family="system-ui, sans-serif"
                 transform="rotate(${-angle})"
                 style="pointer-events: none">
@@ -4147,13 +4200,18 @@ export class CoachBoard extends LitElement {
       const cp2x = trail?.cp2x ?? prev.x + (curr.x - prev.x) * 2 / 3;
       const cp2y = trail?.cp2y ?? prev.y + (curr.y - prev.y) * 2 / 3;
 
-      const isTriangle = p.team === 'a';
       trails.push(svg`
         <g opacity="0.3">
-          ${isTriangle
+          ${p.team === 'a'
             ? svg`<polygon points="${triPoints(prev.x, prev.y, PLAYER_RADIUS)}"
                            fill="${p.color}" stroke="white" stroke-width="0.15"
                            stroke-linejoin="round" style="pointer-events:none" />`
+            : p.team === 'neutral'
+            ? svg`<rect x="${prev.x - PLAYER_RADIUS * 0.95}" y="${prev.y - PLAYER_RADIUS * 0.95}"
+                        width="${PLAYER_RADIUS * 0.95 * 2}" height="${PLAYER_RADIUS * 0.95 * 2}"
+                        rx="0.3" fill="${p.color}" stroke="white" stroke-width="0.15"
+                        transform="rotate(45 ${prev.x} ${prev.y})"
+                        style="pointer-events:none" />`
             : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
                           fill="${p.color}" stroke="white" stroke-width="0.15"
                           style="pointer-events:none" />`
@@ -4503,6 +4561,10 @@ export class CoachBoard extends LitElement {
       this.activeTool = 'select';
       this.ghost = null;
     }
+  }
+
+  #onAutoNumberToggle(e: AutoNumberToggleEvent) {
+    this.autoNumber = e.enabled;
   }
 
   #onRotateItems(e: RotateItemsEvent) {
@@ -5124,13 +5186,19 @@ export class CoachBoard extends LitElement {
   #addPlayer(x: number, y: number) {
     const color = this.playerColor;
     const team = this.playerTeam;
-    const sameTeamCount = this.players.filter(p => p.team === team).length;
+    let label: string | undefined;
+    if (team === 'neutral') {
+      label = 'N';
+    } else if (this.autoNumber) {
+      const sameTeamCount = this.players.filter(p => p.team === team).length;
+      label = String(sameTeamCount + 1);
+    }
     const newPlayer: Player = {
       id: uid('player'),
       x, y,
       team,
       color,
-      label: String(sameTeamCount + 1),
+      label,
     };
     this.players = [...this.players, newPlayer];
   }
