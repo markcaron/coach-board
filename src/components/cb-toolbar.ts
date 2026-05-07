@@ -932,7 +932,7 @@ export class CbToolbar extends LitElement {
                 <rect x="4.5" y="1.5" width="7" height="13" rx="3.5"
                       fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="1.8" />
                 <rect x="6.5" y="3.5" width="3" height="9" rx="1.5"
-                      fill="${COLORS.equipmentBody}" />
+                      fill="${COLORS.coneChartreuse}" fill-opacity="0.3" />
               </svg>
               Dummy
             </button>
@@ -1178,13 +1178,13 @@ export class CbToolbar extends LitElement {
                   @click="${(e: Event) => this.#onTriggerClick(menuId, e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown(menuId, e)}">
             <svg viewBox="0 0 16 16" width="16" height="16">
-              ${kind === 'pole' ? html`
+              ${kind === 'pole' ? svg`
                 <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
                 <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" />
-              ` : kind === 'cone' ? html`
+              ` : kind === 'cone' ? svg`
                 <circle cx="8" cy="8" r="5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="3.5" />
                 <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
-              ` : html`
+              ` : svg`
                 <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="1.8" />
                 <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" fill-opacity="0.3" />
               `}
@@ -1201,13 +1201,13 @@ export class CbToolbar extends LitElement {
                         aria-label="${c.name}"
                         @click="${() => this.#changeEquipmentColor(items, c.color)}">
                   <svg viewBox="0 0 20 20" width="20" height="20">
-                    ${kind === 'pole' ? html`
+                    ${kind === 'pole' ? svg`
                       <circle cx="10" cy="10" r="7" fill="none" stroke="#d0d0d0" stroke-width="1.8" />
                       <circle cx="10" cy="10" r="4" fill="${c.color}" />
-                    ` : kind === 'cone' ? html`
+                    ` : kind === 'cone' ? svg`
                       <circle cx="10" cy="10" r="6.5" fill="none" stroke="${c.color}" stroke-width="4.5" />
                       <circle cx="10" cy="10" r="2.5" fill="#d0d0d0" />
-                    ` : html`
+                    ` : svg`
                       <circle cx="10" cy="10" r="7" fill="none" stroke="${c.color}" stroke-width="2" />
                       <circle cx="10" cy="10" r="4" fill="${c.color}" fill-opacity="0.3" />
                     `}
