@@ -7,7 +7,7 @@ import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfFi
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -197,8 +197,22 @@ function lightenHex(hex: string, amount = 0.55): string {
 }
 
 function isRotatable(item: Player | Equipment): boolean {
-  if ('team' in item) return item.team === 'a';
+  if ('team' in item) return true;
   return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal' || item.kind === 'dummy';
+}
+
+function playerHeadArc(r: number): string {
+  const a = Math.PI / 3;
+  const dx = r * Math.sin(a);
+  const dy = r * Math.cos(a);
+  return `M ${-dx},${-dy} A ${r},${r} 0 0 1 ${dx},${-dy} L 0,0 Z`;
+}
+
+function triHeadClip(r: number): string {
+  const h = r * 1.32;
+  const cutY = -h + h * 0.35;
+  const hw = h * 0.866;
+  return `M 0,${-h} L ${-hw},${cutY} L ${hw},${cutY} Z`;
 }
 
 function renderRotateHandle(hx: number, hy: number, id: string, color = 'white') {
@@ -340,6 +354,9 @@ export class CoachBoard extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      padding: 4px;
     }
 
     .boards-list .board-info {
@@ -395,6 +412,43 @@ export class CoachBoard extends LitElement {
       font-size: 0.7rem;
       color: var(--pt-text-muted);
       margin-top: 4px;
+    }
+
+    .alert-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #fff8e1;
+      border: 1px solid #f9a825;
+      border-radius: 8px;
+      color: #7a5d00;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    .alert-warning svg {
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .alert-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #ede7f6;
+      border: 1px solid #7e57c2;
+      border-radius: 8px;
+      color: #4a148c;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      margin-top: 24px;
+    }
+
+    .alert-info svg {
+      flex-shrink: 0;
+      margin-top: 1px;
     }
 
     .boards-list .action-btn {
@@ -492,7 +546,7 @@ export class CoachBoard extends LitElement {
       width: 100%;
       padding: 10px 12px;
       background: var(--pt-bg-primary);
-      border: 1px solid var(--pt-border);
+      border: 1.5px solid var(--pt-border-ui);
       border-radius: 6px;
       color: var(--pt-text);
       font-size: 0.85rem;
@@ -523,7 +577,7 @@ export class CoachBoard extends LitElement {
       min-height: 44px;
       margin-top: 16px;
       background: transparent;
-      border: 1px dashed var(--pt-border);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
       color: var(--pt-text-white);
       font-size: 0.85rem;
@@ -631,7 +685,7 @@ export class CoachBoard extends LitElement {
 
     .bottom-left {
       display: flex;
-      gap: 4px;
+      gap: 6px;
       align-items: center;
       justify-self: start;
     }
@@ -645,7 +699,7 @@ export class CoachBoard extends LitElement {
 
     .bottom-right {
       display: flex;
-      gap: 4px;
+      gap: 6px;
       align-items: center;
       justify-self: end;
     }
@@ -1056,6 +1110,7 @@ export class CoachBoard extends LitElement {
       right: 0;
       left: auto;
       transform: none;
+      min-width: 240px;
     }
 
     .confirm-actions button {
@@ -1175,7 +1230,7 @@ export class CoachBoard extends LitElement {
       padding: 8px;
       font-size: 0.85rem;
       font-family: inherit;
-      border: 1px solid var(--pt-border);
+      border: 1.5px solid var(--pt-border-ui);
       border-radius: 6px;
       background: var(--pt-surface);
       color: var(--pt-text);
@@ -1198,6 +1253,7 @@ export class CoachBoard extends LitElement {
       :host {
         height: auto !important;
         overflow: visible !important;
+        background: white !important;
       }
       .toolbar-area, .bottom-bar, .board-name-bar,
       .play-overlay, .rotate-overlay, dialog {
@@ -1214,6 +1270,7 @@ export class CoachBoard extends LitElement {
         padding: 16px 4px;
         font-size: 11px;
         color: #333;
+        background: white !important;
         page-break-inside: avoid;
       }
       :host(.print-white-bg) .field-area {
@@ -1822,7 +1879,8 @@ export class CoachBoard extends LitElement {
             @align-items="${this.#onAlignItems}"
             @group-items="${this.#onGroupItems}"
             @ungroup-items="${this.#onUngroupItems}"
-            @delete-items="${this.#onDeleteItems}">
+            @delete-items="${this.#onDeleteItems}"
+            @rotate-items="${this.#onRotateItems}">
           </cb-toolbar>
         </div>
       `}
@@ -2155,10 +2213,9 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${this.#showPrintDialog}">
-                  <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0" fill="none" stroke="currentColor" stroke-width="1.3">
-                    <path d="M4 5V2h8v3"/>
-                    <rect x="2" y="5" width="12" height="7" rx="1"/>
-                    <path d="M4 9h8v5H4z"/>
+                  <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                    <path d="m1012.5 489.64h-82.836v-189.68c0-26.477-10.273-51.336-28.914-69.977l-85.5-85.5c-18.602-18.602-43.461-28.875-69.977-28.875l-373.01 0.003906c-56.25 0-102.04 45.789-102.04 102.04v271.99l-82.723-0.003906c-80.625 0-146.25 65.625-146.25 146.25v302.29c0 80.625 65.625 146.25 146.25 146.25h825c80.625 0 146.25-65.625 146.25-146.25v-302.29c0-80.625-65.625-146.25-146.25-146.25zm-159.49-211.91c5.8516 5.8516 9.0742 13.688 9.1133 22.125h-93.039c-12.863 0-23.324-10.461-23.324-23.324v-93.301c8.2891 0.11328 16.012 3.2617 21.75 9zm-515.25-60.078c0-19.051 15.449-34.5 34.5-34.5h305.96v93.375c0 50.102 40.762 90.863 90.863 90.863h93.039v122.25h-524.36zm556.2 799.24h-587.92v-109.73c0-2.1016 1.6484-3.75 3.75-3.75h580.46c2.1016 0 3.75 1.6484 3.75 3.75v109.73zm197.29-78.711c0 43.426-35.289 78.75-78.75 78.75h-51v-109.73c0-39.301-31.988-71.25-71.25-71.25h-580.46c-39.301 0-71.25 31.988-71.25 71.25v109.73h-51.039c-43.426 0-78.75-35.289-78.75-78.75v-302.29c0-43.426 35.289-78.75 78.75-78.75h825c43.426 0 78.75 35.289 78.75 78.75z"/>
+                    <path d="m289.46 639.64h-64.461c-18.637 0-33.75 15.113-33.75 33.75s15.113 33.75 33.75 33.75h64.461c18.637 0 33.75-15.113 33.75-33.75s-15.109-33.75-33.75-33.75z"/>
                   </svg>
                   Print Board
                 </button>
@@ -2361,8 +2418,24 @@ export class CoachBoard extends LitElement {
                 </li>
               `)}
             </ul>
-          ` : html`<p>No saved boards yet.</p>`}
-          <p class="item-description" style="margin-top: 24px;">All board data is saved to your browser's local storage. Exporting boards as backup SVGs (data only, no visual preview) is the best way to keep backups.</p>
+          ` : html`
+            <div class="alert-warning">
+              <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#b8860b">
+                <path d="m600 431.77c-18.637 0-33.75 15.113-33.75 33.75v233.36c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-233.36c0-18.637-15.113-33.75-33.75-33.75z"/>
+                <path d="m600 789.56c-18.637 0-33.75 15.113-33.75 33.75v20.625c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-20.625c0-18.637-15.113-33.75-33.75-33.75z"/>
+                <path d="m1102.7 847.57-401.81-624.9c-22.164-34.426-59.887-55.012-100.88-55.012s-78.711 20.586-100.88 55.051v0.039062l-401.81 624.82c-24.113 37.461-25.762 83.211-4.3867 122.36 21.336 39.113 60.711 62.477 105.3 62.477h803.62c44.551 0 83.926-23.363 105.3-62.477 21.297-39.188 19.648-84.898-4.4648-122.36zm-54.863 89.965c-9.3359 17.137-26.551 27.336-46.051 27.336h-803.59c-19.5 0-36.711-10.164-46.051-27.336-9.3359-17.102-8.625-37.086 1.9141-53.512l401.81-624.83c19.688-30.523 68.551-30.523 88.273 0l401.81 624.82c10.539 16.426 11.215 36.414 1.875 53.516z"/>
+              </svg>
+              <span>No saved boards yet.</span>
+            </div>
+          `}
+          <div class="alert-info">
+            <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#5e35b1">
+              <path d="m600 112.5c-129.29 0-253.29 51.363-344.71 142.79-91.422 91.426-142.79 215.42-142.79 344.71s51.363 253.29 142.79 344.71c91.426 91.422 215.42 142.79 344.71 142.79s253.29-51.363 344.71-142.79c91.422-91.426 142.79-215.42 142.79-344.71-0.14453-129.25-51.555-253.16-142.95-344.55-91.395-91.391-215.3-142.8-344.55-142.95zm0 900c-109.4 0-214.32-43.461-291.68-120.82-77.359-77.355-120.82-182.28-120.82-291.68s43.461-214.32 120.82-291.68c77.355-77.359 182.28-120.82 291.68-120.82s214.32 43.461 291.68 120.82c77.359 77.355 120.82 182.28 120.82 291.68-0.11719 109.37-43.617 214.22-120.95 291.55s-182.18 120.83-291.55 120.95z"/>
+              <path d="m675 812.5h-37.5v-312.5c0-9.9453-3.9492-19.484-10.984-26.516-7.0312-7.0352-16.57-10.984-26.516-10.984h-25c-11.887 0.003906-23.066 5.6445-30.137 15.203-7.0664 9.5586-9.1836 21.898-5.707 33.266s12.137 20.414 23.344 24.383v277.15h-37.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h150c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
+              <path d="m650 350c0 27.613-22.387 50-50 50s-50-22.387-50-50 22.387-50 50-50 50 22.387 50 50z"/>
+            </svg>
+            <span>All board data is saved to your browser's local storage. Exporting boards as backup SVGs is the best way to keep backups.</span>
+          </div>
           <div class="boards-action-row">
             <button class="import-svg-btn" @click="${this.#importSvgFromMyBoards}">
               <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
@@ -2637,6 +2710,8 @@ export class CoachBoard extends LitElement {
                    stroke-linejoin="round"
                    filter="url(#player-shadow)"
                    style="cursor: pointer" />
+          <path d="${triHeadClip(PLAYER_RADIUS)}"
+                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
           ${p.label ? svg`
             <text x="0" y="${textOff}"
                   text-anchor="middle" dominant-baseline="central"
@@ -2655,25 +2730,30 @@ export class CoachBoard extends LitElement {
     return svg`
       <g class="player"
          data-id="${p.id}"
-         data-kind="player">
+         data-kind="player"
+         transform="translate(${p.x}, ${p.y}) rotate(${angle})">
         ${selected ? svg`
-          <circle cx="${p.x}" cy="${p.y}" r="${PLAYER_RADIUS + 0.4}"
+          <circle cx="0" cy="0" r="${PLAYER_RADIUS + 0.4}"
                    fill="none" stroke="${this.#selColor}" stroke-width="0.2"
                    stroke-dasharray="0.5,0.3" />
         ` : nothing}
-        <circle cx="${p.x}" cy="${p.y}" r="${PLAYER_RADIUS}"
+        <circle cx="0" cy="0" r="${PLAYER_RADIUS}"
                 fill="${p.color}" stroke="white" stroke-width="0.15"
                 filter="url(#player-shadow)"
                 style="cursor: pointer" />
+        <path d="${playerHeadArc(PLAYER_RADIUS)}"
+              fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
         ${p.label ? svg`
-          <text x="${p.x}" y="${p.y}"
+          <text x="0" y="0"
                 text-anchor="middle" dominant-baseline="central"
                 fill="${textColor}" font-size="1.9" font-weight="bold"
                 font-family="system-ui, sans-serif"
+                transform="rotate(${-angle})"
                 style="pointer-events: none">
             ${p.label}
           </text>
         ` : nothing}
+        ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS + 0.7) : nothing}
       </g>
     `;
   }
@@ -4419,6 +4499,23 @@ export class CoachBoard extends LitElement {
       this.activeTool = 'select';
       this.ghost = null;
     }
+  }
+
+  #onRotateItems(e: RotateItemsEvent) {
+    if (this.selectedIds.size === 0) return;
+    this.#pushUndo();
+    const ids = this.selectedIds;
+    const delta = e.delta;
+    this.players = this.players.map(p =>
+      ids.has(p.id) ? { ...p, angle: ((p.angle ?? 0) + delta + 360) % 360 } : p
+    );
+    this.equipment = this.equipment.map(eq => {
+      if (!ids.has(eq.id)) return eq;
+      if (eq.kind === 'goal' || eq.kind === 'mini-goal' || eq.kind === 'popup-goal' || eq.kind === 'dummy') {
+        return { ...eq, angle: ((eq.angle ?? 0) + delta + 360) % 360 };
+      }
+      return eq;
+    });
   }
 
   #onDeleteItems(_e: DeleteItemsEvent) {

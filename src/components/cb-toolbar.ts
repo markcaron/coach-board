@@ -127,6 +127,13 @@ export class MultiSelectToggleEvent extends Event {
   }
 }
 
+export class RotateItemsEvent extends Event {
+  static readonly eventName = 'rotate-items' as const;
+  constructor(public delta: number) {
+    super(RotateItemsEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'single-dummy' | 'dummies' | 'single-pole' | 'poles' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
 
 type AnyItem = Player | Equipment | Line | Shape | TextItem;
@@ -733,6 +740,17 @@ export class CbToolbar extends LitElement {
     return this.selectedItems.filter(i => isEquipment(i) && (i as Equipment).kind === 'pole') as Equipment[];
   }
 
+  get #hasRotatable(): boolean {
+    return this.selectedItems.some(i => {
+      if ('team' in i) return true;
+      if ('kind' in i) {
+        const k = (i as Equipment).kind;
+        return k === 'goal' || k === 'mini-goal' || k === 'popup-goal' || k === 'dummy';
+      }
+      return false;
+    });
+  }
+
   get #selectedLines(): Line[] {
     return this.selectedItems.filter(isLine);
   }
@@ -1050,6 +1068,17 @@ export class CbToolbar extends LitElement {
               : nothing}
           </div>
           <div class="edit-bar-right">
+            ${this.#hasRotatable ? html`
+            <button title="Rotate counter-clockwise" aria-label="Rotate counter-clockwise"
+                    @click="${this.#rotateItems}">
+              <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0" fill="currentColor">
+                <path d="m862.5 825c9.9375 0 19.5-3.9375 26.531-10.969s10.969-16.594 10.969-26.531v-375c0-9.9375-3.9375-19.5-10.969-26.531s-16.594-10.969-26.531-10.969h-525c-20.719 0-37.5 16.781-37.5 37.5v375c0 9.9375 3.9375 19.5 10.969 26.531s16.594 10.969 26.531 10.969zm-487.5-375h450v300h-450z"/>
+                <path d="m600 1126.5c123.1-0.14062 242.21-43.547 336.47-122.68v56.438c0 20.719 16.781 37.5 37.5 37.5s37.5-16.781 37.5-37.5v-143.86c-0.09375-16.5-11.109-30.891-26.953-35.391l-10.547-2.1094h-143.81c-20.719 0-37.5 16.781-37.5 37.5s16.781 37.5 37.5 37.5h49.453-0.046875c-106.17 83.859-244.45 115.69-376.64 86.625s-244.36-115.88-305.58-236.58c-61.266-120.66-65.156-262.45-10.594-386.29 7.9688-18.844-0.65625-40.641-19.359-48.891-18.75-8.2969-40.641 0-49.219 18.562-71.766 162.84-56.438 350.95 40.734 500.06 97.219 149.11 263.11 239.06 441.1 239.11z"/>
+                <path d="m600 73.453c-123.1 0.14062-242.21 43.547-336.47 122.68v-56.438c0-20.672-16.781-37.5-37.5-37.5s-37.5 16.828-37.5 37.5v143.86c0.09375 16.5 11.109 30.938 27 35.391 1.1719 0.28125 2.2969 0.51562 3.5156 0.70312 2.25 0.70312 4.5938 1.1719 6.9844 1.4062h143.81c20.719 0 37.5-16.781 37.5-37.5s-16.781-37.5-37.5-37.5h-49.406c106.88-84.422 246.14-116.06 379.03-86.156 132.84 29.953 245.11 118.31 305.39 240.42 60.328 122.11 62.297 264.94 5.3438 388.64-4.1719 9.0469-4.5938 19.359-1.1719 28.688 3.4219 9.3281 10.406 16.922 19.453 21.094 4.9219 2.2969 10.312 3.4688 15.75 3.4688 14.578 0 27.891-8.4844 34.031-21.75 32.016-69.047 48.516-144.32 48.281-220.45-0.14062-139.6-55.688-273.42-154.4-372.14-98.719-98.719-232.55-154.22-372.14-154.4z"/>
+              </svg>
+              <span class="btn-text">Rotate</span>
+            </button>
+            ` : nothing}
             <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''}" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''}"
                     @click="${this.#requestDelete}">
               <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
@@ -1563,6 +1592,10 @@ export class CbToolbar extends LitElement {
     this._openMenu = null;
     this.activeTool = tool;
     this.dispatchEvent(new ToolChangedEvent(tool));
+  }
+
+  #rotateItems() {
+    this.dispatchEvent(new RotateItemsEvent(-45));
   }
 
   #requestDelete() {
