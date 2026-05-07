@@ -200,14 +200,21 @@ export function renderHalfField(lineColor = 'white') {
 
   return svg`
     <g class="field-markings">
+      <defs>
+        <clipPath id="half-field-clip-h">
+          <rect x="0" y="0" width="${W}" height="${H}" />
+        </clipPath>
+      </defs>
       <rect x="0" y="0" width="${W}" height="${H}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <line x1="${centerX}" y1="0" x2="${centerX}" y2="${H}"
             stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <circle cx="${centerX}" cy="${midY}" r="${CENTER_CIRCLE_R}"
-              fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
+      <g clip-path="url(#half-field-clip-h)">
+        <circle cx="${centerX}" cy="${midY}" r="${CENTER_CIRCLE_R}"
+                fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
+      </g>
       <circle cx="${centerX}" cy="${midY}" r="${SPOT_R}" fill="${lineColor}" />
 
       <rect x="0" y="${penaltyTop}"
@@ -241,14 +248,21 @@ export function renderVerticalHalfField(lineColor = 'white') {
 
   return svg`
     <g class="field-markings">
+      <defs>
+        <clipPath id="half-field-clip-v">
+          <rect x="0" y="0" width="${W}" height="${H}" />
+        </clipPath>
+      </defs>
       <rect x="0" y="0" width="${W}" height="${H}"
             fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
       <line x1="0" y1="${centerY}" x2="${W}" y2="${centerY}"
             stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
 
-      <circle cx="${cx}" cy="${centerY}" r="${CENTER_CIRCLE_R}"
-              fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
+      <g clip-path="url(#half-field-clip-v)">
+        <circle cx="${cx}" cy="${centerY}" r="${CENTER_CIRCLE_R}"
+                fill="none" stroke="${lineColor}" stroke-width="${LINE_WIDTH}" />
+      </g>
       <circle cx="${cx}" cy="${centerY}" r="${SPOT_R}" fill="${lineColor}" />
 
       <rect x="${penaltyLeft}" y="0"

@@ -2091,7 +2091,7 @@ export class CoachBoard extends LitElement {
         <div class="dialog-body">
           <p>Create a new empty board?</p>
           <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
-          <select class="save-board-input" id="new-board-pitch-type"
+          <select class="theme-select" id="new-board-pitch-type"
                   @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; }}">
             <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
             <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch</option>
