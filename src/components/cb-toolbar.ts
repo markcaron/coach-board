@@ -940,7 +940,7 @@ export class CbToolbar extends LitElement {
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('cone')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="5" fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="3.5" />
+                <circle cx="8" cy="8" r="5" fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="3.5" />
                 <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
               </svg>
               Cone
@@ -1192,6 +1192,7 @@ export class CbToolbar extends LitElement {
     const ref = items[0];
     const menuId = `${kind}-color` as MenuId;
     const label = kind === 'cone' ? 'Cone' : kind === 'dummy' ? 'Dummy' : 'Pole';
+    const defaultColor = kind === 'cone' ? COLORS.coneNeonOrange : COLORS.coneChartreuse;
     const plural = kind === 'cone' ? 'cones' : kind === 'dummy' ? 'dummies' : 'poles';
     const singular = kind;
     return html`
@@ -1209,13 +1210,13 @@ export class CbToolbar extends LitElement {
             <svg viewBox="0 0 16 16" width="16" height="16">
               ${kind === 'pole' ? svg`
                 <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
-                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" />
+                <circle cx="8" cy="8" r="3" fill="${ref.color ?? defaultColor}" />
               ` : kind === 'cone' ? svg`
-                <circle cx="8" cy="8" r="5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="3.5" />
+                <circle cx="8" cy="8" r="5" fill="none" stroke="${ref.color ?? defaultColor}" stroke-width="3.5" />
                 <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
               ` : svg`
-                <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="1.8" />
-                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" fill-opacity="0.6" />
+                <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? defaultColor}" stroke-width="1.8" />
+                <circle cx="8" cy="8" r="3" fill="${ref.color ?? defaultColor}" fill-opacity="0.6" />
               `}
             </svg>
             <span class="caret"></span>
@@ -1226,7 +1227,7 @@ export class CbToolbar extends LitElement {
                  @keydown="${this.#onMenuKeyDown}">
               ${getConeColors(this.fieldTheme).map(c => html`
                 <button role="menuitemradio" tabindex="-1"
-                        aria-checked="${(ref.color ?? COLORS.coneChartreuse) === c.color}"
+                        aria-checked="${(ref.color ?? defaultColor) === c.color}"
                         aria-label="${c.name}"
                         @click="${() => this.#changeEquipmentColor(items, c.color)}">
                   <svg viewBox="0 0 20 20" width="20" height="20">

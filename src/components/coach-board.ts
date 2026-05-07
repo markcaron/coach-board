@@ -2876,7 +2876,7 @@ export class CoachBoard extends LitElement {
       `;
     }
     if (eq.kind === 'cone') {
-      const coneColor = eq.color ?? COLORS.coneChartreuse;
+      const coneColor = eq.color ?? COLORS.coneNeonOrange;
       return svg`
         <g data-id="${eq.id}" data-kind="equipment">
           ${selected ? svg`
@@ -3041,7 +3041,7 @@ export class CoachBoard extends LitElement {
       return svg`
         <g opacity="0.5" style="pointer-events: none">
           <circle cx="${x}" cy="${y}" r="${CONE_OUTER_R}"
-                  fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="${CONE_OUTER_STROKE}"
+                  fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="${CONE_OUTER_STROKE}"
                   stroke-dasharray="0.3,0.2" />
           <circle cx="${x}" cy="${y}" r="${CONE_INNER_R}"
                   fill="${POLE_BASE_COLOR}" />
@@ -3484,7 +3484,7 @@ export class CoachBoard extends LitElement {
       if (e.kind === 'coach') {
         coachCount++;
       } else if (e.kind === 'cone') {
-        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
+        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneNeonOrange))?.name ?? 'Other';
         conesByColor.set(name, (conesByColor.get(name) ?? 0) + 1);
       } else if (e.kind === 'dummy') {
         const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
