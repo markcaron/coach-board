@@ -347,7 +347,8 @@ export class CoachBoard extends LitElement {
     .boards-list {
       list-style: none;
       margin: 0;
-      padding: 4px;
+      padding: 0 0 32px;
+      border-bottom: 1px solid var(--pt-border);
       max-height: 300px;
       overflow-y: auto;
       display: flex;
@@ -445,7 +446,7 @@ export class CoachBoard extends LitElement {
       color: #b39ddb;
       font-size: 0.85rem;
       line-height: 1.4;
-      margin-top: 24px;
+      margin-top: 32px;
     }
 
     .alert-info svg {
@@ -2390,6 +2391,7 @@ export class CoachBoard extends LitElement {
         </div>
         <div class="dialog-body">
           ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
+            <h3 style="font-size: 0.8rem; color: var(--pt-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Saved Boards</h3>
             <ul class="boards-list">
               ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
                 <li>
