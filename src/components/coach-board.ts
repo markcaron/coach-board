@@ -335,9 +335,13 @@ export class CoachBoard extends LitElement {
       text-align: center;
       padding: 12px 12px 0;
       font-size: 0.75rem;
-      color: var(--pt-text-muted);
+      color: var(--pt-text);
       background: var(--pt-bg-body);
       user-select: none;
+    }
+
+    .board-name-bar .board-label {
+      color: var(--pt-text-muted);
     }
 
     .board-name-bar.theme-white {
@@ -1911,8 +1915,8 @@ export class CoachBoard extends LitElement {
 
       ${this._viewMode !== 'readonly' ? html`
         <div class="board-name-bar ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
-          Board: ${this.#isBoardSaved
-            ? this._boardName
+          <span class="board-label">Board:</span> ${this.#isBoardSaved
+            ? html`<span class="board-name">${this._boardName}</span>`
             : html`<span class="unsaved">${this._boardName} (unsaved)</span>`}
         </div>
       ` : nothing}
