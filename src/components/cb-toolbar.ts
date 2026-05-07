@@ -127,7 +127,7 @@ export class MultiSelectToggleEvent extends Event {
   }
 }
 
-type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
+type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'single-dummy' | 'dummies' | 'single-pole' | 'poles' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
 
 type AnyItem = Player | Equipment | Line | Shape | TextItem;
 
@@ -167,7 +167,7 @@ const LINE_STYLES: { label: string; value: LineStyle }[] = [
   { label: 'Dribble', value: 'wavy' },
 ];
 
-type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping';
+type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'dummy-color' | 'pole-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping';
 
 @customElement('cb-toolbar')
 export class CbToolbar extends LitElement {
@@ -704,6 +704,8 @@ export class CbToolbar extends LitElement {
     if (items.length === 0) return 'none';
     if (items.every(i => isPlayer(i))) return items.length === 1 ? 'single-player' : 'players';
     if (items.every(i => isEquipment(i) && (i as Equipment).kind === 'cone')) return items.length === 1 ? 'single-cone' : 'cones';
+    if (items.every(i => isEquipment(i) && (i as Equipment).kind === 'dummy')) return items.length === 1 ? 'single-dummy' : 'dummies';
+    if (items.every(i => isEquipment(i) && (i as Equipment).kind === 'pole')) return items.length === 1 ? 'single-pole' : 'poles';
     if (items.every(i => isLine(i))) return 'lines';
     if (items.every(i => isShape(i))) return 'shapes';
     if (items.every(i => isTextItem(i))) return items.length === 1 ? 'single-text' : 'texts';
@@ -721,6 +723,14 @@ export class CbToolbar extends LitElement {
 
   get #selectedCones(): Equipment[] {
     return this.selectedItems.filter(i => isEquipment(i) && (i as Equipment).kind === 'cone') as Equipment[];
+  }
+
+  get #selectedDummies(): Equipment[] {
+    return this.selectedItems.filter(i => isEquipment(i) && (i as Equipment).kind === 'dummy') as Equipment[];
+  }
+
+  get #selectedPoles(): Equipment[] {
+    return this.selectedItems.filter(i => isEquipment(i) && (i as Equipment).kind === 'pole') as Equipment[];
   }
 
   get #selectedLines(): Line[] {
@@ -948,6 +958,20 @@ export class CbToolbar extends LitElement {
               </svg>
               Pop-up Goal
             </button>
+            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('dummy')}">
+              <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <rect x="5" y="2" width="6" height="12" rx="3"
+                      fill="${COLORS.equipmentBody}" stroke="${COLORS.coneChartreuse}" stroke-width="2" />
+              </svg>
+              Dummy
+            </button>
+            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('pole')}">
+              <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
+                <circle cx="8" cy="8" r="3" fill="${COLORS.coneChartreuse}" />
+              </svg>
+              Pole
+            </button>
           </div>
         ` : ''}
       </div>
@@ -1014,7 +1038,9 @@ export class CbToolbar extends LitElement {
           <div class="edit-bar-left">
             ${selType === 'single-player' ? this.#renderSinglePlayerEditor()
               : selType === 'players' ? this.#renderMultiPlayerEditor()
-              : selType === 'single-cone' || selType === 'cones' ? this.#renderConeEditor()
+              : selType === 'single-cone' || selType === 'cones' ? this.#renderEquipmentColorEditor('cone', this.#selectedCones)
+              : selType === 'single-dummy' || selType === 'dummies' ? this.#renderEquipmentColorEditor('dummy', this.#selectedDummies)
+              : selType === 'single-pole' || selType === 'poles' ? this.#renderEquipmentColorEditor('pole', this.#selectedPoles)
               : selType === 'lines' ? this.#renderLineEditor()
               : selType === 'shapes' ? this.#renderShapeEditor()
               : selType === 'single-text' || selType === 'texts' ? this.#renderTextEditor()
@@ -1130,35 +1156,38 @@ export class CbToolbar extends LitElement {
     `;
   }
 
-  #renderConeEditor() {
-    const cones = this.#selectedCones;
-    const refCone = cones[0];
+  #renderEquipmentColorEditor(kind: 'cone' | 'dummy' | 'pole', items: Equipment[]) {
+    const ref = items[0];
+    const menuId = `${kind}-color` as MenuId;
+    const label = kind === 'cone' ? 'Cone' : kind === 'dummy' ? 'Dummy' : 'Pole';
+    const plural = kind === 'cone' ? 'cones' : kind === 'dummy' ? 'dummies' : 'poles';
+    const singular = kind;
     return html`
       <fieldset class="edit-fields">
-        <legend>Edit ${cones.length > 1 ? 'cones' : 'cone'}${cones.length > 1 ? html` <span class="count-badge">${cones.length}</span>` : nothing}</legend>
+        <legend>Edit ${items.length > 1 ? plural : singular}${items.length > 1 ? html` <span class="count-badge">${items.length}</span>` : nothing}</legend>
         <div class="dropdown-wrap">
           <button class="color-btn"
                   aria-haspopup="menu"
-                  aria-expanded="${this._openMenu === 'cone-color'}"
-                  aria-controls="menu-cone-color"
-                  aria-label="Cone color"
-                  title="Cone color"
-                  @click="${(e: Event) => this.#onTriggerClick('cone-color', e)}"
-                  @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('cone-color', e)}">
+                  aria-expanded="${this._openMenu === menuId}"
+                  aria-controls="menu-${menuId}"
+                  aria-label="${label} color"
+                  title="${label} color"
+                  @click="${(e: Event) => this.#onTriggerClick(menuId, e)}"
+                  @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown(menuId, e)}">
             <svg viewBox="0 0 16 16" width="16" height="16">
-              <circle cx="8" cy="8" r="5" fill="${COLORS.equipmentBody}" stroke="${refCone.color ?? COLORS.coneChartreuse}" stroke-width="3" />
+              <circle cx="8" cy="8" r="5" fill="${COLORS.equipmentBody}" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="3" />
             </svg>
             <span class="caret"></span>
           </button>
-          ${this._openMenu === 'cone-color' ? html`
-            <div role="menu" id="menu-cone-color" aria-label="Cone color"
+          ${this._openMenu === menuId ? html`
+            <div role="menu" id="menu-${menuId}" aria-label="${label} color"
                  class="color-grid" style="grid-template-columns: repeat(2, 1fr);"
                  @keydown="${this.#onMenuKeyDown}">
               ${getConeColors(this.fieldTheme).map(c => html`
                 <button role="menuitemradio" tabindex="-1"
-                        aria-checked="${(refCone.color ?? COLORS.coneChartreuse) === c.color}"
+                        aria-checked="${(ref.color ?? COLORS.coneChartreuse) === c.color}"
                         aria-label="${c.name}"
-                        @click="${() => this.#changeConeColor(c.color)}">
+                        @click="${() => this.#changeEquipmentColor(items, c.color)}">
                   <svg viewBox="0 0 20 20" width="20" height="20">
                     <circle cx="10" cy="10" r="6" fill="${COLORS.equipmentBody}" stroke="${c.color}" stroke-width="3.5" />
                   </svg>
@@ -1552,9 +1581,9 @@ export class CbToolbar extends LitElement {
     }
   }
 
-  #changeConeColor(color: string) {
+  #changeEquipmentColor(items: Equipment[], color: string) {
     this._openMenu = null;
-    const ids = this.#selectedCones.map(c => c.id);
+    const ids = items.map(c => c.id);
     if (ids.length) {
       this.dispatchEvent(new EquipmentUpdateEvent(ids, { color }));
     }

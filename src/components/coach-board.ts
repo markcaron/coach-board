@@ -34,6 +34,13 @@ function triPoints(cx: number, cy: number, r: number): string {
 const BALL_RADIUS = 1.4175;
 const CONE_RADIUS = 0.81;
 const CONE_BORDER = 0.6075;
+const DUMMY_HW = 0.75;
+const DUMMY_HH = 1.5;
+const DUMMY_RX = 0.75;
+const DUMMY_BORDER = 0.5;
+const POLE_RADIUS = 0.55;
+const POLE_BASE_RADIUS = 0.85;
+const POLE_BASE_COLOR = '#d0d0d0';
 const GOAL_W = 7.32;
 const GOAL_D = 2;
 const MINI_GOAL_W = 3.66;
@@ -1313,6 +1320,7 @@ export class CoachBoard extends LitElement {
     name: string; pitchLabel: string; orientation: string;
     playersByColor: Map<string, number>; coachCount: number;
     equipByKind: Map<string, number>; conesByColor: Map<string, number>;
+    dummiesByColor: Map<string, number>; polesByColor: Map<string, number>;
     linesByStyle: Map<string, number>;
     shapeCount: number; textCount: number; frameCount: number;
   } | null = null;
@@ -1952,8 +1960,13 @@ export class CoachBoard extends LitElement {
           ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
             <div class="summary-section"><h3>Players</h3><p>${[...this.#cachedSummary.playersByColor.entries()].map(([c, n]) => `${n} ${c}`).join(', ')}${this.#cachedSummary.coachCount > 0 ? `${this.#cachedSummary.playersByColor.size > 0 ? ', ' : ''}${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}` : ''}</p></div>
           ` : nothing}
-          ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 ? html`
-            <div class="summary-section"><h3>Equipment</h3><p>${[...this.#cachedSummary.equipByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).concat(this.#cachedSummary.conesByColor.size > 0 ? [`${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []).join(', ')}</p></div>
+          ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 || this.#cachedSummary.dummiesByColor.size > 0 || this.#cachedSummary.polesByColor.size > 0 ? html`
+            <div class="summary-section"><h3>Equipment</h3><p>${[
+              ...this.#cachedSummary.equipByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).concat(
+              this.#cachedSummary.conesByColor.size > 0 ? [`${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []).concat(
+              this.#cachedSummary.dummiesByColor.size > 0 ? [`${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'}`] : []).concat(
+              this.#cachedSummary.polesByColor.size > 0 ? [`${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []
+            ).join(', ')}</p></div>
           ` : nothing}
           ${this.#cachedSummary.linesByStyle.size > 0 ? html`
             <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
@@ -2446,12 +2459,14 @@ export class CoachBoard extends LitElement {
                 </ul>
               </div>
             ` : nothing}
-            ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 ? html`
+            ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 || this.#cachedSummary.dummiesByColor.size > 0 || this.#cachedSummary.polesByColor.size > 0 ? html`
               <div class="summary-section">
                 <h3>Equipment</h3>
                 <ul>
                   ${[...this.#cachedSummary.equipByKind.entries()].map(([kind, count]) => html`<li>${count} ${kind}${count > 1 ? 's' : ''}</li>`)}
                   ${this.#cachedSummary.conesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.#cachedSummary.conesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                  ${this.#cachedSummary.dummiesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'} (${[...this.#cachedSummary.dummiesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                  ${this.#cachedSummary.polesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.#cachedSummary.polesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
                 </ul>
               </div>
             ` : nothing}
@@ -2780,6 +2795,51 @@ export class CoachBoard extends LitElement {
         </g>
       `;
     }
+    if (eq.kind === 'dummy') {
+      const dummyColor = eq.color ?? COLORS.coneChartreuse;
+      const angle = eq.angle ?? 0;
+      const rx1 = -DUMMY_HW - 0.5;
+      const ry1 = -DUMMY_HH - 0.5;
+      const rx2 = DUMMY_HW + 0.5;
+      const ry2 = DUMMY_HH + 0.5;
+      return svg`
+        <g data-id="${eq.id}" data-kind="equipment"
+           transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
+          ${selected ? svg`
+            <rect x="${-DUMMY_HW - 0.4}" y="${-DUMMY_HH - 0.4}"
+                  width="${(DUMMY_HW + 0.4) * 2}" height="${(DUMMY_HH + 0.4) * 2}"
+                  rx="${DUMMY_RX + 0.4}" fill="none" stroke="${this.#selColor}"
+                  stroke-width="0.15" stroke-dasharray="0.4,0.25" />
+          ` : nothing}
+          <rect x="${-DUMMY_HW}" y="${-DUMMY_HH}"
+                width="${DUMMY_HW * 2}" height="${DUMMY_HH * 2}"
+                rx="${DUMMY_RX}" fill="${COLORS.equipmentBody}"
+                stroke="${dummyColor}" stroke-width="${DUMMY_BORDER}"
+                filter="url(#player-shadow)"
+                style="cursor: pointer" />
+          ${this.#shouldShowRotate(eq.id, singleSelected)
+            ? this.#renderRectRotateHandles(eq.id, rx1, ry1, rx2, ry2)
+            : nothing}
+        </g>
+      `;
+    }
+    if (eq.kind === 'pole') {
+      const poleColor = eq.color ?? COLORS.coneChartreuse;
+      return svg`
+        <g data-id="${eq.id}" data-kind="equipment">
+          ${selected ? svg`
+            <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS + 0.3}"
+                    fill="none" stroke="${this.#selColor}" stroke-width="0.15"
+                    stroke-dasharray="0.4,0.25" />
+          ` : nothing}
+          <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS}"
+                  fill="none" stroke="${POLE_BASE_COLOR}" stroke-width="0.3"
+                  style="cursor: pointer" />
+          <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_RADIUS}"
+                  fill="${poleColor}" style="cursor: pointer" />
+        </g>
+      `;
+    }
     if (eq.kind === 'popup-goal') {
       const hw = POPUP_GOAL_W / 2;
       const d = POPUP_GOAL_D;
@@ -2882,6 +2942,28 @@ export class CoachBoard extends LitElement {
                 fill="${COLORS.equipmentBody}" fill-opacity="0.5" stroke="${COLORS.coneChartreuse}" stroke-width="${CONE_BORDER}"
                 stroke-dasharray="0.3,0.2" opacity="0.5"
                 style="pointer-events: none" />
+      `;
+    }
+    if (this.equipmentKind === 'dummy') {
+      return svg`
+        <g transform="translate(${x}, ${y})" opacity="0.5"
+           style="pointer-events: none">
+          <rect x="${-DUMMY_HW}" y="${-DUMMY_HH}"
+                width="${DUMMY_HW * 2}" height="${DUMMY_HH * 2}"
+                rx="${DUMMY_RX}" fill="${COLORS.equipmentBody}"
+                stroke="${COLORS.coneChartreuse}" stroke-width="${DUMMY_BORDER}"
+                stroke-dasharray="0.3,0.2" />
+        </g>
+      `;
+    }
+    if (this.equipmentKind === 'pole') {
+      return svg`
+        <g opacity="0.5" style="pointer-events: none">
+          <circle cx="${x}" cy="${y}" r="${POLE_BASE_RADIUS}"
+                  fill="none" stroke="${POLE_BASE_COLOR}" stroke-width="0.3" />
+          <circle cx="${x}" cy="${y}" r="${POLE_RADIUS}"
+                  fill="${COLORS.coneChartreuse}" />
+        </g>
       `;
     }
     if (this.equipmentKind === 'goal' || this.equipmentKind === 'mini-goal') {
@@ -3289,12 +3371,20 @@ export class CoachBoard extends LitElement {
 
     const equipByKind = new Map<string, number>();
     const conesByColor = new Map<string, number>();
+    const dummiesByColor = new Map<string, number>();
+    const polesByColor = new Map<string, number>();
     for (const e of this.equipment) {
       if (e.kind === 'coach') {
         coachCount++;
       } else if (e.kind === 'cone') {
         const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
         conesByColor.set(name, (conesByColor.get(name) ?? 0) + 1);
+      } else if (e.kind === 'dummy') {
+        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
+        dummiesByColor.set(name, (dummiesByColor.get(name) ?? 0) + 1);
+      } else if (e.kind === 'pole') {
+        const name = allConeColors.find(c => c.color === (e.color ?? COLORS.coneChartreuse))?.name ?? 'Other';
+        polesByColor.set(name, (polesByColor.get(name) ?? 0) + 1);
       } else {
         const label = e.kind === 'ball' ? 'Ball' : e.kind === 'goal' ? 'Goal' : e.kind === 'mini-goal' ? 'Mini Goal' : 'Pop-up Goal';
         equipByKind.set(label, (equipByKind.get(label) ?? 0) + 1);
@@ -3321,6 +3411,8 @@ export class CoachBoard extends LitElement {
       coachCount,
       equipByKind,
       conesByColor,
+      dummiesByColor,
+      polesByColor,
       linesByStyle,
       shapeCount: this.shapes.length,
       textCount: this.textItems.length,
@@ -4916,10 +5008,13 @@ export class CoachBoard extends LitElement {
   }
 
   #addEquipment(x: number, y: number) {
+    const kind = this.equipmentKind;
+    const needsAngle = kind === 'dummy' || kind === 'goal' || kind === 'mini-goal' || kind === 'popup-goal';
     const newEq: Equipment = {
       id: uid('eq'),
       x, y,
-      kind: this.equipmentKind,
+      kind,
+      ...(needsAngle ? { angle: 0 } : {}),
     };
     this.equipment = [...this.equipment, newEq];
   }
