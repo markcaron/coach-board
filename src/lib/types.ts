@@ -185,7 +185,7 @@ export function getLineColors(theme: FieldTheme): LineColor[] {
   return theme === 'white' ? LINE_COLORS_WHITE : LINE_COLORS;
 }
 
-export type Team = 'a' | 'b';
+export type Team = 'a' | 'b' | 'neutral';
 
 export interface Player {
   id: string;

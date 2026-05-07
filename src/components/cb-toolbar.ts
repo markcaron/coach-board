@@ -127,6 +127,20 @@ export class MultiSelectToggleEvent extends Event {
   }
 }
 
+export class AutoNumberToggleEvent extends Event {
+  static readonly eventName = 'auto-number-toggle' as const;
+  constructor(public enabled: boolean) {
+    super(AutoNumberToggleEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
+export class RotateItemsEvent extends Event {
+  static readonly eventName = 'rotate-items' as const;
+  constructor(public delta: number) {
+    super(RotateItemsEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 type SelectionType = 'none' | 'single-player' | 'players' | 'single-cone' | 'cones' | 'single-dummy' | 'dummies' | 'single-pole' | 'poles' | 'lines' | 'shapes' | 'single-text' | 'texts' | 'mixed';
 
 type AnyItem = Player | Equipment | Line | Shape | TextItem;
@@ -154,11 +168,13 @@ function isTextItem(item: AnyItem): item is TextItem {
 const TEAMS_GREEN: { label: string; color: string; team: Team }[] = [
   { label: 'Team A', color: COLORS.playerBlue, team: 'a' },
   { label: 'Team B', color: COLORS.playerRed, team: 'b' },
+  { label: 'Neutral', color: COLORS.playerYellow, team: 'neutral' },
 ];
 
 const TEAMS_WHITE: { label: string; color: string; team: Team }[] = [
   { label: 'Team A', color: COLORS.playerBlueW, team: 'a' },
   { label: 'Team B', color: COLORS.playerRedW, team: 'b' },
+  { label: 'Neutral', color: COLORS.playerYellowW, team: 'neutral' },
 ];
 
 const LINE_STYLES: { label: string; value: LineStyle }[] = [
@@ -382,7 +398,7 @@ export class CbToolbar extends LitElement {
     }
 
     .number-input {
-      width: 44px;
+      width: 52px;
       height: 44px;
       text-align: center;
       font: bold 0.85rem system-ui, sans-serif;
@@ -689,6 +705,9 @@ export class CbToolbar extends LitElement {
   @property({ type: String })
   accessor fieldTheme: FieldTheme = 'green';
 
+  @property({ type: Boolean })
+  accessor autoNumber: boolean = false;
+
   @property({ attribute: false })
   accessor selectedItems: AnyItem[] = [];
 
@@ -731,6 +750,17 @@ export class CbToolbar extends LitElement {
 
   get #selectedPoles(): Equipment[] {
     return this.selectedItems.filter(i => isEquipment(i) && (i as Equipment).kind === 'pole') as Equipment[];
+  }
+
+  get #hasRotatable(): boolean {
+    return this.selectedItems.some(i => {
+      if ('team' in i) return true;
+      if ('kind' in i) {
+        const k = (i as Equipment).kind;
+        return k === 'goal' || k === 'mini-goal' || k === 'popup-goal' || k === 'dummy';
+      }
+      return false;
+    });
   }
 
   get #selectedLines(): Line[] {
@@ -880,12 +910,16 @@ export class CbToolbar extends LitElement {
         ${this._openMenu === 'player' ? html`
           <div role="menu" id="menu-player" aria-label="Add Player"
                @keydown="${this.#onMenuKeyDown}">
-            ${(this.fieldTheme === 'white' ? TEAMS_WHITE : TEAMS_GREEN).map((t, i) => html`
+            ${(this.fieldTheme === 'white' ? TEAMS_WHITE : TEAMS_GREEN).map(t => html`
               <button role="menuitem" tabindex="-1"
                       @click="${() => this.#pickPlayer(t.color, t.team)}">
-                ${i === 0 ? html`
+                ${t.team === 'a' ? html`
                   <svg viewBox="0 0 14 14" width="12" height="12" style="flex-shrink:0">
                     <polygon points="7,1 13,13 1,13" fill="${t.color}" stroke="white" stroke-width="1" stroke-linejoin="round" />
+                  </svg>
+                ` : t.team === 'neutral' ? html`
+                  <svg viewBox="0 0 14 14" width="12" height="12" style="flex-shrink:0">
+                    <rect x="2" y="2" width="10" height="10" rx="1" fill="${t.color}" stroke="white" stroke-width="1" transform="rotate(45 7 7)" />
                   </svg>
                 ` : html`
                   <span class="color-dot" style="background: ${t.color}"></span>
@@ -893,6 +927,14 @@ export class CbToolbar extends LitElement {
                 ${t.label}
               </button>
             `)}
+            <div style="border-top: 1px solid var(--pt-border); margin-top: 4px; padding-top: 4px;">
+              <label style="display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 0.85rem; color: var(--pt-text); cursor: pointer;">
+                <input type="checkbox" .checked="${this.autoNumber}"
+                       @change="${(e: Event) => this.#toggleAutoNumber((e.target as HTMLInputElement).checked)}"
+                       style="width: 16px; height: 16px; accent-color: var(--pt-accent); cursor: pointer;">
+                Auto-number
+              </label>
+            </div>
           </div>
         ` : ''}
       </div>
@@ -922,7 +964,7 @@ export class CbToolbar extends LitElement {
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('cone')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="5" fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="3.5" />
+                <circle cx="8" cy="8" r="5" fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="3.5" />
                 <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
               </svg>
               Cone
@@ -1050,6 +1092,16 @@ export class CbToolbar extends LitElement {
               : nothing}
           </div>
           <div class="edit-bar-right">
+            ${this.#hasRotatable ? html`
+            <button title="Rotate counter-clockwise" aria-label="Rotate counter-clockwise"
+                    @click="${this.#rotateItems}">
+              <svg viewBox="0 0 1600 1600" width="16" height="16" style="flex-shrink:0" fill="currentColor">
+                <path d="M228.987 616.493C253.987 627.993 283.987 616.493 295.487 591.993C376.487 415.007 554.993 299.993 749.98 299.993C821.98 299.993 891.98 314.993 957.487 344.493C1022.99 373.993 1080.99 416.493 1128.5 469.993L1288.5 649.993H1100.01C1072.51 649.993 1050.01 672.493 1050.01 699.993C1050.01 727.493 1072.51 749.993 1100.01 749.993H1400.01C1406.51 749.993 1412.51 748.493 1418.51 746.493C1421.01 745.493 1422.51 743.993 1425.01 742.493C1428.01 740.993 1431.01 739.493 1433.51 737.493C1433.51 737.493 1434.01 736.493 1434.51 736.493C1437.01 733.993 1438.51 730.993 1440.51 728.493C1442.51 725.993 1444.51 723.493 1445.51 720.493C1446.51 718.493 1446.51 715.493 1447.51 713.493C1448.51 709.493 1450.01 705.493 1450.01 701.493V400C1450.01 372.5 1427.51 350 1400.01 350C1372.51 350 1350.01 372.5 1350.01 400V568.493L1203.5 403.507C1146 339.007 1077 288.507 998.513 253C920.019 217.5 836.02 199.5 750.02 199.5C516.02 199.5 301.527 336.993 204.513 549.5C193.013 574.5 204.513 604.5 229.513 616L228.987 616.493Z"/>
+                <path d="M200 1250C227.5 1250 250 1227.5 250 1200V1031.51L396.507 1196.49C454.007 1260.99 523.007 1311.49 601.493 1347C679.988 1382.5 763.987 1400.5 849.987 1400.5C1083.99 1400.5 1298.48 1263.01 1395.49 1050.5C1406.99 1025.5 1395.49 995.5 1370.49 984C1345.49 972.5 1315.49 984 1303.99 1008.5C1222.99 1185.49 1044.49 1300.5 849.5 1300.5C777.5 1300.5 707.5 1285.5 641.993 1256C576.488 1226.5 518.493 1184 470.98 1130.5L310.98 950.5H499.473C526.973 950.5 549.473 928 549.473 900.5C549.473 873 526.973 850.5 499.473 850.5H199.473C196.973 850.5 194.973 851.5 192.473 852C188.973 852.5 185.473 853 181.973 854C178.473 855.5 175.973 857.5 172.973 859.5C170.973 861 168.473 861.5 166.473 863.5C166.473 863.5 165.973 864.5 165.473 864.5C162.973 867 160.973 870 158.973 873C157.473 875.5 154.973 878 153.973 880.5C152.973 883 152.973 885.5 151.973 888C150.973 892 149.473 895.5 149.473 900V1201.49C149.473 1228.99 171.973 1251.49 199.473 1251.49L200 1250Z"/>
+              </svg>
+              <span class="btn-text">Rotate</span>
+            </button>
+            ` : nothing}
             <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''}" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''}"
                     @click="${this.#requestDelete}">
               <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
@@ -1093,7 +1145,7 @@ export class CbToolbar extends LitElement {
         <label>#</label>
         <input class="number-input"
                type="text"
-               maxlength="2"
+               maxlength="3"
                aria-label="Player number"
                .value="${p.label ?? ''}"
                @blur="${this.#onNumberBlur}"
@@ -1163,6 +1215,7 @@ export class CbToolbar extends LitElement {
     const ref = items[0];
     const menuId = `${kind}-color` as MenuId;
     const label = kind === 'cone' ? 'Cone' : kind === 'dummy' ? 'Dummy' : 'Pole';
+    const defaultColor = kind === 'cone' ? COLORS.coneNeonOrange : COLORS.coneChartreuse;
     const plural = kind === 'cone' ? 'cones' : kind === 'dummy' ? 'dummies' : 'poles';
     const singular = kind;
     return html`
@@ -1180,13 +1233,13 @@ export class CbToolbar extends LitElement {
             <svg viewBox="0 0 16 16" width="16" height="16">
               ${kind === 'pole' ? svg`
                 <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
-                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" />
+                <circle cx="8" cy="8" r="3" fill="${ref.color ?? defaultColor}" />
               ` : kind === 'cone' ? svg`
-                <circle cx="8" cy="8" r="5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="3.5" />
+                <circle cx="8" cy="8" r="5" fill="none" stroke="${ref.color ?? defaultColor}" stroke-width="3.5" />
                 <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
               ` : svg`
-                <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="1.8" />
-                <circle cx="8" cy="8" r="3" fill="${ref.color ?? COLORS.coneChartreuse}" fill-opacity="0.6" />
+                <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? defaultColor}" stroke-width="1.8" />
+                <circle cx="8" cy="8" r="3" fill="${ref.color ?? defaultColor}" fill-opacity="0.6" />
               `}
             </svg>
             <span class="caret"></span>
@@ -1197,7 +1250,7 @@ export class CbToolbar extends LitElement {
                  @keydown="${this.#onMenuKeyDown}">
               ${getConeColors(this.fieldTheme).map(c => html`
                 <button role="menuitemradio" tabindex="-1"
-                        aria-checked="${(ref.color ?? COLORS.coneChartreuse) === c.color}"
+                        aria-checked="${(ref.color ?? defaultColor) === c.color}"
                         aria-label="${c.name}"
                         @click="${() => this.#changeEquipmentColor(items, c.color)}">
                   <svg viewBox="0 0 20 20" width="20" height="20">
@@ -1565,6 +1618,14 @@ export class CbToolbar extends LitElement {
     this.dispatchEvent(new ToolChangedEvent(tool));
   }
 
+  #toggleAutoNumber(enabled: boolean) {
+    this.dispatchEvent(new AutoNumberToggleEvent(enabled));
+  }
+
+  #rotateItems() {
+    this.dispatchEvent(new RotateItemsEvent(-45));
+  }
+
   #requestDelete() {
     requestAnimationFrame(() => this._deleteDialog?.showModal());
   }
@@ -1580,7 +1641,7 @@ export class CbToolbar extends LitElement {
 
   #onNumberBlur(e: FocusEvent) {
     const input = e.target as HTMLInputElement;
-    const value = input.value.trim().slice(0, 2);
+    const value = input.value.trim().slice(0, 3);
     const p = this.#singlePlayer;
     if (p && value !== (p.label ?? '')) {
       this.dispatchEvent(new PlayerUpdateEvent([p.id], { label: value || undefined }));
