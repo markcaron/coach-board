@@ -3725,8 +3725,9 @@ export class CoachBoard extends LitElement {
       : toVertical
         ? (x: number, y: number) => ({ x: y, y: oldDim.w - x })
         : (x: number, y: number) => ({ x: oldDim.h - y, y: x });
-    const angleDelta = toVertical ? -90 : 90;
-    const rotateAngle = (a?: number) => (a ?? 0) + angleDelta;
+    const rotateAngle = this.pitchType === 'half'
+      ? (a?: number) => 90 - (a ?? 0)
+      : (a?: number) => (a ?? 0) + (toVertical ? -90 : 90);
 
     this.players = this.players.map(p => {
       const r = rotatePoint(p.x, p.y);
