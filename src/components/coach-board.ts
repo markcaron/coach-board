@@ -32,9 +32,9 @@ function triPoints(cx: number, cy: number, r: number): string {
 }
 
 const BALL_RADIUS = 1.4175;
-const CONE_OUTER_R = 1.15;
-const CONE_OUTER_STROKE = 0.35;
-const CONE_INNER_R = 0.55;
+const CONE_OUTER_R = 1.0;
+const CONE_OUTER_STROKE = 0.7;
+const CONE_INNER_R = 0.35;
 const DUMMY_OUTER_HW = 0.9;
 const DUMMY_OUTER_HH = 1.65;
 const DUMMY_OUTER_RX = 0.9;
@@ -2797,7 +2797,7 @@ export class CoachBoard extends LitElement {
                   fill="none" stroke="${coneColor}" stroke-width="${CONE_OUTER_STROKE}"
                   style="cursor: pointer" />
           <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_INNER_R}"
-                  fill="${COLORS.equipmentBody}" style="cursor: pointer" />
+                  fill="${POLE_BASE_COLOR}" style="cursor: pointer" />
         </g>
       `;
     }
@@ -2953,7 +2953,7 @@ export class CoachBoard extends LitElement {
                   fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="${CONE_OUTER_STROKE}"
                   stroke-dasharray="0.3,0.2" />
           <circle cx="${x}" cy="${y}" r="${CONE_INNER_R}"
-                  fill="${COLORS.equipmentBody}" />
+                  fill="${POLE_BASE_COLOR}" />
         </g>
       `;
     }

@@ -922,8 +922,8 @@ export class CbToolbar extends LitElement {
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('cone')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="5.5" fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="1.8" />
-                <circle cx="8" cy="8" r="3" fill="${COLORS.equipmentBody}" />
+                <circle cx="8" cy="8" r="5" fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="3.5" />
+                <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
               </svg>
               Cone
             </button>
