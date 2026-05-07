@@ -3720,9 +3720,11 @@ export class CoachBoard extends LitElement {
     const oldDim = getFieldDimensions(this.fieldOrientation, this.pitchType);
     const toVertical = targetOrientation === 'vertical';
 
-    const rotatePoint = toVertical
-      ? (x: number, y: number) => ({ x: y, y: oldDim.w - x })
-      : (x: number, y: number) => ({ x: oldDim.h - y, y: x });
+    const rotatePoint = this.pitchType === 'half'
+      ? (x: number, y: number) => ({ x: y, y: x })
+      : toVertical
+        ? (x: number, y: number) => ({ x: y, y: oldDim.w - x })
+        : (x: number, y: number) => ({ x: oldDim.h - y, y: x });
     const angleDelta = toVertical ? -90 : 90;
     const rotateAngle = (a?: number) => (a ?? 0) + angleDelta;
 
