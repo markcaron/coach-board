@@ -1309,6 +1309,13 @@ export class CoachBoard extends LitElement {
   #playbackLastTime: number | null = null;
   #trailDrag: { id: string; cp: 'cp1' | 'cp2' } | null = null;
   #isPrinting = false;
+  #cachedSummary: {
+    name: string; pitchLabel: string; orientation: string;
+    playersByColor: Map<string, number>; coachCount: number;
+    equipByKind: Map<string, number>; conesByColor: Map<string, number>;
+    linesByStyle: Map<string, number>;
+    shapeCount: number; textCount: number; frameCount: number;
+  } | null = null;
 
   #snapshot(): Snapshot {
     return {
@@ -1937,28 +1944,25 @@ export class CoachBoard extends LitElement {
       ` : nothing}
 
       <div class="print-summary-block">
-        ${(() => {
-          const s = this.#getBoardSummary();
-          return html`
-            <div class="summary-board-name">${s.name}</div>
-            <div class="summary-section">
-              <h3>Pitch</h3><p>${s.pitchLabel} · ${s.orientation}</p>
-            </div>
-            ${s.playersByColor.size > 0 || s.coachCount > 0 ? html`
-              <div class="summary-section"><h3>Players</h3><p>${[...s.playersByColor.entries()].map(([c, n]) => `${n} ${c}`).join(', ')}${s.coachCount > 0 ? `${s.playersByColor.size > 0 ? ', ' : ''}${s.coachCount} Coach${s.coachCount > 1 ? 'es' : ''}` : ''}</p></div>
-            ` : nothing}
-            ${s.equipByKind.size > 0 || s.conesByColor.size > 0 ? html`
-              <div class="summary-section"><h3>Equipment</h3><p>${[...s.equipByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).concat(s.conesByColor.size > 0 ? [`${[...s.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...s.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []).join(', ')}</p></div>
-            ` : nothing}
-            ${s.linesByStyle.size > 0 ? html`
-              <div class="summary-section"><h3>Lines</h3><p>${[...s.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
-            ` : nothing}
-            ${s.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${s.shapeCount} shape${s.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
-            ${s.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${s.textCount} text item${s.textCount > 1 ? 's' : ''}</p></div>` : nothing}
-            ${s.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${s.frameCount} frame${s.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
-            ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
-          `;
-        })()}
+        ${this.#cachedSummary ? html`
+          <div class="summary-board-name">${this.#cachedSummary.name}</div>
+          <div class="summary-section">
+            <h3>Pitch</h3><p>${this.#cachedSummary.pitchLabel} · ${this.#cachedSummary.orientation}</p>
+          </div>
+          ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
+            <div class="summary-section"><h3>Players</h3><p>${[...this.#cachedSummary.playersByColor.entries()].map(([c, n]) => `${n} ${c}`).join(', ')}${this.#cachedSummary.coachCount > 0 ? `${this.#cachedSummary.playersByColor.size > 0 ? ', ' : ''}${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}` : ''}</p></div>
+          ` : nothing}
+          ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 ? html`
+            <div class="summary-section"><h3>Equipment</h3><p>${[...this.#cachedSummary.equipByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).concat(this.#cachedSummary.conesByColor.size > 0 ? [`${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []).join(', ')}</p></div>
+          ` : nothing}
+          ${this.#cachedSummary.linesByStyle.size > 0 ? html`
+            <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
+          ` : nothing}
+          ${this.#cachedSummary.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
+          ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
+          ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
+          ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
+        ` : nothing}
       </div>
 
       <div class="bottom-bar${this._viewMode === 'readonly' ? ' readonly' : ''}">
@@ -2419,7 +2423,7 @@ export class CoachBoard extends LitElement {
         </div>
       </dialog>
 
-      <dialog id="board-summary-dialog">
+      <dialog id="board-summary-dialog" @close="${() => this.#saveToStorage()}">
         <div class="dialog-header">
           <h2>Board Summary</h2>
           <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._boardSummaryDialog?.close()}">
@@ -2427,60 +2431,57 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          ${(() => {
-            const s = this.#getBoardSummary();
-            return html`
-              <div class="summary-board-name">${s.name}</div>
+          ${this.#cachedSummary ? html`
+            <div class="summary-board-name">${this.#cachedSummary.name}</div>
+            <div class="summary-section">
+              <h3>Pitch</h3>
+              <p>${this.#cachedSummary.pitchLabel} · ${this.#cachedSummary.orientation}</p>
+            </div>
+            ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
               <div class="summary-section">
-                <h3>Pitch</h3>
-                <p>${s.pitchLabel} · ${s.orientation}</p>
+                <h3>Players</h3>
+                <ul>
+                  ${[...this.#cachedSummary.playersByColor.entries()].map(([color, count]) => html`<li>${count} ${color}</li>`)}
+                  ${this.#cachedSummary.coachCount > 0 ? html`<li>${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}</li>` : nothing}
+                </ul>
               </div>
-              ${s.playersByColor.size > 0 || s.coachCount > 0 ? html`
-                <div class="summary-section">
-                  <h3>Players</h3>
-                  <ul>
-                    ${[...s.playersByColor.entries()].map(([color, count]) => html`<li>${count} ${color}</li>`)}
-                    ${s.coachCount > 0 ? html`<li>${s.coachCount} Coach${s.coachCount > 1 ? 'es' : ''}</li>` : nothing}
-                  </ul>
-                </div>
-              ` : nothing}
-              ${s.equipByKind.size > 0 || s.conesByColor.size > 0 ? html`
-                <div class="summary-section">
-                  <h3>Equipment</h3>
-                  <ul>
-                    ${[...s.equipByKind.entries()].map(([kind, count]) => html`<li>${count} ${kind}${count > 1 ? 's' : ''}</li>`)}
-                    ${s.conesByColor.size > 0 ? html`<li>${[...s.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...s.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...s.conesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
-                  </ul>
-                </div>
-              ` : nothing}
-              ${s.linesByStyle.size > 0 ? html`
-                <div class="summary-section">
-                  <h3>Lines</h3>
-                  <ul>
-                    ${[...s.linesByStyle.entries()].map(([style, count]) => html`<li>${count} ${style}${count > 1 ? 's' : ''}</li>`)}
-                  </ul>
-                </div>
-              ` : nothing}
-              ${s.shapeCount > 0 ? html`
-                <div class="summary-section">
-                  <h3>Shapes</h3>
-                  <p>${s.shapeCount} shape${s.shapeCount > 1 ? 's' : ''}</p>
-                </div>
-              ` : nothing}
-              ${s.textCount > 0 ? html`
-                <div class="summary-section">
-                  <h3>Text</h3>
-                  <p>${s.textCount} text item${s.textCount > 1 ? 's' : ''}</p>
-                </div>
-              ` : nothing}
-              ${s.frameCount > 0 ? html`
-                <div class="summary-section">
-                  <h3>Animation</h3>
-                  <p>${s.frameCount} frame${s.frameCount > 1 ? 's' : ''}</p>
-                </div>
-              ` : nothing}
-            `;
-          })()}
+            ` : nothing}
+            ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 ? html`
+              <div class="summary-section">
+                <h3>Equipment</h3>
+                <ul>
+                  ${[...this.#cachedSummary.equipByKind.entries()].map(([kind, count]) => html`<li>${count} ${kind}${count > 1 ? 's' : ''}</li>`)}
+                  ${this.#cachedSummary.conesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.#cachedSummary.conesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                </ul>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.linesByStyle.size > 0 ? html`
+              <div class="summary-section">
+                <h3>Lines</h3>
+                <ul>
+                  ${[...this.#cachedSummary.linesByStyle.entries()].map(([style, count]) => html`<li>${count} ${style}${count > 1 ? 's' : ''}</li>`)}
+                </ul>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.shapeCount > 0 ? html`
+              <div class="summary-section">
+                <h3>Shapes</h3>
+                <p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.textCount > 0 ? html`
+              <div class="summary-section">
+                <h3>Text</h3>
+                <p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p>
+              </div>
+            ` : nothing}
+            ${this.#cachedSummary.frameCount > 0 ? html`
+              <div class="summary-section">
+                <h3>Animation</h3>
+                <p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p>
+              </div>
+            ` : nothing}
+          ` : nothing}
           <div class="summary-section">
             <h3>Notes &amp; Instructions</h3>
             <textarea class="notes-textarea" rows="4" placeholder="Add notes, drills, instructions…"
@@ -3329,6 +3330,7 @@ export class CoachBoard extends LitElement {
 
   #showBoardSummary() {
     this._menuOpen = false;
+    this.#cachedSummary = this.#getBoardSummary();
     requestAnimationFrame(() => this._boardSummaryDialog?.showModal());
   }
 
@@ -3345,9 +3347,9 @@ export class CoachBoard extends LitElement {
   #handlePrint() {
     this._printDialog?.close();
     this.#isPrinting = true;
+    this.#cachedSummary = this.#getBoardSummary();
     const host = this as unknown as HTMLElement;
     const savedTheme = this.fieldTheme;
-    host.classList.add('printing');
     if (this._printSummary) host.classList.add('print-summary');
     if (this._printWhiteBg) {
       host.classList.add('print-white-bg');
@@ -3358,7 +3360,7 @@ export class CoachBoard extends LitElement {
     const cleanup = () => {
       if (cleaned) return;
       cleaned = true;
-      host.classList.remove('printing', 'print-summary', 'print-white-bg');
+      host.classList.remove('print-summary', 'print-white-bg');
       if (this._printWhiteBg) this.fieldTheme = savedTheme;
       this.#isPrinting = false;
     };
