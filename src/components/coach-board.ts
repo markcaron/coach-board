@@ -202,7 +202,7 @@ function isRotatable(item: Player | Equipment): boolean {
 }
 
 function circleHeadPath(r: number): string {
-  const cutFrac = 0.35;
+  const cutFrac = 0.22;
   const cutY = -r + r * cutFrac * 2;
   const dx = Math.sqrt(r * r - cutY * cutY);
   return `M ${-dx},${cutY} A ${r},${r} 0 0 1 ${dx},${cutY} Z`;
