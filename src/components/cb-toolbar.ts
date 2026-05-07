@@ -922,17 +922,26 @@ export class CbToolbar extends LitElement {
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('cone')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="5" fill="${COLORS.equipmentBody}" stroke="${COLORS.coneChartreuse}" stroke-width="3" />
+                <circle cx="8" cy="8" r="5.5" fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="1.8" />
+                <circle cx="8" cy="8" r="3" fill="${COLORS.equipmentBody}" />
               </svg>
               Cone
             </button>
-            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('coach')}">
+            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('dummy')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="7" fill="${COLORS.coachBg}" stroke="white" stroke-width="0.8" />
-                <text x="8" y="8" text-anchor="middle" dominant-baseline="central"
-                      fill="white" font-size="8" font-weight="bold" font-family="system-ui, sans-serif">C</text>
+                <rect x="4.5" y="1.5" width="7" height="13" rx="3.5"
+                      fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="1.8" />
+                <rect x="6.5" y="3.5" width="3" height="9" rx="1.5"
+                      fill="${COLORS.equipmentBody}" />
               </svg>
-              Coach
+              Dummy
+            </button>
+            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('pole')}">
+              <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
+                <circle cx="8" cy="8" r="3" fill="${COLORS.coneChartreuse}" />
+              </svg>
+              Pole
             </button>
             <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('goal')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
@@ -958,19 +967,13 @@ export class CbToolbar extends LitElement {
               </svg>
               Pop-up Goal
             </button>
-            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('dummy')}">
+            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('coach')}">
               <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <rect x="5" y="2" width="6" height="12" rx="3"
-                      fill="${COLORS.equipmentBody}" stroke="${COLORS.coneChartreuse}" stroke-width="2" />
+                <circle cx="8" cy="8" r="7" fill="${COLORS.coachBg}" stroke="white" stroke-width="0.8" />
+                <text x="8" y="8" text-anchor="middle" dominant-baseline="central"
+                      fill="white" font-size="8" font-weight="bold" font-family="system-ui, sans-serif">C</text>
               </svg>
-              Dummy
-            </button>
-            <button role="menuitem" tabindex="-1" @click="${() => this.#pickEquipment('pole')}">
-              <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
-                <circle cx="8" cy="8" r="3" fill="${COLORS.coneChartreuse}" />
-              </svg>
-              Pole
+              Coach
             </button>
           </div>
         ` : ''}
@@ -1175,7 +1178,8 @@ export class CbToolbar extends LitElement {
                   @click="${(e: Event) => this.#onTriggerClick(menuId, e)}"
                   @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown(menuId, e)}">
             <svg viewBox="0 0 16 16" width="16" height="16">
-              <circle cx="8" cy="8" r="5" fill="${COLORS.equipmentBody}" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="3" />
+              <circle cx="8" cy="8" r="5.5" fill="none" stroke="${ref.color ?? COLORS.coneChartreuse}" stroke-width="1.8" />
+              <circle cx="8" cy="8" r="3" fill="${COLORS.equipmentBody}" />
             </svg>
             <span class="caret"></span>
           </button>
@@ -1189,7 +1193,8 @@ export class CbToolbar extends LitElement {
                         aria-label="${c.name}"
                         @click="${() => this.#changeEquipmentColor(items, c.color)}">
                   <svg viewBox="0 0 20 20" width="20" height="20">
-                    <circle cx="10" cy="10" r="6" fill="${COLORS.equipmentBody}" stroke="${c.color}" stroke-width="3.5" />
+                    <circle cx="10" cy="10" r="7" fill="none" stroke="${c.color}" stroke-width="2" />
+                    <circle cx="10" cy="10" r="4" fill="${COLORS.equipmentBody}" />
                   </svg>
                 </button>
               `)}

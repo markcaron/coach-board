@@ -32,12 +32,16 @@ function triPoints(cx: number, cy: number, r: number): string {
 }
 
 const BALL_RADIUS = 1.4175;
-const CONE_RADIUS = 0.81;
-const CONE_BORDER = 0.6075;
-const DUMMY_HW = 0.75;
-const DUMMY_HH = 1.5;
-const DUMMY_RX = 0.75;
-const DUMMY_BORDER = 0.5;
+const CONE_OUTER_R = 1.15;
+const CONE_OUTER_STROKE = 0.35;
+const CONE_INNER_R = 0.55;
+const DUMMY_OUTER_HW = 0.9;
+const DUMMY_OUTER_HH = 1.65;
+const DUMMY_OUTER_RX = 0.9;
+const DUMMY_OUTER_STROKE = 0.35;
+const DUMMY_INNER_HW = 0.5;
+const DUMMY_INNER_HH = 1.25;
+const DUMMY_INNER_RX = 0.5;
 const POLE_RADIUS = 0.55;
 const POLE_BASE_RADIUS = 0.85;
 const POLE_BASE_COLOR = '#d0d0d0';
@@ -2785,37 +2789,43 @@ export class CoachBoard extends LitElement {
       return svg`
         <g data-id="${eq.id}" data-kind="equipment">
           ${selected ? svg`
-            <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_RADIUS + CONE_BORDER + 0.15}"
+            <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_OUTER_R + CONE_OUTER_STROKE / 2 + 0.2}"
                     fill="none" stroke="${this.#selColor}" stroke-width="0.15"
                     stroke-dasharray="0.4,0.25" />
           ` : nothing}
-          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_RADIUS}"
-                  fill="${COLORS.equipmentBody}" stroke="${coneColor}" stroke-width="${CONE_BORDER}"
+          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_OUTER_R}"
+                  fill="none" stroke="${coneColor}" stroke-width="${CONE_OUTER_STROKE}"
                   style="cursor: pointer" />
+          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_INNER_R}"
+                  fill="${COLORS.equipmentBody}" style="cursor: pointer" />
         </g>
       `;
     }
     if (eq.kind === 'dummy') {
       const dummyColor = eq.color ?? COLORS.coneChartreuse;
       const angle = eq.angle ?? 0;
-      const rx1 = -DUMMY_HW - 0.5;
-      const ry1 = -DUMMY_HH - 0.5;
-      const rx2 = DUMMY_HW + 0.5;
-      const ry2 = DUMMY_HH + 0.5;
+      const pad = 0.5;
+      const rx1 = -DUMMY_OUTER_HW - pad;
+      const ry1 = -DUMMY_OUTER_HH - pad;
+      const rx2 = DUMMY_OUTER_HW + pad;
+      const ry2 = DUMMY_OUTER_HH + pad;
       return svg`
         <g data-id="${eq.id}" data-kind="equipment"
            transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
           ${selected ? svg`
-            <rect x="${-DUMMY_HW - 0.4}" y="${-DUMMY_HH - 0.4}"
-                  width="${(DUMMY_HW + 0.4) * 2}" height="${(DUMMY_HH + 0.4) * 2}"
-                  rx="${DUMMY_RX + 0.4}" fill="none" stroke="${this.#selColor}"
+            <rect x="${-DUMMY_OUTER_HW - DUMMY_OUTER_STROKE / 2 - 0.25}" y="${-DUMMY_OUTER_HH - DUMMY_OUTER_STROKE / 2 - 0.25}"
+                  width="${(DUMMY_OUTER_HW + DUMMY_OUTER_STROKE / 2 + 0.25) * 2}" height="${(DUMMY_OUTER_HH + DUMMY_OUTER_STROKE / 2 + 0.25) * 2}"
+                  rx="${DUMMY_OUTER_RX + 0.4}" fill="none" stroke="${this.#selColor}"
                   stroke-width="0.15" stroke-dasharray="0.4,0.25" />
           ` : nothing}
-          <rect x="${-DUMMY_HW}" y="${-DUMMY_HH}"
-                width="${DUMMY_HW * 2}" height="${DUMMY_HH * 2}"
-                rx="${DUMMY_RX}" fill="${COLORS.equipmentBody}"
-                stroke="${dummyColor}" stroke-width="${DUMMY_BORDER}"
-                filter="url(#player-shadow)"
+          <rect x="${-DUMMY_OUTER_HW}" y="${-DUMMY_OUTER_HH}"
+                width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
+                rx="${DUMMY_OUTER_RX}" fill="none"
+                stroke="${dummyColor}" stroke-width="${DUMMY_OUTER_STROKE}"
+                style="cursor: pointer" />
+          <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
+                width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
+                rx="${DUMMY_INNER_RX}" fill="${COLORS.equipmentBody}"
                 style="cursor: pointer" />
           ${this.#shouldShowRotate(eq.id, singleSelected)
             ? this.#renderRectRotateHandles(eq.id, rx1, ry1, rx2, ry2)
@@ -2938,21 +2948,27 @@ export class CoachBoard extends LitElement {
     }
     if (this.equipmentKind === 'cone') {
       return svg`
-        <circle cx="${x}" cy="${y}" r="${CONE_RADIUS}"
-                fill="${COLORS.equipmentBody}" fill-opacity="0.5" stroke="${COLORS.coneChartreuse}" stroke-width="${CONE_BORDER}"
-                stroke-dasharray="0.3,0.2" opacity="0.5"
-                style="pointer-events: none" />
+        <g opacity="0.5" style="pointer-events: none">
+          <circle cx="${x}" cy="${y}" r="${CONE_OUTER_R}"
+                  fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="${CONE_OUTER_STROKE}"
+                  stroke-dasharray="0.3,0.2" />
+          <circle cx="${x}" cy="${y}" r="${CONE_INNER_R}"
+                  fill="${COLORS.equipmentBody}" />
+        </g>
       `;
     }
     if (this.equipmentKind === 'dummy') {
       return svg`
         <g transform="translate(${x}, ${y})" opacity="0.5"
            style="pointer-events: none">
-          <rect x="${-DUMMY_HW}" y="${-DUMMY_HH}"
-                width="${DUMMY_HW * 2}" height="${DUMMY_HH * 2}"
-                rx="${DUMMY_RX}" fill="${COLORS.equipmentBody}"
-                stroke="${COLORS.coneChartreuse}" stroke-width="${DUMMY_BORDER}"
+          <rect x="${-DUMMY_OUTER_HW}" y="${-DUMMY_OUTER_HH}"
+                width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
+                rx="${DUMMY_OUTER_RX}" fill="none"
+                stroke="${COLORS.coneChartreuse}" stroke-width="${DUMMY_OUTER_STROKE}"
                 stroke-dasharray="0.3,0.2" />
+          <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
+                width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
+                rx="${DUMMY_INNER_RX}" fill="${COLORS.equipmentBody}" />
         </g>
       `;
     }
