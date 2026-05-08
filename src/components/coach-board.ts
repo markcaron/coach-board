@@ -8,6 +8,7 @@ import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
 import { registerSW } from 'virtual:pwa-register';
+import { getTemplatesForPitch } from '../lib/templates.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
@@ -1425,6 +1426,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _saveBoardName: string = '';
   @state() private accessor _newBoardPitchType: PitchType = 'full';
+  @state() private accessor _newBoardTemplate: string = '';
   @state() private accessor _deleteBoardName: string = '';
   @state() private accessor _printSummary: boolean = true;
   @state() private accessor _printWhiteBg: boolean = true;
@@ -2572,15 +2574,32 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          <p>Create a new empty board?</p>
-          <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
-          <select class="theme-select" id="new-board-pitch-type"
-                  @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; }}">
-            <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
-            <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Defensive)</option>
-            <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Attacking)</option>
-            <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
-          </select>
+          <p>Create a new board.</p>
+          <div style="display: flex; gap: 12px;">
+            <div style="flex: 1;">
+              <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
+              <select class="theme-select" id="new-board-pitch-type" style="width: 100%;"
+                      @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; this._newBoardTemplate = ''; }}">
+                <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
+                <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Def.)</option>
+                <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Att.)</option>
+                <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
+              </select>
+            </div>
+            ${(() => {
+              const templates = getTemplatesForPitch(this._newBoardPitchType);
+              return templates.length > 0 ? html`
+                <div style="flex: 1;">
+                  <label class="save-board-label" for="new-board-template">Template</label>
+                  <select class="theme-select" id="new-board-template" style="width: 100%;"
+                          @change="${(e: Event) => { this._newBoardTemplate = (e.target as HTMLSelectElement).value; }}">
+                    <option value="" ?selected="${!this._newBoardTemplate}">Blank</option>
+                    ${templates.map(t => html`<option value="${t.id}" ?selected="${this._newBoardTemplate === t.id}">${t.name}</option>`)}
+                  </select>
+                </div>
+              ` : nothing;
+            })()}
+          </div>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
             <button class="confirm-success" @click="${this.#confirmNewBoard}">Create New Board</button>
@@ -3843,6 +3862,7 @@ export class CoachBoard extends LitElement {
   #handleNewBoard() {
     this._menuOpen = false;
     this._newBoardPitchType = 'full';
+    this._newBoardTemplate = '';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingBoardAction = 'new';
       this._saveBoardName = '';
@@ -3862,11 +3882,19 @@ export class CoachBoard extends LitElement {
     this.#currentBoard = board;
     this._boardName = board.name;
     setActiveBoardId(board.id);
-    this.players = [];
-    this.lines = [];
-    this.equipment = [];
-    this.shapes = [];
-    this.textItems = [];
+    const template = this._newBoardTemplate
+      ? getTemplatesForPitch(this._newBoardPitchType).find(t => t.id === this._newBoardTemplate)
+      : null;
+    const orient = this._isMobile ? 'vertical' : 'horizontal';
+    const playerAngle = (team: string) => team === 'b'
+      ? (orient === 'horizontal' ? 270 : 180)
+      : (orient === 'horizontal' ? 90 : 0);
+
+    this.players = template ? template.players.map(p => ({ ...p, id: uid('player'), angle: playerAngle(p.team) })) : [];
+    this.lines = template ? template.lines.map(l => ({ ...l, id: uid('line') })) : [];
+    this.equipment = template ? template.equipment.map(e => ({ ...e, id: uid('eq') })) : [];
+    this.shapes = template ? template.shapes.map(s => ({ ...s, id: uid('shape') })) : [];
+    this.textItems = template ? template.textItems.map(t => ({ ...t, id: uid('text') })) : [];
     this.animationFrames = [];
     this.activeFrameIndex = 0;
     this._animationMode = false;
@@ -3879,6 +3907,7 @@ export class CoachBoard extends LitElement {
     this.fieldTheme = 'green';
     this.pitchType = board.pitchType;
     this._boardNotes = '';
+    this._newBoardTemplate = '';
     this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
   }
 
