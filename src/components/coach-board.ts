@@ -3862,6 +3862,7 @@ export class CoachBoard extends LitElement {
   #handleNewBoard() {
     this._menuOpen = false;
     this._newBoardPitchType = 'full';
+    this._newBoardTemplate = '';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingBoardAction = 'new';
       this._saveBoardName = '';
