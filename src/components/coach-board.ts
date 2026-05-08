@@ -2462,7 +2462,12 @@ export class CoachBoard extends LitElement {
                  @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
-            <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
+            <div style="display: flex; gap: 8px;">
+              ${this.#pendingBoardAction === 'new' || this.#pendingBoardAction === 'open' ? html`
+                <button class="confirm-danger" @click="${this.#skipSaveBoard}">Don't Save</button>
+              ` : nothing}
+              <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
+            </div>
           </div>
         </div>
       </dialog>
@@ -3579,6 +3584,17 @@ export class CoachBoard extends LitElement {
     this.#pendingOpenBoardId = null;
     this._saveBoardName = `Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`;
     this.#openSaveBoardDialog();
+  }
+
+  #skipSaveBoard() {
+    const pendingAction = this.#pendingBoardAction;
+    const pendingId = this.#pendingOpenBoardId;
+    this._saveBoardDialog?.close();
+    if (pendingAction === 'new') {
+      requestAnimationFrame(() => this._newBoardDialog?.showModal());
+    } else if (pendingAction === 'open') {
+      this.#doOpenBoard(pendingId!);
+    }
   }
 
   async #confirmSaveBoard() {
