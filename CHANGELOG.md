@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1 (2026-05-08)
+
+### Bug Fixes
+
+- **Update toast Refresh button**: Added explicit page reload after service worker activation so the Refresh button actually reloads the page.
+
 ## 1.2.0 — Gotham FC Release (2026-05-08)
 
 ### New Features
