@@ -1384,6 +1384,7 @@ export class CoachBoard extends LitElement {
   #shapeResizeDrag: ShapeResizeDragState | null = null;
   #draw: DrawState | null = null;
   #shapeDraw: ShapeDrawState | null = null;
+  #marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #onDocClickForMenu = (e: PointerEvent) => {
     const path = e.composedPath();
@@ -2021,6 +2022,19 @@ export class CoachBoard extends LitElement {
             ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
             ${this.#shapeDraw ? this.#renderShapeDrawPreview() : nothing}
           </g>
+
+          ${this.#marquee ? svg`
+            <rect
+              x="${Math.min(this.#marquee.x1, this.#marquee.x2)}"
+              y="${Math.min(this.#marquee.y1, this.#marquee.y2)}"
+              width="${Math.abs(this.#marquee.x2 - this.#marquee.x1)}"
+              height="${Math.abs(this.#marquee.y2 - this.#marquee.y1)}"
+              fill="rgba(59, 130, 246, 0.15)"
+              stroke="rgba(59, 130, 246, 0.6)"
+              stroke-width="0.15"
+              stroke-dasharray="0.5,0.3"
+              style="pointer-events: none" />
+          ` : nothing}
 
           <g class="lines-layer">
             ${this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
@@ -4791,8 +4805,16 @@ export class CoachBoard extends LitElement {
 
     const hit = resolveHit(e.target);
     if (!hit) {
-      this.selectedIds = new Set();
-      this._multiSelect = false;
+      if (this.activeTool === 'select' && !this._isMobile) {
+        this.#marquee = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+        this.svgEl.setPointerCapture(e.pointerId);
+        if (!isModifier(e) && !this._multiSelect) {
+          this.selectedIds = new Set();
+        }
+      } else {
+        this.selectedIds = new Set();
+        this._multiSelect = false;
+      }
       return;
     }
 
@@ -4917,6 +4939,13 @@ export class CoachBoard extends LitElement {
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
       this.ghost = { x: pt.x, y: pt.y };
+      return;
+    }
+
+    if (this.#marquee) {
+      this.#marquee.x2 = pt.x;
+      this.#marquee.y2 = pt.y;
+      this.requestUpdate();
       return;
     }
 
@@ -5113,6 +5142,38 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerUp(_e: PointerEvent) {
+    if (this.#marquee) {
+      const m = this.#marquee;
+      this.#marquee = null;
+      const minX = Math.min(m.x1, m.x2);
+      const maxX = Math.max(m.x1, m.x2);
+      const minY = Math.min(m.y1, m.y2);
+      const maxY = Math.max(m.y1, m.y2);
+      if (maxX - minX > 0.5 || maxY - minY > 0.5) {
+        const hit = new Set(this.selectedIds);
+        const inRect = (x: number, y: number) => x >= minX && x <= maxX && y >= minY && y <= maxY;
+        for (const p of this.players) {
+          const pos = this.#getItemPosition(p.id, p.x, p.y);
+          if (inRect(pos.x, pos.y)) hit.add(p.id);
+        }
+        for (const eq of this.equipment) {
+          const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+          if (inRect(pos.x, pos.y)) hit.add(eq.id);
+        }
+        for (const s of this.shapes) {
+          if (inRect(s.cx, s.cy)) hit.add(s.id);
+        }
+        for (const t of this.textItems) {
+          if (inRect(t.x, t.y)) hit.add(t.id);
+        }
+        for (const l of this.lines) {
+          if (inRect(l.cx, l.cy)) hit.add(l.id);
+        }
+        this.selectedIds = hit;
+      }
+      this.requestUpdate();
+    }
+
     if (this.#draw) {
       const d = this.#draw;
       const dx = d.x2 - d.x1;
