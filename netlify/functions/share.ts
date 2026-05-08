@@ -85,6 +85,7 @@ export default async (request: Request, _context: Context) => {
       });
     }
 
+    // Extract board name for OG meta tags (edge function reads metadata only, not full blob)
     let boardName = 'CoachingBoard';
     try {
       const parsed = JSON.parse(body);

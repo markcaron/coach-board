@@ -7,7 +7,7 @@ export default async (request: Request, context: Context) => {
   if (!match) return context.next();
 
   const ua = request.headers.get('user-agent') ?? '';
-  const isCrawler = /bot|crawl|spider|preview|slack|discord|telegram|whatsapp|facebook|twitter|linkedin|embed/i.test(ua);
+  const isCrawler = /bot|crawl|spider|preview|slack|discord|telegram|whatsapp|facebook|twitter|linkedin|embed|applebot/i.test(ua);
   if (!isCrawler) return context.next();
 
   const id = match[1];
@@ -31,15 +31,19 @@ export default async (request: Request, context: Context) => {
   const response = await context.next();
   const html = await response.text();
 
+  const ogImage = `${url.origin}/icon-512.png`;
+
   const injected = html.replace(
     '</head>',
     `<meta property="og:title" content="${ogTitle.replace(/"/g, '&quot;')}">\n` +
     `<meta property="og:description" content="${ogDescription}">\n` +
     `<meta property="og:type" content="website">\n` +
     `<meta property="og:url" content="${ogUrl}">\n` +
+    `<meta property="og:image" content="${ogImage}">\n` +
     `<meta name="twitter:card" content="summary">\n` +
     `<meta name="twitter:title" content="${ogTitle.replace(/"/g, '&quot;')}">\n` +
     `<meta name="twitter:description" content="${ogDescription}">\n` +
+    `<meta name="twitter:image" content="${ogImage}">\n` +
     `</head>`
   );
 
