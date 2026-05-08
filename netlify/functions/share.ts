@@ -66,6 +66,7 @@ export default async (request: Request, _context: Context) => {
     const created = (entry.metadata as Record<string, unknown>)?.created as number | undefined;
     if (created && Date.now() - created > TTL_SECONDS * 1000) {
       await store.delete(id);
+      await store.delete(`${id}-preview`).catch(() => {});
       return new Response(JSON.stringify({ error: 'Link expired' }), {
         status: 410,
         headers: { ...headers, 'Content-Type': 'application/json' },
