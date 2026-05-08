@@ -1103,7 +1103,7 @@ export class CbToolbar extends LitElement {
             </button>
             ` : nothing}
             ${this.selectedItems.length >= 2 ? html`
-              <span class="divider"></span>
+              ${this.#hasRotatable ? html`<span class="divider"></span>` : nothing}
               ${this.#renderAlignmentControls()}
             ` : nothing}
             ${this.#hasRotatable || this.selectedItems.length >= 2 ? html`<span class="divider"></span>` : nothing}
