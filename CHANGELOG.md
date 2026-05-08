@@ -5,8 +5,7 @@
 ### New Features
 
 - **Preset Formation Templates**: New Board dialog includes a Template dropdown with built-in formations (4-3-3, 4-2-3-1, 4-4-2, 3-5-2) and drill setups (4-4-2 Low Block, Attacking Overload, Rondo 4v2). Templates are pitch-type-specific with proper traditional positional numbering.
-- **Neutral Player**: Diamond-shaped player type with yellow color and "N" default label.
-- **Keyboard Shortcuts**: V (Select), P (Player), E (Equipment), D (Draw), T (Text), R (Rotate), Ctrl+A (Select All). Shortcut hints in button tooltips.
+- **Keyboard Shortcuts**: V (Select), P (Player), E (Equipment), D (Draw), T (Text), R (Rotate), Ctrl+A (Select All), Arrow keys to nudge selected items. Shortcut hints in button tooltips.
 - **Marquee Selection**: Click and drag on empty space to draw a selection rectangle on desktop.
 - **Place-Then-Commit**: After placing an item, it's auto-selected. Click it to switch to Select mode, or click elsewhere to keep placing.
 - **Smart Player Orientation**: Players automatically face the correct direction based on field orientation and team.
