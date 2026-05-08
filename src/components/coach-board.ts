@@ -275,7 +275,7 @@ export class CoachBoard extends LitElement {
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
-      touch-action: none;
+      touch-action: manipulation;
       --color-blue: var(--pt-color-blue-400);
       --color-red: var(--pt-color-red-400);
       --color-yellow: var(--pt-color-yellow-400);
@@ -1402,8 +1402,6 @@ export class CoachBoard extends LitElement {
       if (saved && saved !== this.fieldOrientation) this.#requestOrientation(saved);
     }
   };
-  #lastTapTime = 0;
-  #lastTapId: string | null = null;
   #undoStack: Snapshot[] = [];
   #redoStack: Snapshot[] = [];
   #playbackRaf: number | null = null;
@@ -4773,32 +4771,6 @@ export class CoachBoard extends LitElement {
       this.#handleDrag = { kind, id };
       this.svgEl.setPointerCapture(e.pointerId);
       return;
-    }
-
-    // Double-tap detection for rotate handles on mobile
-    if (this._isMobile) {
-      const now = Date.now();
-      if (this.#lastTapId === id && now - this.#lastTapTime < 300) {
-        this.#lastTapTime = 0;
-        this.#lastTapId = null;
-        let canRotate = false;
-        if (kind === 'player') {
-          const p = this.players.find(p => p.id === id);
-          canRotate = !!p && isRotatable(p);
-        } else if (kind === 'equipment') {
-          const eq = this.equipment.find(eq => eq.id === id);
-          canRotate = !!eq && isRotatable(eq);
-        } else if (kind === 'shape' || kind === 'text') {
-          canRotate = true;
-        }
-        if (canRotate) {
-          this.selectedIds = new Set([id]);
-          this._rotateHandleId = this._rotateHandleId === id ? null : id;
-          return;
-        }
-      }
-      this.#lastTapTime = now;
-      this.#lastTapId = id;
     }
 
     // Multi-select with modifier keys or toggle mode
