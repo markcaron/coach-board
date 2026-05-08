@@ -1,0 +1,43 @@
+---
+description: Git branching strategy and release workflow for CoachingBoard
+alwaysApply: true
+---
+
+# Release Workflow
+
+## Branching Strategy
+
+- `main` — production releases only
+- `staging/<nwsl-team>` — feature staging branches (e.g., `staging/courage`)
+- `feat/<name>` — feature branches targeting staging
+- `fix/<name>` — bug fix branches targeting main (for hotfixes)
+
+## Feature Development
+
+1. Create `feat/<name>` branch off the active `staging/<team>` branch
+2. Open PR targeting `staging/<team>`
+3. Merge to staging when approved
+
+## Release Flow
+
+1. When staging is ready, bump the minor version in `package.json`
+2. Update `CHANGELOG.md` with the version number, team name, and date
+3. Merge `staging/<team>` to `main`
+4. Create a git tag: `git tag v<version>`
+5. Push the tag: `git push origin v<version>`
+6. Create a GitHub Release with notes: `gh release create v<version> --title "v<version> — <Team> Release" --notes-file CHANGELOG.md`
+
+## Hotfixes (direct to main)
+
+1. Create `fix/<name>` branch off `main`
+2. Bump the patch version in `package.json`
+3. Add changelog entry for the patch
+4. Open PR targeting `main`
+5. After merge, tag and create a GitHub Release
+
+## Version Bumping
+
+- **Minor** (1.x.0): feature releases from staging (no breaking changes)
+- **Patch** (1.1.x): bug fixes direct to main
+- **Major** (x.0.0): breaking changes (schema migrations, removed features)
+- Version is auto-injected at build time via `__APP_VERSION__` from `package.json`
