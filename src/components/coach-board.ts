@@ -1441,7 +1441,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _shareMessage: string = '';
   @state() private accessor _shareUrl: string = '';
   #currentBoard: SavedBoard | null = null;
-  #pendingBoardAction: 'new' | 'open' | 'save-as' | null = null;
+  @state() private accessor _pendingBoardAction: 'new' | 'open' | 'save-as' | null = null;
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -2540,15 +2540,15 @@ export class CoachBoard extends LitElement {
         </div>
       </dialog>
 
-      <dialog id="save-board-dialog" @close="${() => { this.#pendingBoardAction = null; this.#pendingOpenBoardId = null; }}">
+      <dialog id="save-board-dialog" @close="${() => { this._pendingBoardAction = null; this.#pendingOpenBoardId = null; }}">
         <div class="dialog-header">
-          <h2>${this.#pendingBoardAction === 'save-as' ? 'Save As' : this.#pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
+          <h2>${this._pendingBoardAction === 'save-as' ? 'Save As' : this._pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
           <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._saveBoardDialog?.close()}">
             <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
           </button>
         </div>
         <div class="dialog-body">
-          <p>${this.#pendingBoardAction === 'save-as' ? 'Save a copy of this board with a new name.' : this.#pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
+          <p>${this._pendingBoardAction === 'save-as' ? 'Save a copy of this board with a new name.' : this._pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
           <label class="save-board-label" for="save-board-input">Board name</label>
           <input class="save-board-input" id="save-board-input" type="text" placeholder="Board name"
                  .value="${this._saveBoardName}"
@@ -2557,7 +2557,7 @@ export class CoachBoard extends LitElement {
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
             <div style="display: flex; gap: 8px;">
-              ${this.#pendingBoardAction === 'new' || this.#pendingBoardAction === 'open' ? html`
+              ${this._pendingBoardAction === 'new' || this._pendingBoardAction === 'open' ? html`
                 <button class="confirm-danger" @click="${this.#skipSaveBoard}">Don't Save</button>
               ` : nothing}
               <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
@@ -3673,7 +3673,7 @@ export class CoachBoard extends LitElement {
 
   #showSaveBoard() {
     this._menuOpen = false;
-    this.#pendingBoardAction = null;
+    this._pendingBoardAction = null;
     this.#pendingOpenBoardId = null;
     this._saveBoardName = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
     this.#openSaveBoardDialog();
@@ -3691,14 +3691,14 @@ export class CoachBoard extends LitElement {
 
   #handleSaveAs() {
     this._menuOpen = false;
-    this.#pendingBoardAction = 'save-as';
+    this._pendingBoardAction = 'save-as';
     this.#pendingOpenBoardId = null;
     this._saveBoardName = `Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`;
     this.#openSaveBoardDialog();
   }
 
   #skipSaveBoard() {
-    const pendingAction = this.#pendingBoardAction;
+    const pendingAction = this._pendingBoardAction;
     const pendingId = this.#pendingOpenBoardId;
     this._saveBoardDialog?.close();
     if (pendingAction === 'new') {
@@ -3711,7 +3711,7 @@ export class CoachBoard extends LitElement {
   async #confirmSaveBoard() {
     const name = this._saveBoardName.trim();
     if (!name || !this.#currentBoard) return;
-    const pendingAction = this.#pendingBoardAction;
+    const pendingAction = this._pendingBoardAction;
     const pendingId = this.#pendingOpenBoardId;
     this._saveBoardDialog?.close();
 
@@ -3864,7 +3864,7 @@ export class CoachBoard extends LitElement {
     this._newBoardPitchType = 'full';
     this._newBoardTemplate = '';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this.#pendingBoardAction = 'new';
+      this._pendingBoardAction = 'new';
       this._saveBoardName = '';
       this.#openSaveBoardDialog();
       return;
@@ -3927,7 +3927,7 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this.#pendingBoardAction = 'open';
+      this._pendingBoardAction = 'open';
       this.#pendingOpenBoardId = id;
       this._myBoardsDialog?.close();
       this._saveBoardName = '';
