@@ -3885,10 +3885,10 @@ export class CoachBoard extends LitElement {
     const template = this._newBoardTemplate
       ? getTemplatesForPitch(this._newBoardPitchType).find(t => t.id === this._newBoardTemplate)
       : null;
-    const orient = this._isMobile ? 'vertical' : 'horizontal';
+    const angleOrient = (this._isMobile && template) ? 'horizontal' : (this._isMobile ? 'vertical' : 'horizontal');
     const playerAngle = (team: string) => team === 'b'
-      ? (orient === 'horizontal' ? 270 : 180)
-      : (orient === 'horizontal' ? 90 : 0);
+      ? (angleOrient === 'horizontal' ? 270 : 180)
+      : (angleOrient === 'horizontal' ? 90 : 0);
 
     this.players = template ? template.players.map(p => ({ ...p, id: uid('player'), angle: playerAngle(p.team) })) : [];
     this.lines = template ? template.lines.map(l => ({ ...l, id: uid('line') })) : [];
