@@ -433,6 +433,13 @@ export class CbToolbar extends LitElement {
       gap: 6px;
     }
 
+    .edit-bar .color-btn[aria-pressed="true"],
+    .color-btn[aria-pressed="true"] {
+      background: var(--pt-danger-hover) !important;
+      border-color: var(--pt-danger-hover) !important;
+      color: var(--pt-text-white);
+    }
+
     .color-btn:hover {
       border-color: var(--pt-accent);
     }
