@@ -12,6 +12,10 @@
 [context."staging/*"]
   command = "npm run build"
 
+[[edge_functions]]
+  path = "/s/*"
+  function = "og-share"
+
 [[redirects]]
   from = "/s/*"
   to = "/index.html"

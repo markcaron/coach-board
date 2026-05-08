@@ -85,8 +85,16 @@ export default async (request: Request, _context: Context) => {
       });
     }
 
+    let boardName = 'CoachingBoard';
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed.name === 'string' && parsed.name.trim()) {
+        boardName = parsed.name.trim();
+      }
+    } catch { /* ignore parse errors */ }
+
     const newId = nanoid(10);
-    await store.set(newId, body, { metadata: { created: Date.now() } });
+    await store.set(newId, body, { metadata: { created: Date.now(), name: boardName } });
 
     return new Response(JSON.stringify({ id: newId }), {
       status: 201,
