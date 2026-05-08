@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3 (2026-05-08)
+
+### Bug Fixes
+
+- **Template vertical orientation**: Fixed template positions and angles not rotating correctly on mobile/vertical boards. Angles no longer double-rotated.
+
 ## 1.2.2 (2026-05-08)
 
 ### Bug Fixes
