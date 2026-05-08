@@ -3908,6 +3908,10 @@ export class CoachBoard extends LitElement {
     this.pitchType = board.pitchType;
     this._boardNotes = '';
     this._newBoardTemplate = '';
+    this.fieldOrientation = 'horizontal';
+    if (this._isMobile && template) {
+      this.#rotateLoadedData('vertical');
+    }
     this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
   }
 
