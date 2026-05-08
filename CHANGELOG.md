@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.2 (2026-05-08)
+
+### Bug Fixes
+
+- **Rondo template**: Fixed to diamond shape with 4 orange cones, no player labels.
+- **Attacking Shape template**: Renamed from "Attacking Overload", now includes both teams (Team A attacking, Team B defending with purple GK).
+
 ## 1.2.1 (2026-05-08)
 
 ### Bug Fixes
