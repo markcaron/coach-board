@@ -310,7 +310,7 @@ export class CoachBoard extends LitElement {
       gap: 12px;
       padding: 12px 16px;
       background: white;
-      color: var(--pt-color-navy-800, #1a2744);
+      color: var(--pt-color-navy-800, #16213e);
       font-size: 0.85rem;
       font-family: system-ui, -apple-system, sans-serif;
       z-index: 100;
@@ -334,7 +334,7 @@ export class CoachBoard extends LitElement {
       border: 1px solid rgba(0, 0, 0, 0.15);
       border-radius: 6px;
       background: white;
-      color: var(--pt-color-navy-800, #1a2744);
+      color: var(--pt-color-navy-800, #16213e);
       font: inherit;
       font-size: 0.85rem;
       cursor: pointer;
@@ -362,8 +362,8 @@ export class CoachBoard extends LitElement {
 
     .update-toast .dismiss-btn {
       background: transparent;
-      color: var(--pt-color-navy-800, #1a2744);
-      border-color: var(--pt-color-navy-600, #2a3f5f);
+      color: var(--pt-color-navy-800, #16213e);
+      border-color: var(--pt-color-navy-600, #1c3a5c);
     }
 
     .update-toast .dismiss-btn:hover {
