@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.2.0 — Gotham FC Release (2026-05-08)
+
+### New Features
+
+- **Preset Formation Templates**: New Board dialog includes a Template dropdown with built-in formations (4-3-3, 4-2-3-1, 4-4-2, 3-5-2) and drill setups (4-4-2 Low Block, Attacking Overload, Rondo 4v2). Templates are pitch-type-specific with proper traditional positional numbering.
+- **Neutral Player**: Diamond-shaped player type with yellow color and "N" default label.
+- **Keyboard Shortcuts**: V (Select), P (Player), E (Equipment), D (Draw), T (Text), R (Rotate), Ctrl+A (Select All). Shortcut hints in button tooltips.
+- **Marquee Selection**: Click and drag on empty space to draw a selection rectangle on desktop.
+- **Place-Then-Commit**: After placing an item, it's auto-selected. Click it to switch to Select mode, or click elsewhere to keep placing.
+- **Smart Player Orientation**: Players automatically face the correct direction based on field orientation and team.
+- **Update Toast**: When a new app version is deployed, a toast bar prompts users to refresh.
+- **"Don't Save" Button**: Save-first dialog now offers Don't Save to abandon changes and proceed.
+- **Shared Board Previews**: Board name and thumbnail shown in link previews (OG tags via Netlify Edge Function). Board name visible in readonly mode.
+
+### Visual & UX Improvements
+
+- **Player Directionality**: All player types show a dark head segment overlay indicating facing direction. Team B circles are now rotatable.
+- **Arrow Toggle State**: Arrow start/end buttons now show red pressed state when active.
+- **Delete Button Position**: Always far-right in edit toolbar, separated by a divider.
+- **GK Color**: Goalkeeper uses yellow in templates for visual distinction.
+
+### Bug Fixes
+
+- **Mobile Double-Tap Zoom**: Removed double-tap-to-rotate gesture on mobile; switched to `touch-action: manipulation`. Rotation via toolbar button instead.
+- **Animation Rotation Capture**: Initial player rotation no longer captured as animated property in frame 0.
+- **Export Button Visibility**: Hidden when no boards exist; Import stays at 50% width.
+- **Shared Board Cleanup**: Preview thumbnails deleted alongside expired board data.
+- **Input Guard**: Keyboard shortcuts now properly guarded against TEXTAREA and SELECT elements.
+
+## 1.1.1 (2026-05-08)
+
+### Bug Fixes
+
+- **Version sync**: About dialog and SVG exports now read version from `package.json` at build time via Vite's `define` config, preventing version drift.
+
 ## 1.1.0 — NC Courage Release (2026-05-07)
 
 ### New Features
