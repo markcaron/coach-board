@@ -77,7 +77,7 @@ const FULL_4231: BoardTemplate = {
     outfield(28, W - 22, '8'), // RDM — right pivot
     outfield(28, 22, '6'),     // LDM — left pivot
     outfield(40, W - 8, '7'),  // RW — right flank
-    outfield(40, cy, '10'),    // CAM — central (#10 as playmaker)
+    outfield(37, cy, '10'),    // CAM — central (#10 as playmaker)
     outfield(40, 8, '11'),     // LW — left flank
     outfield(46, cy, '9'),     // ST — lone striker
   ],
