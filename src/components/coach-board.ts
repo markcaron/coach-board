@@ -2461,10 +2461,10 @@ export class CoachBoard extends LitElement {
                  @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}"
                  @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
           <div class="confirm-actions">
-            ${this.#pendingBoardAction === 'new' || this.#pendingBoardAction === 'open' ? html`
-              <button class="danger" @click="${this.#skipSaveBoard}">Don't Save</button>
-            ` : nothing}
             <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
+            ${this.#pendingBoardAction === 'new' || this.#pendingBoardAction === 'open' ? html`
+              <button class="confirm-danger" @click="${this.#skipSaveBoard}">Don't Save</button>
+            ` : nothing}
             <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
           </div>
         </div>
