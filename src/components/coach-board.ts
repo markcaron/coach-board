@@ -2149,25 +2149,33 @@ export class CoachBoard extends LitElement {
           </g>
 
           ${this.activeTool === 'add-player' && this.ghost
-            ? this.playerTeam === 'a'
-              ? svg`
-                <polygon points="${triPoints(this.ghost.x, this.ghost.y, PLAYER_RADIUS)}"
-                         fill="${this.playerColor}" fill-opacity="0.5"
-                         stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
-                         stroke-dasharray="0.4,0.3"
-                         style="pointer-events: none" />`
-              : this.playerTeam === 'neutral'
-              ? svg`
-                <polygon points="${this.ghost.x},${this.ghost.y - DIAMOND_HH} ${this.ghost.x + DIAMOND_HW},${this.ghost.y} ${this.ghost.x},${this.ghost.y + DIAMOND_HH} ${this.ghost.x - DIAMOND_HW},${this.ghost.y}"
-                         fill="${this.playerColor}" fill-opacity="0.5"
-                         stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
-                         stroke-dasharray="0.4,0.3"
-                         style="pointer-events: none" />`
-              : svg`
-                <circle cx="${this.ghost.x}" cy="${this.ghost.y}" r="${PLAYER_RADIUS}"
-                        fill="${this.playerColor}" fill-opacity="0.5"
-                        stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3"
-                        style="pointer-events: none" />`
+            ? (() => {
+                const ga = this.playerTeam === 'b'
+                  ? (this.fieldOrientation === 'horizontal' ? 270 : 180)
+                  : (this.fieldOrientation === 'horizontal' ? 90 : 0);
+                return this.playerTeam === 'a'
+                  ? svg`
+                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
+                               fill="${this.playerColor}" fill-opacity="0.5"
+                               stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
+                               stroke-dasharray="0.4,0.3" />
+                    </g>`
+                  : this.playerTeam === 'neutral'
+                  ? svg`
+                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <polygon points="0,${-DIAMOND_HH} ${DIAMOND_HW},0 0,${DIAMOND_HH} ${-DIAMOND_HW},0"
+                               fill="${this.playerColor}" fill-opacity="0.5"
+                               stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
+                               stroke-dasharray="0.4,0.3" />
+                    </g>`
+                  : svg`
+                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <circle cx="0" cy="0" r="${PLAYER_RADIUS}"
+                              fill="${this.playerColor}" fill-opacity="0.5"
+                              stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3" />
+                    </g>`;
+              })()
             : nothing}
           ${this.activeTool === 'add-equipment' && this.ghost
             ? this.#renderGhostEquipment()
@@ -5484,12 +5492,17 @@ export class CoachBoard extends LitElement {
       const sameTeamCount = this.players.filter(p => p.team === team).length;
       label = String(sameTeamCount + 1);
     }
+    const isHorizontal = this.fieldOrientation === 'horizontal';
+    const angle = team === 'b'
+      ? (isHorizontal ? 270 : 180)
+      : (isHorizontal ? 90 : 0);
     const newPlayer: Player = {
       id: uid('player'),
       x, y,
       team,
       color,
       label,
+      angle,
     };
     this.players = [...this.players, newPlayer];
     this.selectedIds = new Set([newPlayer.id]);
