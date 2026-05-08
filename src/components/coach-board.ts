@@ -2460,7 +2460,7 @@ export class CoachBoard extends LitElement {
                  .value="${this._saveBoardName}"
                  @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}"
                  @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
-          <div class="confirm-actions" style="justify-content: space-between;">
+          <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
             <div style="display: flex; gap: 8px;">
               ${this.#pendingBoardAction === 'new' || this.#pendingBoardAction === 'open' ? html`
