@@ -1106,7 +1106,7 @@ export class CbToolbar extends LitElement {
               <span class="divider"></span>
               ${this.#renderAlignmentControls()}
             ` : nothing}
-            <span class="divider"></span>
+            ${this.#hasRotatable || this.selectedItems.length >= 2 ? html`<span class="divider"></span>` : nothing}
             <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''}" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''}"
                     @click="${this.#requestDelete}">
               <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
