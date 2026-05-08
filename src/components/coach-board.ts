@@ -5480,7 +5480,8 @@ export class CoachBoard extends LitElement {
       return;
     }
 
-    if (this.selectedIds.size > 0 && !inInput && this._viewMode !== 'readonly') {
+    if (this.selectedIds.size > 0 && !inInput && this._viewMode !== 'readonly'
+        && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const step = e.shiftKey ? 5 : 1;
       let dx = 0, dy = 0;
       if (e.key === 'ArrowUp') dy = -step;
@@ -5489,7 +5490,7 @@ export class CoachBoard extends LitElement {
       else if (e.key === 'ArrowRight') dx = step;
       if (dx || dy) {
         e.preventDefault();
-        this.#pushUndo();
+        if (!e.repeat) this.#pushUndo();
         const ids = this.selectedIds;
         this.players = this.players.map(p => ids.has(p.id) ? { ...p, x: p.x + dx, y: p.y + dy } : p);
         this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, x: eq.x + dx, y: eq.y + dy } : eq);
