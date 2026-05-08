@@ -5400,12 +5400,17 @@ export class CoachBoard extends LitElement {
       const sameTeamCount = this.players.filter(p => p.team === team).length;
       label = String(sameTeamCount + 1);
     }
+    const isHorizontal = this.fieldOrientation === 'horizontal';
+    const angle = team === 'b'
+      ? (isHorizontal ? 270 : 180)
+      : (isHorizontal ? 90 : 0);
     const newPlayer: Player = {
       id: uid('player'),
       x, y,
       team,
       color,
       label,
+      angle,
     };
     this.players = [...this.players, newPlayer];
     this.selectedIds = new Set([newPlayer.id]);
