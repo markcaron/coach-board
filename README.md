@@ -2,94 +2,82 @@
 
 A mobile-first soccer coaching tactical board built with [Lit](https://lit.dev/) Web Components and [Vite](https://vite.dev/). Designed for creating tactical diagrams, planning training sessions, and illustrating game strategies. Works offline at the field.
 
+## Highlights
+
+- **Formation Templates** — Start with preset formations (4-3-3, 4-2-3-1, 4-4-2, 3-5-2) or drill setups. Traditional positional numbering.
+- **Three Player Types** — Triangles (Team A), circles (Team B), and diamonds (Neutral) with directional head segments showing facing.
+- **Keyboard Shortcuts** — V, P, E, D, T for tools; R to rotate; Ctrl+A to select all. Feels like a design tool.
+- **Marquee Selection** — Click and drag to select multiple elements at once on desktop.
+- **Place-Then-Commit** — Drop elements quickly, then click the last one to start editing. No tool switching needed.
+- **Keyframe Animation** — Animate player movement with cubic bezier motion trails and adjustable playback speed.
+- **Smart Orientation** — Players auto-face the right direction based on field orientation and team.
+- **Shareable Links** — Compress board state into a URL with OG previews (board name + thumbnail in link cards).
+- **Multiple Pitch Types** — Full Pitch, Half Pitch (Defensive/Attacking), and Open Grass.
+- **Print & Export** — Print with optional summary and white background. Export as SVG (reimportable), PNG, or animated GIF.
+- **Multi-Board Storage** — IndexedDB-backed board persistence with My Boards gallery, Save As, Duplicate, and Export All.
+- **Offline PWA** — Installable, works without internet. Update toast when new versions deploy.
+
 ## Features
 
 ### Field & Layout
 
-* **To-scale soccer field** with FIFA-standard markings and grass stripe pattern
-* **Horizontal and vertical** field orientations with item remapping on switch
-* **Green and White field themes** — toggle between classic green pitch and clean white board; colors adapt per theme
-* **Two-toolbar layout** — drawing tools on top, actions on the bottom, field fills the middle
-* **Mobile-first** — automatic vertical field on small screens, responsive SVG scaling
+* To-scale soccer field with FIFA-standard markings and grass stripe pattern
+* Horizontal and vertical orientations with automatic element remapping
+* Green and White field themes with adaptive colors
+* Four pitch types: Full Pitch, Half Pitch (Defensive), Half Pitch (Attacking), Open Grass
+* Mobile-first with automatic vertical field on small screens
 
 ### Players & Equipment
 
-* **Two team shapes** — triangles (Team A) and circles (Team B) for color-independent differentiation
-* **Draggable players** with customizable jersey numbers and 6 color options per theme
-* **Equipment** — soccer ball, cones (4 colors), coach marker, full-size goals, mini goals, and pop-up goals
-* **Rotatable elements** — rotate players, goals, shapes, and text; Shift to snap to 15° increments
-* **Scaled for touch** — 150% larger elements with 44px+ touch targets for mobile usability
+* Three team shapes — triangles (Team A), circles (Team B), diamonds (Neutral)
+* Dark head segment overlay showing player facing direction
+* Customizable jersey labels (up to 3 characters, auto-shrink)
+* Auto-number toggle for sequential jersey numbering
+* Equipment: ball, cones, dummies, poles, coach marker, goals (full, mini, pop-up)
+* Double-ring visual style across cones, dummies, and poles
+* Rotatable elements with toolbar button (R key) and desktop drag handles
 
-### Lines & Arrows
+### Lines, Shapes & Text
 
-* **Pass / Shot** — solid line with optional arrowheads
-* **Run** — dashed line with optional arrowheads
-* **Dribble** — wavy/squiggly line with optional arrowheads and consistent wave frequency
-* **Curved lines** — drag the control point to bend any line into a curve
-* **6 line colors** per theme — adapted for visibility on green or white backgrounds
-* **Arrowheads** — toggle independently on start and end of any line
-
-### Shapes & Text
-
-* **Rectangles and ellipses** — draw shapes with multiple fill/outline styles
-* **Text labels** — add text anywhere on the field with 5 size options
-* **Rotatable** — rotate shapes and text with the corner handle
+* Pass/Shot (solid), Run (dashed), Dribble (wavy) with optional arrowheads
+* Curved lines with draggable control points
+* Rectangles and ellipses with multiple fill/outline styles
+* Text labels with 5 size options
+* 6 line colors per theme
 
 ### Selection & Editing
 
-* **Multi-select toggle** — dedicated button for touch devices; also supports Shift/Cmd+click on desktop
-* **Group / Ungroup** — group items to move them together (via dropdown)
-* **Alignment & distribution** — align left, center, right, top, middle, bottom; distribute evenly (via dropdown)
-* **Batch editing** — change colors, styles, and properties across multiple selected items
-* **Delete** — remove selected items with confirmation dialog
-* **Undo / Redo** — full history stack with Cmd+Z / Cmd+Shift+Z
+* Marquee drag-to-select on desktop
+* Multi-select via toggle button (mobile) or Shift/Cmd+click (desktop)
+* Group/Ungroup, alignment, and distribution tools
+* Batch color and style editing
+* Undo/Redo with full history stack
+* Keyboard shortcuts for all tools
 
-### Animation (Desktop)
+### Animation
 
-* **Keyframe animation** — add frames to animate player and equipment movement across the field
-* **Cubic bezier motion trails** — curved paths with 2 draggable control points per item per frame
-* **Ghost rendering** — semi-transparent previous positions show where items were
-* **Per-frame line visibility** — lines drawn on a frame only appear from that frame onward
-* **Playback** — play/pause with configurable speed (0.5x, 1x, 2x) and loop toggle
-* **Timeline strip** — scrollable frame buttons with add/delete, below the field
-* **Animation mode toggle** — "Animate" button shows/hides the timeline; board data persists when toggled off
+* Keyframe animation with cubic bezier motion trails
+* Ghost rendering of previous positions
+* Per-frame line visibility
+* Configurable playback speed (0.5x, 1x, 2x) with loop toggle
+* Timeline strip with add/delete frame controls
 
-### Sharing & Import/Export
+### Sharing & Storage
 
-* **Shareable links** — compress the board state into a URL for instant sharing; auto-copies to clipboard
-* **Import SVG** — re-import any CoachingBoard-exported SVG to restore the full board, including animations
-* **Export as SVG** — embed full board state as metadata for lossless roundtrip import
-* **Save as PNG** — export at 10x resolution for high-quality raster output
-* **Save as GIF** — export animations as GIF with cubic bezier interpolation at 20fps
-* **Hamburger menu** — organized with dividers and grouped headings for About, Import, and Export/Save
-
-### Mobile Experience
-
-* **Touch-optimized** — large touch targets, no scroll interference during drag
-* **Multi-select toggle** — dedicated button since Shift/Cmd isn't available on touch
-* **Auto-vertical** — forces vertical field on mobile with `matchMedia` listener
-* **Landscape blocker** — portrait-only overlay on mobile (Safari-compatible)
-* **Responsive toolbars** — button text and labels hidden on small screens, icons always visible
-* **Double-tap to rotate** — tap once to select, double-tap to reveal the rotate handle
-* **No pinch-zoom** — viewport locked to prevent accidental zoom
-
-### Design & Accessibility
-
-* **Two-tier CSS token system** — primitive color tokens (`--pt-color-*`) and semantic tokens (`--pt-bg-*`, `--pt-text-*`, etc.)
-* **COLORS constant** — single source of truth for all hex values in TypeScript, mirrored as CSS custom properties
-* **Accessible** — `aria-label` and `title` on all interactive elements, `:focus-visible` outlines, `<fieldset>`/`<legend>` for edit groups
-* **Color contrast** — all text passes WCAG AA (4.5:1 minimum); theme-specific palettes optimized for each background
-* **Native dialogs** — `<dialog>` elements with header, close button, and backdrop
-* **Drop shadows** — toolbar shadows for visual depth; reduced on white field theme
-* **Visually-hidden** utility class for screen reader-only labels
+* Shareable links with OG meta tags and board thumbnails
+* Board name displayed in readonly shared view
+* Import/Export SVG with full board state roundtrip
+* Save as PNG (10x resolution) or animated GIF
+* IndexedDB multi-board storage with My Boards gallery
+* Save As, Duplicate, Board Summary with notes, Print Board
+* Export All Boards as zip
 
 ### Offline & PWA
 
-* **Service worker** — precaches all assets via `vite-plugin-pwa` for full offline support
-* **Auto-update** — silently updates when new versions deploy
-* **Home screen icons** — iOS and Android installable with custom icons
-* **Web app manifest** — standalone display mode with themed chrome
-* **localStorage** — all board state (including animation frames) persists locally, zero server dependencies
+* Full offline support via service worker
+* Update toast when new versions are available
+* Installable on iOS and Android
+* Standalone display mode
 
 ## Getting Started
 
@@ -114,8 +102,12 @@ Outputs to `dist/` with service worker and precached assets.
 * **TypeScript** — type-safe throughout
 * **Vite** — fast dev server and bundler
 * **vite-plugin-pwa** — service worker and offline support
+* **IndexedDB (idb)** — client-side multi-board persistence
+* **Netlify Functions/Blobs** — serverless short URL sharing
+* **Netlify Edge Functions** — dynamic OG meta tags for link previews
 * **modern-gif** — client-side GIF encoding for animation export
 * **lz-string** — URI-safe compression for shareable links
+* **jszip** — bulk SVG export as zip
 
 ## Built with AI
 

@@ -44,6 +44,17 @@ export default async (request: Request, _context: Context) => {
   const segments = url.pathname.replace(/^\/api\/share\/?/, '').split('/').filter(Boolean);
   const id = segments[0];
 
+  if (request.method === 'GET' && id && segments[1] === 'image') {
+    const imgData = await store.get(`${id}-preview`, { type: 'arrayBuffer' });
+    if (!imgData) {
+      return new Response(null, { status: 404, headers });
+    }
+    return new Response(imgData, {
+      status: 200,
+      headers: { ...headers, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=604800' },
+    });
+  }
+
   if (request.method === 'GET' && id) {
     const entry = await store.getWithMetadata(id);
     if (!entry) {
@@ -55,6 +66,7 @@ export default async (request: Request, _context: Context) => {
     const created = (entry.metadata as Record<string, unknown>)?.created as number | undefined;
     if (created && Date.now() - created > TTL_SECONDS * 1000) {
       await store.delete(id);
+      await store.delete(`${id}-preview`).catch(() => {});
       return new Response(JSON.stringify({ error: 'Link expired' }), {
         status: 410,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -63,6 +75,19 @@ export default async (request: Request, _context: Context) => {
     return new Response(entry.data, {
       status: 200,
       headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' },
+    });
+  }
+
+  if (request.method === 'POST' && id && segments[1] === 'image') {
+    const imgBody = await request.arrayBuffer();
+    if (!imgBody || imgBody.byteLength > 200_000) {
+      return new Response(JSON.stringify({ error: 'Image too large or empty' }), {
+        status: 400, headers: { ...headers, 'Content-Type': 'application/json' },
+      });
+    }
+    await store.set(`${id}-preview`, imgBody);
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 201, headers: { ...headers, 'Content-Type': 'application/json' },
     });
   }
 
@@ -85,8 +110,17 @@ export default async (request: Request, _context: Context) => {
       });
     }
 
+    // Extract board name for OG meta tags (edge function reads metadata only, not full blob)
+    let boardName = 'CoachingBoard';
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed.name === 'string' && parsed.name.trim()) {
+        boardName = parsed.name.trim();
+      }
+    } catch { /* ignore parse errors */ }
+
     const newId = nanoid(10);
-    await store.set(newId, body, { metadata: { created: Date.now() } });
+    await store.set(newId, body, { metadata: { created: Date.now(), name: boardName } });
 
     return new Response(JSON.stringify({ id: newId }), {
       status: 201,

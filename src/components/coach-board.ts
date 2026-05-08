@@ -7,6 +7,8 @@ import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfFi
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
+import { registerSW } from 'virtual:pwa-register';
+import { getTemplatesForPitch } from '../lib/templates.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
@@ -275,7 +277,7 @@ export class CoachBoard extends LitElement {
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
-      touch-action: none;
+      touch-action: manipulation;
       --color-blue: var(--pt-color-blue-400);
       --color-red: var(--pt-color-red-400);
       --color-yellow: var(--pt-color-yellow-400);
@@ -303,6 +305,72 @@ export class CoachBoard extends LitElement {
       padding-top: env(safe-area-inset-top);
     }
 
+    .update-toast {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: white;
+      color: var(--pt-color-navy-800, #16213e);
+      font-size: 0.85rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      z-index: 100;
+    }
+
+    .update-toast svg {
+      flex-shrink: 0;
+    }
+
+    .update-toast span {
+      flex: 1;
+    }
+
+    .update-toast button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 20px;
+      min-height: 44px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      border-radius: 6px;
+      background: white;
+      color: var(--pt-color-navy-800, #16213e);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .update-toast button:hover {
+      background: #f0f0f0;
+    }
+
+    .update-toast button:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .update-toast .refresh-btn {
+      background: var(--pt-success-hover);
+      border-color: var(--pt-success-hover);
+      color: white;
+    }
+
+    .update-toast .refresh-btn:hover {
+      background: var(--pt-success-btn-hover);
+    }
+
+    .update-toast .dismiss-btn {
+      background: transparent;
+      color: var(--pt-color-navy-800, #16213e);
+      border-color: var(--pt-color-navy-600, #1c3a5c);
+    }
+
+    .update-toast .dismiss-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
     .readonly-branding {
       display: flex;
       align-items: center;
@@ -310,6 +378,16 @@ export class CoachBoard extends LitElement {
       padding: 12px 16px;
       min-height: 60px;
       background: var(--pt-bg-toolbar);
+    }
+
+    .readonly-board-name {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: var(--pt-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 50%;
     }
 
     .branding-icon {
@@ -1348,11 +1426,14 @@ export class CoachBoard extends LitElement {
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _saveBoardName: string = '';
   @state() private accessor _newBoardPitchType: PitchType = 'full';
+  @state() private accessor _newBoardTemplate: string = '';
   @state() private accessor _deleteBoardName: string = '';
   @state() private accessor _printSummary: boolean = true;
   @state() private accessor _printWhiteBg: boolean = true;
   @state() private accessor _boardNotes: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
+  @state() private accessor _updateAvailable: boolean = false;
+  #updateSW: ((reloadPage?: boolean) => Promise<void>) | null = null;
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
   @state() private accessor _pauseFlash: boolean = false;
@@ -1374,6 +1455,7 @@ export class CoachBoard extends LitElement {
   #shapeResizeDrag: ShapeResizeDragState | null = null;
   #draw: DrawState | null = null;
   #shapeDraw: ShapeDrawState | null = null;
+  #marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #onDocClickForMenu = (e: PointerEvent) => {
     const path = e.composedPath();
@@ -1402,13 +1484,12 @@ export class CoachBoard extends LitElement {
       if (saved && saved !== this.fieldOrientation) this.#requestOrientation(saved);
     }
   };
-  #lastTapTime = 0;
-  #lastTapId: string | null = null;
   #undoStack: Snapshot[] = [];
   #redoStack: Snapshot[] = [];
   #playbackRaf: number | null = null;
   #playbackLastTime: number | null = null;
   #trailDrag: { id: string; cp: 'cp1' | 'cp2' } | null = null;
+  #lastPlacedId: string | null = null;
   #isPrinting = false;
   #cachedSummary: {
     name: string; pitchLabel: string; orientation: string;
@@ -1604,6 +1685,10 @@ export class CoachBoard extends LitElement {
         this.fieldOrientation = 'vertical';
       }
 
+      if (typeof data.name === 'string' && data.name.trim()) {
+        this._boardName = data.name as string;
+      }
+
       if (mode === 'view') this._viewMode = 'readonly';
       else if (mode === 'edit') this._viewMode = 'shared-edit';
 
@@ -1723,6 +1808,53 @@ export class CoachBoard extends LitElement {
       }, 'image/png');
     };
     img.src = svgUrl;
+  }
+
+  #renderThumbnail(): Promise<Blob | null> {
+    return new Promise(resolve => {
+      try {
+        const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+        svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+        svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+        svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+        svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+        svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+        const vb = this.svgEl.viewBox.baseVal;
+        const scale = 3;
+        const w = vb.width * scale;
+        const h = vb.height * scale;
+        svgClone.setAttribute('width', String(w));
+        svgClone.setAttribute('height', String(h));
+
+        const svgString = new XMLSerializer().serializeToString(svgClone);
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(svgUrl);
+          canvas.toBlob(blob => resolve(blob), 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null); };
+        img.src = svgUrl;
+      } catch { resolve(null); }
+    });
+  }
+
+  async #uploadThumbnail(shareId: string) {
+    const blob = await this.#renderThumbnail();
+    if (!blob) return;
+    await fetch(`/api/share/${shareId}/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/png' },
+      body: blob,
+    });
   }
 
   async #saveGif() {
@@ -1851,6 +1983,10 @@ export class CoachBoard extends LitElement {
     } else {
       this.#loadFromUrl();
     }
+
+    this.#updateSW = registerSW({
+      onNeedRefresh: () => { this._updateAvailable = true; },
+    });
   }
 
   disconnectedCallback() {
@@ -1881,12 +2017,26 @@ export class CoachBoard extends LitElement {
     const vbH = fd.h + PADDING * 2;
 
     return html`
+      ${this._updateAvailable ? html`
+        <div class="update-toast">
+          <svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" style="flex-shrink:0">
+            <path d="m855.52 688.45c-248.88-56.199-287.43-94.75-343.62-343.62-2.5742-11.375-12.699-19.477-24.398-19.477s-21.824 8.1016-24.398 19.477c-56.227 248.88-94.75 287.43-343.62 343.62-11.398 2.6016-19.5 12.699-19.5 24.398 0 11.699 8.1016 21.801 19.5 24.398 248.88 56.227 287.4 94.773 343.62 343.62 2.5742 11.375 12.699 19.477 24.398 19.477s21.824-8.1016 24.398-19.477c56.227-248.85 94.75-287.4 343.62-343.62 11.398-2.6016 19.477-12.699 19.477-24.398 0-11.699-8.1016-21.801-19.477-24.398z"/>
+            <path d="m1080.5 300.98c-132.3-29.875-150.88-48.449-180.75-180.73-2.6016-11.398-12.699-19.477-24.398-19.477s-21.801 8.0742-24.398 19.477c-29.875 132.27-48.449 150.85-180.73 180.73-11.398 2.6016-19.477 12.699-19.477 24.398s8.0742 21.801 19.477 24.398c132.27 29.875 150.85 48.449 180.73 180.75 2.6016 11.375 12.699 19.477 24.398 19.477s21.801-8.1016 24.398-19.477c29.875-132.3 48.449-150.88 180.75-180.75 11.375-2.6016 19.477-12.699 19.477-24.398s-8.1016-21.801-19.477-24.398z"/>
+          </svg>
+          <span>A new version of CoachingBoard is available.</span>
+          <button class="dismiss-btn" @click="${() => { this._updateAvailable = false; }}">Dismiss</button>
+          <button class="refresh-btn" @click="${() => { this.#updateSW?.(true); }}">Refresh</button>
+        </div>
+      ` : nothing}
       ${this._viewMode === 'readonly' ? html`
         <div class="toolbar-area readonly-branding">
           <a href="/" class="branding-link" title="Open CoachingBoard">
             <svg class="branding-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/><path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/><path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/><path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/></svg>
             <span class="branding-text">CoachingBoard</span>
           </a>
+          ${this._boardName && this._boardName !== 'Untitled Board' ? html`
+            <span class="readonly-board-name">${this._boardName}</span>
+          ` : nothing}
         </div>
       ` : html`
         <div class="toolbar-area">
@@ -1960,6 +2110,19 @@ export class CoachBoard extends LitElement {
             ${this.#shapeDraw ? this.#renderShapeDrawPreview() : nothing}
           </g>
 
+          ${this.#marquee ? svg`
+            <rect
+              x="${Math.min(this.#marquee.x1, this.#marquee.x2)}"
+              y="${Math.min(this.#marquee.y1, this.#marquee.y2)}"
+              width="${Math.abs(this.#marquee.x2 - this.#marquee.x1)}"
+              height="${Math.abs(this.#marquee.y2 - this.#marquee.y1)}"
+              fill="rgba(59, 130, 246, 0.15)"
+              stroke="rgba(59, 130, 246, 0.6)"
+              stroke-width="0.15"
+              stroke-dasharray="0.5,0.3"
+              style="pointer-events: none" />
+          ` : nothing}
+
           <g class="lines-layer">
             ${this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
             ${this.#draw ? this.#renderDrawPreview() : nothing}
@@ -1988,25 +2151,33 @@ export class CoachBoard extends LitElement {
           </g>
 
           ${this.activeTool === 'add-player' && this.ghost
-            ? this.playerTeam === 'a'
-              ? svg`
-                <polygon points="${triPoints(this.ghost.x, this.ghost.y, PLAYER_RADIUS)}"
-                         fill="${this.playerColor}" fill-opacity="0.5"
-                         stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
-                         stroke-dasharray="0.4,0.3"
-                         style="pointer-events: none" />`
-              : this.playerTeam === 'neutral'
-              ? svg`
-                <polygon points="${this.ghost.x},${this.ghost.y - DIAMOND_HH} ${this.ghost.x + DIAMOND_HW},${this.ghost.y} ${this.ghost.x},${this.ghost.y + DIAMOND_HH} ${this.ghost.x - DIAMOND_HW},${this.ghost.y}"
-                         fill="${this.playerColor}" fill-opacity="0.5"
-                         stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
-                         stroke-dasharray="0.4,0.3"
-                         style="pointer-events: none" />`
-              : svg`
-                <circle cx="${this.ghost.x}" cy="${this.ghost.y}" r="${PLAYER_RADIUS}"
-                        fill="${this.playerColor}" fill-opacity="0.5"
-                        stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3"
-                        style="pointer-events: none" />`
+            ? (() => {
+                const ga = this.playerTeam === 'b'
+                  ? (this.fieldOrientation === 'horizontal' ? 270 : 180)
+                  : (this.fieldOrientation === 'horizontal' ? 90 : 0);
+                return this.playerTeam === 'a'
+                  ? svg`
+                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
+                               fill="${this.playerColor}" fill-opacity="0.5"
+                               stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
+                               stroke-dasharray="0.4,0.3" />
+                    </g>`
+                  : this.playerTeam === 'neutral'
+                  ? svg`
+                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <polygon points="0,${-DIAMOND_HH} ${DIAMOND_HW},0 0,${DIAMOND_HH} ${-DIAMOND_HW},0"
+                               fill="${this.playerColor}" fill-opacity="0.5"
+                               stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
+                               stroke-dasharray="0.4,0.3" />
+                    </g>`
+                  : svg`
+                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <circle cx="0" cy="0" r="${PLAYER_RADIUS}"
+                              fill="${this.playerColor}" fill-opacity="0.5"
+                              stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3" />
+                    </g>`;
+              })()
             : nothing}
           ${this.activeTool === 'add-equipment' && this.ghost
             ? this.#renderGhostEquipment()
@@ -2385,7 +2556,12 @@ export class CoachBoard extends LitElement {
                  @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
-            <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
+            <div style="display: flex; gap: 8px;">
+              ${this.#pendingBoardAction === 'new' || this.#pendingBoardAction === 'open' ? html`
+                <button class="confirm-danger" @click="${this.#skipSaveBoard}">Don't Save</button>
+              ` : nothing}
+              <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
+            </div>
           </div>
         </div>
       </dialog>
@@ -2398,15 +2574,32 @@ export class CoachBoard extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          <p>Create a new empty board?</p>
-          <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
-          <select class="theme-select" id="new-board-pitch-type"
-                  @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; }}">
-            <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
-            <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Defensive)</option>
-            <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Attacking)</option>
-            <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
-          </select>
+          <p>Create a new board.</p>
+          <div style="display: flex; gap: 12px;">
+            <div style="flex: 1;">
+              <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
+              <select class="theme-select" id="new-board-pitch-type" style="width: 100%;"
+                      @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; this._newBoardTemplate = ''; }}">
+                <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
+                <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Def.)</option>
+                <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Att.)</option>
+                <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
+              </select>
+            </div>
+            ${(() => {
+              const templates = getTemplatesForPitch(this._newBoardPitchType);
+              return templates.length > 0 ? html`
+                <div style="flex: 1;">
+                  <label class="save-board-label" for="new-board-template">Template</label>
+                  <select class="theme-select" id="new-board-template" style="width: 100%;"
+                          @change="${(e: Event) => { this._newBoardTemplate = (e.target as HTMLSelectElement).value; }}">
+                    <option value="" ?selected="${!this._newBoardTemplate}">Blank</option>
+                    ${templates.map(t => html`<option value="${t.id}" ?selected="${this._newBoardTemplate === t.id}">${t.name}</option>`)}
+                  </select>
+                </div>
+              ` : nothing;
+            })()}
+          </div>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
             <button class="confirm-success" @click="${this.#confirmNewBoard}">Create New Board</button>
@@ -2473,13 +2666,14 @@ export class CoachBoard extends LitElement {
             <span>All board data is saved to your browser's local storage. Exporting boards as backup SVGs is the best way to keep backups.</span>
           </div>
           <div class="boards-action-row">
-            <button class="import-svg-btn" @click="${this.#importSvgFromMyBoards}">
+            <button class="import-svg-btn" style="max-width: 50%;" @click="${this.#importSvgFromMyBoards}">
               <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
                 <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
                 <path d="m600 862.5c16.566-0.027344 32.449-6.6211 44.164-18.336 11.715-11.715 18.309-27.598 18.336-44.164v-566.55l197.5 164.55c12.738 10.59 29.156 15.695 45.656 14.199 16.496-1.5 31.727-9.4844 42.344-22.199 10.59-12.738 15.695-29.156 14.199-45.656-1.5-16.496-9.4844-31.727-22.199-42.344l-300-250c-3.1562-2.2227-6.5039-4.1641-10-5.8008-2.2656-1.4922-4.6172-2.8477-7.0508-4.0508-14.562-6.1289-30.984-6.1289-45.551 0-2.5508 1.1875-5.0234 2.5391-7.3984 4.0508-3.5 1.6328-6.8438 3.5742-10 5.8008l-300 250c-13.23 11.031-21.32 27.035-22.359 44.23-1.0391 17.195 5.0664 34.055 16.871 46.602 11.805 12.543 28.262 19.66 45.488 19.668 14.613-0.035156 28.758-5.1641 40-14.5l197.5-164.55v566.55c0.027344 16.566 6.6211 32.449 18.336 44.164 11.715 11.715 27.598 18.309 44.164 18.336z"/>
               </svg>
               Import from SVG
             </button>
+            ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
             <button class="import-svg-btn" @click="${this.#exportAllBoards}">
               <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
                 <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
@@ -2487,6 +2681,7 @@ export class CoachBoard extends LitElement {
               </svg>
               Export All Boards
             </button>
+            ` : nothing}
           </div>
           <div class="confirm-actions end">
             <button class="cancel-btn" @click="${() => this._myBoardsDialog?.close()}">Close</button>
@@ -3502,6 +3697,17 @@ export class CoachBoard extends LitElement {
     this.#openSaveBoardDialog();
   }
 
+  #skipSaveBoard() {
+    const pendingAction = this.#pendingBoardAction;
+    const pendingId = this.#pendingOpenBoardId;
+    this._saveBoardDialog?.close();
+    if (pendingAction === 'new') {
+      requestAnimationFrame(() => this._newBoardDialog?.showModal());
+    } else if (pendingAction === 'open') {
+      this.#doOpenBoard(pendingId!);
+    }
+  }
+
   async #confirmSaveBoard() {
     const name = this._saveBoardName.trim();
     if (!name || !this.#currentBoard) return;
@@ -3656,6 +3862,7 @@ export class CoachBoard extends LitElement {
   #handleNewBoard() {
     this._menuOpen = false;
     this._newBoardPitchType = 'full';
+    this._newBoardTemplate = '';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingBoardAction = 'new';
       this._saveBoardName = '';
@@ -3675,11 +3882,19 @@ export class CoachBoard extends LitElement {
     this.#currentBoard = board;
     this._boardName = board.name;
     setActiveBoardId(board.id);
-    this.players = [];
-    this.lines = [];
-    this.equipment = [];
-    this.shapes = [];
-    this.textItems = [];
+    const template = this._newBoardTemplate
+      ? getTemplatesForPitch(this._newBoardPitchType).find(t => t.id === this._newBoardTemplate)
+      : null;
+    const orient = this._isMobile ? 'vertical' : 'horizontal';
+    const playerAngle = (team: string) => team === 'b'
+      ? (orient === 'horizontal' ? 270 : 180)
+      : (orient === 'horizontal' ? 90 : 0);
+
+    this.players = template ? template.players.map(p => ({ ...p, id: uid('player'), angle: playerAngle(p.team) })) : [];
+    this.lines = template ? template.lines.map(l => ({ ...l, id: uid('line') })) : [];
+    this.equipment = template ? template.equipment.map(e => ({ ...e, id: uid('eq') })) : [];
+    this.shapes = template ? template.shapes.map(s => ({ ...s, id: uid('shape') })) : [];
+    this.textItems = template ? template.textItems.map(t => ({ ...t, id: uid('text') })) : [];
     this.animationFrames = [];
     this.activeFrameIndex = 0;
     this._animationMode = false;
@@ -3692,6 +3907,7 @@ export class CoachBoard extends LitElement {
     this.fieldTheme = 'green';
     this.pitchType = board.pitchType;
     this._boardNotes = '';
+    this._newBoardTemplate = '';
     this.fieldOrientation = this._isMobile ? 'vertical' : 'horizontal';
   }
 
@@ -3858,6 +4074,7 @@ export class CoachBoard extends LitElement {
     this._menuOpen = false;
 
     const data = JSON.stringify({
+      name: this._boardName || 'Untitled Board',
       players: this.players,
       lines: this.lines,
       equipment: this.equipment,
@@ -3891,6 +4108,7 @@ export class CoachBoard extends LitElement {
           const { id } = await res.json() as { id: string };
           this.#shareShortId = id;
           this.#lastSharedData = data;
+          this.#uploadThumbnail(id).catch(() => {});
         }
       } catch { /* API unavailable, fall back to hash */ }
     }
@@ -4567,6 +4785,7 @@ export class CoachBoard extends LitElement {
     this.selectedIds = new Set();
     this.ghost = null;
     this._multiSelect = false;
+    this.#lastPlacedId = null;
 
     if (e.playerColor) this.playerColor = e.playerColor;
     if (e.playerTeam) this.playerTeam = e.playerTeam;
@@ -4592,6 +4811,24 @@ export class CoachBoard extends LitElement {
     this.#pushUndo();
     const ids = this.selectedIds;
     const delta = e.delta;
+
+    if (this._animationMode && this.activeFrameIndex > 0) {
+      const frame = this.animationFrames[this.activeFrameIndex];
+      if (!frame) return;
+      const newPositions = { ...frame.positions };
+      for (const id of ids) {
+        const base = this.players.find(p => p.id === id) ?? this.equipment.find(eq => eq.id === id);
+        if (!base) continue;
+        const pos = newPositions[id] ?? this.#getItemPositionAtFrame(id, base.x, base.y, this.activeFrameIndex);
+        const currentAngle = this.#getItemAngleAtFrame(id, (base as { angle?: number }).angle, this.activeFrameIndex) ?? 0;
+        newPositions[id] = { ...pos, angle: ((currentAngle + delta) + 360) % 360 };
+      }
+      this.animationFrames = this.animationFrames.map((f, i) =>
+        i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
+      );
+      return;
+    }
+
     this.players = this.players.map(p =>
       ids.has(p.id) ? { ...p, angle: ((p.angle ?? 0) + delta + 360) % 360 } : p
     );
@@ -4671,22 +4908,18 @@ export class CoachBoard extends LitElement {
     if (this.isPlaying) return;
     const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
 
-    if (this.activeTool === 'add-player') {
-      this.#pushUndo();
-      this.#addPlayer(pt.x, pt.y);
-      return;
-    }
-
-    if (this.activeTool === 'add-equipment') {
-      this.#pushUndo();
-      this.#addEquipment(pt.x, pt.y);
-      return;
-    }
-
-    if (this.activeTool === 'add-text') {
-      this.#pushUndo();
-      this.#addTextItem(pt.x, pt.y, 'Text');
-      return;
+    if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
+      const hit = resolveHit(e.target);
+      if (hit && hit.id === this.#lastPlacedId) {
+        this.activeTool = 'select';
+        this.#lastPlacedId = null;
+      } else {
+        this.#pushUndo();
+        if (this.activeTool === 'add-player') this.#addPlayer(pt.x, pt.y);
+        else if (this.activeTool === 'add-equipment') this.#addEquipment(pt.x, pt.y);
+        else this.#addTextItem(pt.x, pt.y, 'Text');
+        return;
+      }
     }
 
     if (this.activeTool === 'draw-line') {
@@ -4707,8 +4940,16 @@ export class CoachBoard extends LitElement {
 
     const hit = resolveHit(e.target);
     if (!hit) {
-      this.selectedIds = new Set();
-      this._multiSelect = false;
+      if (this.activeTool === 'select' && !this._isMobile) {
+        this.#marquee = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+        this.svgEl.setPointerCapture(e.pointerId);
+        if (!isModifier(e) && !this._multiSelect) {
+          this.selectedIds = new Set();
+        }
+      } else {
+        this.selectedIds = new Set();
+        this._multiSelect = false;
+      }
       return;
     }
 
@@ -4775,32 +5016,6 @@ export class CoachBoard extends LitElement {
       return;
     }
 
-    // Double-tap detection for rotate handles on mobile
-    if (this._isMobile) {
-      const now = Date.now();
-      if (this.#lastTapId === id && now - this.#lastTapTime < 300) {
-        this.#lastTapTime = 0;
-        this.#lastTapId = null;
-        let canRotate = false;
-        if (kind === 'player') {
-          const p = this.players.find(p => p.id === id);
-          canRotate = !!p && isRotatable(p);
-        } else if (kind === 'equipment') {
-          const eq = this.equipment.find(eq => eq.id === id);
-          canRotate = !!eq && isRotatable(eq);
-        } else if (kind === 'shape' || kind === 'text') {
-          canRotate = true;
-        }
-        if (canRotate) {
-          this.selectedIds = new Set([id]);
-          this._rotateHandleId = this._rotateHandleId === id ? null : id;
-          return;
-        }
-      }
-      this.#lastTapTime = now;
-      this.#lastTapId = id;
-    }
-
     // Multi-select with modifier keys or toggle mode
     const mod = isModifier(e) || this._multiSelect;
     if (mod) {
@@ -4858,7 +5073,19 @@ export class CoachBoard extends LitElement {
     const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
-      this.ghost = { x: pt.x, y: pt.y };
+      const hover = resolveHit(e.target);
+      if (hover && hover.id === this.#lastPlacedId) {
+        this.ghost = null;
+      } else {
+        this.ghost = { x: pt.x, y: pt.y };
+      }
+      return;
+    }
+
+    if (this.#marquee) {
+      this.#marquee.x2 = pt.x;
+      this.#marquee.y2 = pt.y;
+      this.requestUpdate();
       return;
     }
 
@@ -5055,6 +5282,38 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerUp(_e: PointerEvent) {
+    if (this.#marquee) {
+      const m = this.#marquee;
+      this.#marquee = null;
+      const minX = Math.min(m.x1, m.x2);
+      const maxX = Math.max(m.x1, m.x2);
+      const minY = Math.min(m.y1, m.y2);
+      const maxY = Math.max(m.y1, m.y2);
+      if (maxX - minX > 0.5 || maxY - minY > 0.5) {
+        const hit = new Set(this.selectedIds);
+        const inRect = (x: number, y: number) => x >= minX && x <= maxX && y >= minY && y <= maxY;
+        for (const p of this.players) {
+          const pos = this.#getItemPosition(p.id, p.x, p.y);
+          if (inRect(pos.x, pos.y)) hit.add(p.id);
+        }
+        for (const eq of this.equipment) {
+          const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+          if (inRect(pos.x, pos.y)) hit.add(eq.id);
+        }
+        for (const s of this.shapes) {
+          if (inRect(s.cx, s.cy)) hit.add(s.id);
+        }
+        for (const t of this.textItems) {
+          if (inRect(t.x, t.y)) hit.add(t.id);
+        }
+        for (const l of this.lines) {
+          if (inRect(l.cx, l.cy)) hit.add(l.id);
+        }
+        this.selectedIds = hit;
+      }
+      this.requestUpdate();
+    }
+
     if (this.#draw) {
       const d = this.#draw;
       const dx = d.x2 - d.x1;
@@ -5141,13 +5400,15 @@ export class CoachBoard extends LitElement {
       const p = this.players.find(pl => pl.id === id);
       if (p) {
         const pos = this.#getItemPosition(p.id, p.x, p.y);
-        newPositions[id] = { x: pos.x, y: pos.y, angle: this.#getItemAngle(p.id, p.angle) };
+        const existing = frame.positions[id];
+        newPositions[id] = { x: pos.x, y: pos.y, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
         continue;
       }
       const eq = this.equipment.find(e => e.id === id);
       if (eq) {
         const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
-        newPositions[id] = { x: pos.x, y: pos.y, angle: this.#getItemAngle(eq.id, eq.angle) };
+        const existing = frame.positions[id];
+        newPositions[id] = { x: pos.x, y: pos.y, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
         continue;
       }
     }
@@ -5175,6 +5436,9 @@ export class CoachBoard extends LitElement {
   }
 
   #onKeyDown(e: KeyboardEvent) {
+    const tag = (e.composedPath()[0] as HTMLElement)?.tagName;
+    const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
       this.#undo();
@@ -5185,8 +5449,19 @@ export class CoachBoard extends LitElement {
       this.#redo();
       return;
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !inInput) {
+      e.preventDefault();
+      this.selectedIds = new Set([
+        ...this.players.map(p => p.id),
+        ...this.equipment.map(eq => eq.id),
+        ...this.lines.map(l => l.id),
+        ...this.shapes.map(s => s.id),
+        ...this.textItems.map(t => t.id),
+      ]);
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedIds.size > 0) {
-      if (document.activeElement?.tagName === 'INPUT') return;
+      if (inInput) return;
       this.#pushUndo();
       const ids = this.selectedIds;
       this.players = this.players.filter(p => !ids.has(p.id));
@@ -5195,11 +5470,65 @@ export class CoachBoard extends LitElement {
       this.shapes = this.shapes.filter(s => !ids.has(s.id));
       this.textItems = this.textItems.filter(t => !ids.has(t.id));
       this.selectedIds = new Set();
+      return;
     }
     if (e.key === 'Escape') {
       this.activeTool = 'select';
       this.ghost = null;
       this.selectedIds = new Set();
+      this.#lastPlacedId = null;
+      return;
+    }
+
+    if (this.selectedIds.size > 0 && !inInput && this._viewMode !== 'readonly'
+        && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const step = e.shiftKey ? 5 : 1;
+      let dx = 0, dy = 0;
+      if (e.key === 'ArrowUp') dy = -step;
+      else if (e.key === 'ArrowDown') dy = step;
+      else if (e.key === 'ArrowLeft') dx = -step;
+      else if (e.key === 'ArrowRight') dx = step;
+      if (dx || dy) {
+        e.preventDefault();
+        if (!e.repeat) this.#pushUndo();
+        const ids = this.selectedIds;
+        this.players = this.players.map(p => ids.has(p.id) ? { ...p, x: p.x + dx, y: p.y + dy } : p);
+        this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, x: eq.x + dx, y: eq.y + dy } : eq);
+        this.shapes = this.shapes.map(s => ids.has(s.id) ? { ...s, cx: s.cx + dx, cy: s.cy + dy } : s);
+        this.textItems = this.textItems.map(t => ids.has(t.id) ? { ...t, x: t.x + dx, y: t.y + dy } : t);
+        this.lines = this.lines.map(l => ids.has(l.id) ? { ...l, x1: l.x1 + dx, y1: l.y1 + dy, x2: l.x2 + dx, y2: l.y2 + dy, cx: l.cx + dx, cy: l.cy + dy } : l);
+        return;
+      }
+    }
+
+    if (inInput || e.metaKey || e.ctrlKey || e.altKey || this._viewMode === 'readonly') return;
+
+    switch (e.key.toLowerCase()) {
+      case 'v':
+        this.activeTool = 'select'; this.ghost = null;
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'p':
+        this.activeTool = 'add-player';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'e':
+        this.activeTool = 'add-equipment';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'd':
+        this.activeTool = 'draw-line';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 't':
+        this.activeTool = 'add-text';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'r':
+        if (this.selectedIds.size > 0) {
+          this.#onRotateItems(new RotateItemsEvent(-45));
+        }
+        break;
     }
   }
 
@@ -5213,14 +5542,21 @@ export class CoachBoard extends LitElement {
       const sameTeamCount = this.players.filter(p => p.team === team).length;
       label = String(sameTeamCount + 1);
     }
+    const isHorizontal = this.fieldOrientation === 'horizontal';
+    const angle = team === 'b'
+      ? (isHorizontal ? 270 : 180)
+      : (isHorizontal ? 90 : 0);
     const newPlayer: Player = {
       id: uid('player'),
       x, y,
       team,
       color,
       label,
+      angle,
     };
     this.players = [...this.players, newPlayer];
+    this.selectedIds = new Set([newPlayer.id]);
+    this.#lastPlacedId = newPlayer.id;
   }
 
   #addEquipment(x: number, y: number) {
@@ -5233,6 +5569,8 @@ export class CoachBoard extends LitElement {
       ...(needsAngle ? { angle: 0 } : {}),
     };
     this.equipment = [...this.equipment, newEq];
+    this.selectedIds = new Set([newEq.id]);
+    this.#lastPlacedId = newEq.id;
   }
 
   #addTextItem(x: number, y: number, text: string) {
@@ -5243,7 +5581,7 @@ export class CoachBoard extends LitElement {
     };
     this.textItems = [...this.textItems, newText];
     this.selectedIds = new Set([newText.id]);
-    this.activeTool = 'select';
+    this.#lastPlacedId = newText.id;
   }
 }
 

@@ -433,6 +433,13 @@ export class CbToolbar extends LitElement {
       gap: 6px;
     }
 
+    .edit-bar .color-btn[aria-pressed="true"],
+    .color-btn[aria-pressed="true"] {
+      background: var(--pt-danger-hover) !important;
+      border-color: var(--pt-danger-hover) !important;
+      color: var(--pt-text-white);
+    }
+
     .color-btn:hover {
       border-color: var(--pt-accent);
     }
@@ -901,8 +908,8 @@ export class CbToolbar extends LitElement {
           aria-haspopup="menu"
           aria-expanded="${this._openMenu === 'player'}"
           aria-controls="menu-player"
-          aria-label="Player"
-          title="Player"
+          aria-label="Player (P)"
+          title="Player (P)"
           @click="${(e: Event) => this.#onTriggerClick('player', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('player', e)}">
           <span class="icon">●</span> <span class="btn-text">Player</span> <span class="caret"></span>
@@ -945,8 +952,8 @@ export class CbToolbar extends LitElement {
           aria-haspopup="menu"
           aria-expanded="${this._openMenu === 'equipment'}"
           aria-controls="menu-equipment"
-          aria-label="Equipment"
-          title="Equipment"
+          aria-label="Equipment (E)"
+          title="Equipment (E)"
           @click="${(e: Event) => this.#onTriggerClick('equipment', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('equipment', e)}">
           <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" style="vertical-align: middle"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor" /></svg>
@@ -1027,8 +1034,8 @@ export class CbToolbar extends LitElement {
           aria-haspopup="menu"
           aria-expanded="${this._openMenu === 'line'}"
           aria-controls="menu-line"
-          aria-label="Draw"
-          title="Draw"
+          aria-label="Draw (D)"
+          title="Draw (D)"
           @click="${(e: Event) => this.#onTriggerClick('line', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('line', e)}">
           <svg class="icon" viewBox="0 0 12 12" width="12" height="12" style="vertical-align: middle"><line x1="2" y1="10" x2="10" y2="2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
@@ -1070,9 +1077,9 @@ export class CbToolbar extends LitElement {
       </div>
 
       <button
-        title="Text"
+        title="Text (T)"
         aria-pressed="${t === 'add-text'}"
-        aria-label="Text"
+        aria-label="Text (T)"
         @click="${() => this.#pick('add-text')}">
         Text
       </button>
@@ -1093,7 +1100,7 @@ export class CbToolbar extends LitElement {
           </div>
           <div class="edit-bar-right">
             ${this.#hasRotatable ? html`
-            <button title="Rotate counter-clockwise" aria-label="Rotate counter-clockwise"
+            <button title="Rotate counter-clockwise (R)" aria-label="Rotate counter-clockwise (R)"
                     @click="${this.#rotateItems}">
               <svg viewBox="0 0 1600 1600" width="16" height="16" style="flex-shrink:0" fill="currentColor">
                 <path d="M228.987 616.493C253.987 627.993 283.987 616.493 295.487 591.993C376.487 415.007 554.993 299.993 749.98 299.993C821.98 299.993 891.98 314.993 957.487 344.493C1022.99 373.993 1080.99 416.493 1128.5 469.993L1288.5 649.993H1100.01C1072.51 649.993 1050.01 672.493 1050.01 699.993C1050.01 727.493 1072.51 749.993 1100.01 749.993H1400.01C1406.51 749.993 1412.51 748.493 1418.51 746.493C1421.01 745.493 1422.51 743.993 1425.01 742.493C1428.01 740.993 1431.01 739.493 1433.51 737.493C1433.51 737.493 1434.01 736.493 1434.51 736.493C1437.01 733.993 1438.51 730.993 1440.51 728.493C1442.51 725.993 1444.51 723.493 1445.51 720.493C1446.51 718.493 1446.51 715.493 1447.51 713.493C1448.51 709.493 1450.01 705.493 1450.01 701.493V400C1450.01 372.5 1427.51 350 1400.01 350C1372.51 350 1350.01 372.5 1350.01 400V568.493L1203.5 403.507C1146 339.007 1077 288.507 998.513 253C920.019 217.5 836.02 199.5 750.02 199.5C516.02 199.5 301.527 336.993 204.513 549.5C193.013 574.5 204.513 604.5 229.513 616L228.987 616.493Z"/>
@@ -1102,7 +1109,12 @@ export class CbToolbar extends LitElement {
               <span class="btn-text">Rotate</span>
             </button>
             ` : nothing}
-            <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''}" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''}"
+            ${this.selectedItems.length >= 2 ? html`
+              ${this.#hasRotatable ? html`<span class="divider"></span>` : nothing}
+              ${this.#renderAlignmentControls()}
+            ` : nothing}
+            ${this.#hasRotatable || this.selectedItems.length >= 2 ? html`<span class="divider"></span>` : nothing}
+            <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)"
                     @click="${this.#requestDelete}">
               <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
                 <path d="m300 393.61 55.172 618.74h489.74l55.078-618.74zm123.14 117.33h75.094v374.76h-75.094zm139.22 0h75.094v374.76h-75.094zm139.55 0h75.094v374.76h-75.094z" fill="currentColor"/>
@@ -1110,10 +1122,6 @@ export class CbToolbar extends LitElement {
               </svg>
               <span class="btn-text">Delete</span>
             </button>
-            ${this.selectedItems.length >= 2 ? html`
-              <span class="divider"></span>
-              ${this.#renderAlignmentControls()}
-            ` : nothing}
           </div>
         ` : nothing}
       </div>
