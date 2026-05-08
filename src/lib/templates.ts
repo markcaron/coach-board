@@ -64,6 +64,29 @@ const FULL_433: BoardTemplate = {
   textItems: [],
 };
 
+const FULL_4231: BoardTemplate = {
+  id: 'full-4231',
+  name: '4-2-3-1',
+  pitchType: 'full',
+  players: [
+    gk(3, cy),
+    outfield(18, W - 8, '2'),  // RB — right flank
+    outfield(18, W - 27, '4'), // RCB
+    outfield(18, 27, '5'),     // LCB
+    outfield(18, 8, '3'),      // LB — left flank
+    outfield(28, W - 22, '8'), // RDM — right pivot
+    outfield(28, 22, '6'),     // LDM — left pivot
+    outfield(40, W - 8, '7'),  // RW — right flank
+    outfield(40, cy, '10'),    // CAM — central (#10 as playmaker)
+    outfield(40, 8, '11'),     // LW — left flank
+    outfield(46, cy, '9'),     // ST — lone striker
+  ],
+  equipment: [ball(52, cy)],
+  lines: [],
+  shapes: [],
+  textItems: [],
+};
+
 const FULL_442: BoardTemplate = {
   id: 'full-442',
   name: '4-4-2',
@@ -175,6 +198,7 @@ const OPEN_RONDO: BoardTemplate = {
 
 export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
   FULL_433,
+  FULL_4231,
   FULL_442,
   FULL_352,
   HALF_DEF_BLOCK,
