@@ -1,6 +1,6 @@
 ---
 description: Git branching strategy and release workflow for CoachingBoard
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Release Workflow
@@ -23,9 +23,7 @@ alwaysApply: true
 1. When staging is ready, bump the minor version in `package.json`
 2. Update `CHANGELOG.md` with the version number, team name, and date
 3. Merge `staging/<team>` to `main`
-4. Create a git tag: `git tag v<version>`
-5. Push the tag: `git push origin v<version>`
-6. Create a GitHub Release with notes: `gh release create v<version> --title "v<version> — <Team> Release" --notes-file CHANGELOG.md`
+4. Create a GitHub Release (which also creates the tag): `gh release create v<version> --target main --title "v<version> — <Team> Release" --notes-file CHANGELOG.md`
 
 ## Hotfixes (direct to main)
 
@@ -33,7 +31,7 @@ alwaysApply: true
 2. Bump the patch version in `package.json`
 3. Add changelog entry for the patch
 4. Open PR targeting `main`
-5. After merge, tag and create a GitHub Release
+5. After merge, create a GitHub Release: `gh release create v<version> --target main --title "v<version>" --notes "..."`
 
 ## Version Bumping
 
