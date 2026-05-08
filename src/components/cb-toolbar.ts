@@ -905,7 +905,7 @@ export class CbToolbar extends LitElement {
           title="Player (P)"
           @click="${(e: Event) => this.#onTriggerClick('player', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('player', e)}">
-          <span class="icon">●</span> <span class="btn-text">Player (P)</span> <span class="caret"></span>
+          <span class="icon">●</span> <span class="btn-text">Player</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'player' ? html`
           <div role="menu" id="menu-player" aria-label="Add Player"
@@ -950,7 +950,7 @@ export class CbToolbar extends LitElement {
           @click="${(e: Event) => this.#onTriggerClick('equipment', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('equipment', e)}">
           <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" style="vertical-align: middle"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor" /></svg>
-          <span class="btn-text">Equipment (E)</span> <span class="caret"></span>
+          <span class="btn-text">Equipment</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'equipment' ? html`
           <div role="menu" id="menu-equipment" aria-label="Add Equipment"
@@ -1032,7 +1032,7 @@ export class CbToolbar extends LitElement {
           @click="${(e: Event) => this.#onTriggerClick('line', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('line', e)}">
           <svg class="icon" viewBox="0 0 12 12" width="12" height="12" style="vertical-align: middle"><line x1="2" y1="10" x2="10" y2="2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
-          <span class="btn-text">Draw (D)</span> <span class="caret"></span>
+          <span class="btn-text">Draw</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'line' ? html`
           <div role="menu" id="menu-line" aria-label="Draw"
