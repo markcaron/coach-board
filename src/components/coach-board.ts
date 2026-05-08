@@ -5343,14 +5343,29 @@ export class CoachBoard extends LitElement {
       return;
     }
 
-    if (inInput || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (inInput || e.metaKey || e.ctrlKey || e.altKey || this._viewMode === 'readonly') return;
 
     switch (e.key.toLowerCase()) {
-      case 'v': this.activeTool = 'select'; this.ghost = null; this.#lastPlacedId = null; break;
-      case 'p': this.activeTool = 'add-player'; this.#lastPlacedId = null; break;
-      case 'e': this.activeTool = 'add-equipment'; this.#lastPlacedId = null; break;
-      case 'd': this.activeTool = 'draw-line'; this.#lastPlacedId = null; break;
-      case 't': this.activeTool = 'add-text'; this.#lastPlacedId = null; break;
+      case 'v':
+        this.activeTool = 'select'; this.ghost = null;
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'p':
+        this.activeTool = 'add-player';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'e':
+        this.activeTool = 'add-equipment';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'd':
+        this.activeTool = 'draw-line';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 't':
+        this.activeTool = 'add-text';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
       case 'r':
         if (this.selectedIds.size > 0) {
           this.#onRotateItems(new RotateItemsEvent(-45));
