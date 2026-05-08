@@ -1,6 +1,12 @@
 # Changelog
 
-## 1.1.0 — Courage Release (2026-05-07)
+## 1.1.1 (2026-05-08)
+
+### Bug Fixes
+
+- **Version sync**: About dialog and SVG exports now read version from `package.json` at build time via Vite's `define` config, preventing version drift.
+
+## 1.1.0 — NC Courage Release (2026-05-07)
 
 ### New Features
 
