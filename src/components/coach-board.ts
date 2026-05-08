@@ -312,6 +312,16 @@ export class CoachBoard extends LitElement {
       background: var(--pt-bg-toolbar);
     }
 
+    .readonly-board-name {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: var(--pt-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 50%;
+    }
+
     .branding-icon {
       width: 28px;
       height: 28px;
@@ -1602,6 +1612,10 @@ export class CoachBoard extends LitElement {
         this.fieldOrientation = 'vertical';
       }
 
+      if (typeof data.name === 'string' && data.name.trim()) {
+        this._boardName = data.name as string;
+      }
+
       if (mode === 'view') this._viewMode = 'readonly';
       else if (mode === 'edit') this._viewMode = 'shared-edit';
 
@@ -1721,6 +1735,53 @@ export class CoachBoard extends LitElement {
       }, 'image/png');
     };
     img.src = svgUrl;
+  }
+
+  #renderThumbnail(): Promise<Blob | null> {
+    return new Promise(resolve => {
+      try {
+        const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+        svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+        svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+        svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+        svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+        svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+        const vb = this.svgEl.viewBox.baseVal;
+        const scale = 3;
+        const w = vb.width * scale;
+        const h = vb.height * scale;
+        svgClone.setAttribute('width', String(w));
+        svgClone.setAttribute('height', String(h));
+
+        const svgString = new XMLSerializer().serializeToString(svgClone);
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(svgUrl);
+          canvas.toBlob(blob => resolve(blob), 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null); };
+        img.src = svgUrl;
+      } catch { resolve(null); }
+    });
+  }
+
+  async #uploadThumbnail(shareId: string) {
+    const blob = await this.#renderThumbnail();
+    if (!blob) return;
+    await fetch(`/api/share/${shareId}/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/png' },
+      body: blob,
+    });
   }
 
   async #saveGif() {
@@ -1885,6 +1946,9 @@ export class CoachBoard extends LitElement {
             <svg class="branding-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/><path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/><path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/><path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/></svg>
             <span class="branding-text">CoachingBoard</span>
           </a>
+          ${this._boardName && this._boardName !== 'Untitled Board' ? html`
+            <span class="readonly-board-name">${this._boardName}</span>
+          ` : nothing}
         </div>
       ` : html`
         <div class="toolbar-area">
@@ -3858,6 +3922,7 @@ export class CoachBoard extends LitElement {
     this._menuOpen = false;
 
     const data = JSON.stringify({
+      name: this._boardName || 'Untitled Board',
       players: this.players,
       lines: this.lines,
       equipment: this.equipment,
@@ -3891,6 +3956,7 @@ export class CoachBoard extends LitElement {
           const { id } = await res.json() as { id: string };
           this.#shareShortId = id;
           this.#lastSharedData = data;
+          this.#uploadThumbnail(id).catch(() => {});
         }
       } catch { /* API unavailable, fall back to hash */ }
     }
