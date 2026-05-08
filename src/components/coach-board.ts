@@ -4936,7 +4936,12 @@ export class CoachBoard extends LitElement {
     const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
-      this.ghost = { x: pt.x, y: pt.y };
+      const hover = resolveHit(e.target);
+      if (hover && hover.id === this.#lastPlacedId) {
+        this.ghost = null;
+      } else {
+        this.ghost = { x: pt.x, y: pt.y };
+      }
       return;
     }
 
