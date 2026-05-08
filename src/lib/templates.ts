@@ -12,25 +12,24 @@ export interface BoardTemplate {
   textItems: TextItem[];
 }
 
-const L = 105;
 const W = 68;
-const cx = L / 2;
 const cy = W / 2;
 
 function gk(x: number, y: number): Player {
-  return { id: 'tpl-gk', x, y, team: 'a', color: COLORS.playerYellow, label: '1', angle: 0 };
+  return { id: 'tpl-gk', x, y, team: 'a', color: COLORS.playerYellow, label: '1' };
 }
 
 function outfield(x: number, y: number, label: string): Player {
-  return { id: `tpl-${label}`, x, y, team: 'a', color: COLORS.playerBlue, label, angle: 0 };
+  return { id: `tpl-${label}`, x, y, team: 'a', color: COLORS.playerBlue, label };
 }
 
 function ball(x: number, y: number): Equipment {
   return { id: 'tpl-ball', x, y, kind: 'ball' };
 }
 
-// Traditional positional numbering:
-// 1=GK, 2=RB, 3=LB, 4=CB, 5=CB, 6=CDM/CM, 7=RW, 8=CM, 9=ST, 10=CAM/CF, 11=LW
+// Full pitch: Team A on left half (x: 0–52.5)
+// Even line spacing: GK(3) → DEF(18) → MID(33) → FWD(46)
+// Width positions: flanks(8/60), half-flanks(18/50), CBs(27/41), center(34)
 
 const FULL_433: BoardTemplate = {
   id: 'full-433',
@@ -38,18 +37,18 @@ const FULL_433: BoardTemplate = {
   pitchType: 'full',
   players: [
     gk(3, cy),
-    outfield(16, 10, '2'),    // RB — right flank
-    outfield(16, 27, '4'),    // RCB — right of penalty arc
-    outfield(16, W - 27, '5'),// LCB — left of penalty arc
-    outfield(16, W - 10, '3'),// LB — left flank
-    outfield(32, 22, '8'),    // RCM
-    outfield(32, cy, '6'),    // CDM
-    outfield(32, W - 22, '10'),// LCM
-    outfield(46, 10, '7'),    // RW — right flank
+    outfield(18, 8, '2'),     // RB — right flank
+    outfield(18, 27, '4'),    // RCB
+    outfield(18, W - 27, '5'),// LCB
+    outfield(18, W - 8, '3'), // LB — left flank
+    outfield(33, 20, '8'),    // RCM
+    outfield(33, cy, '6'),    // CDM — center
+    outfield(33, W - 20, '10'),// LCM
+    outfield(46, 8, '7'),     // RW — right flank
     outfield(46, cy, '9'),    // ST — center
-    outfield(46, W - 10, '11'),// LW — left flank
+    outfield(46, W - 8, '11'),// LW — left flank
   ],
-  equipment: [ball(cx, cy)],
+  equipment: [ball(52, cy)],
   lines: [],
   shapes: [],
   textItems: [],
@@ -61,18 +60,18 @@ const FULL_442: BoardTemplate = {
   pitchType: 'full',
   players: [
     gk(3, cy),
-    outfield(16, 10, '2'),    // RB
-    outfield(16, 27, '4'),    // RCB
-    outfield(16, W - 27, '5'),// LCB
-    outfield(16, W - 10, '3'),// LB
-    outfield(34, 10, '7'),    // RM — right flank
-    outfield(34, 27, '8'),    // RCM
-    outfield(34, W - 27, '6'),// LCM
-    outfield(34, W - 10, '11'),// LM — left flank
-    outfield(46, 26, '9'),    // RST
-    outfield(46, W - 26, '10'),// LST
+    outfield(18, 8, '2'),     // RB
+    outfield(18, 27, '4'),    // RCB
+    outfield(18, W - 27, '5'),// LCB
+    outfield(18, W - 8, '3'), // LB
+    outfield(33, 8, '7'),     // RM — right flank
+    outfield(33, 27, '8'),    // RCM
+    outfield(33, W - 27, '6'),// LCM
+    outfield(33, W - 8, '11'),// LM — left flank
+    outfield(46, 27, '9'),    // RST
+    outfield(46, W - 27, '10'),// LST
   ],
-  equipment: [ball(cx, cy)],
+  equipment: [ball(52, cy)],
   lines: [],
   shapes: [],
   textItems: [],
@@ -84,61 +83,65 @@ const FULL_352: BoardTemplate = {
   pitchType: 'full',
   players: [
     gk(3, cy),
-    outfield(16, 18, '4'),    // RCB
-    outfield(16, cy, '5'),    // CCB
-    outfield(16, W - 18, '3'),// LCB
-    outfield(32, 6, '2'),     // RWB — wide right
-    outfield(32, 22, '8'),    // RCM
-    outfield(32, cy, '6'),    // CDM
-    outfield(32, W - 22, '10'),// LCM
-    outfield(32, W - 6, '7'), // LWB — wide left
-    outfield(46, 26, '9'),    // RST
-    outfield(46, W - 26, '11'),// LST
+    outfield(18, 20, '4'),    // RCB
+    outfield(18, cy, '5'),    // CCB — center
+    outfield(18, W - 20, '3'),// LCB
+    outfield(33, 5, '2'),     // RWB — wide right
+    outfield(33, 22, '8'),    // RCM
+    outfield(33, cy, '6'),    // CDM — center
+    outfield(33, W - 22, '10'),// LCM
+    outfield(33, W - 5, '7'), // LWB — wide left
+    outfield(46, 27, '9'),    // RST
+    outfield(46, W - 27, '11'),// LST
   ],
-  equipment: [ball(cx, cy)],
+  equipment: [ball(52, cy)],
   lines: [],
   shapes: [],
   textItems: [],
 };
 
+// Half pitch (defensive): compressed spacing
+// GK(5) → DEF(18) → MID(32) → FWD(44)
 const HALF_DEF_BLOCK: BoardTemplate = {
   id: 'half-def-block',
   name: '4-4-2 Low Block',
   pitchType: 'half',
   players: [
     gk(5, cy),
-    outfield(16, 10, '2'),
-    outfield(16, 27, '4'),
-    outfield(16, W - 27, '5'),
-    outfield(16, W - 10, '3'),
-    outfield(30, 10, '7'),
-    outfield(30, 27, '8'),
-    outfield(30, W - 27, '6'),
-    outfield(30, W - 10, '11'),
-    outfield(40, 26, '9'),
-    outfield(40, W - 26, '10'),
+    outfield(18, 8, '2'),
+    outfield(18, 27, '4'),
+    outfield(18, W - 27, '5'),
+    outfield(18, W - 8, '3'),
+    outfield(32, 8, '7'),
+    outfield(32, 27, '8'),
+    outfield(32, W - 27, '6'),
+    outfield(32, W - 8, '11'),
+    outfield(44, 27, '9'),
+    outfield(44, W - 27, '10'),
   ],
-  equipment: [ball(42, cy)],
+  equipment: [ball(50, cy)],
   lines: [],
   shapes: [],
   textItems: [],
 };
 
+// Half pitch (attacking): no GK, players in attacking positions
+// Lines: FBs(42) → MID(28) → FWD(14)
 const HALF_ATT_OVERLOAD: BoardTemplate = {
   id: 'half-att-overload',
   name: 'Attacking Overload',
   pitchType: 'half-attack',
   players: [
-    outfield(40, 6, '2'),     // RB overlapping
-    outfield(40, W - 6, '3'), // LB overlapping
-    outfield(25, 22, '8'),    // RCM
-    outfield(25, cy, '6'),    // CDM
-    outfield(25, W - 22, '10'),// LCM/CAM
-    outfield(12, 8, '7'),     // RW
-    outfield(12, cy, '9'),    // ST
-    outfield(12, W - 8, '11'),// LW
+    outfield(42, 8, '2'),     // RB overlapping
+    outfield(42, W - 8, '3'), // LB overlapping
+    outfield(28, 20, '8'),    // RCM
+    outfield(28, cy, '6'),    // CDM
+    outfield(28, W - 20, '10'),// CAM
+    outfield(14, 8, '7'),     // RW
+    outfield(14, cy, '9'),    // ST
+    outfield(14, W - 8, '11'),// LW
   ],
-  equipment: [ball(14, cy)],
+  equipment: [ball(16, cy)],
   lines: [],
   shapes: [],
   textItems: [],
@@ -149,14 +152,14 @@ const OPEN_RONDO: BoardTemplate = {
   name: 'Rondo (4v2)',
   pitchType: 'open',
   players: [
-    outfield(15, 20, '1'),
-    outfield(15, 48, '2'),
-    outfield(35, 14, '3'),
-    outfield(35, 54, '4'),
-    { id: 'tpl-d1', x: 23, y: 30, team: 'b', color: COLORS.playerRed, label: '1', angle: 0 },
-    { id: 'tpl-d2', x: 28, y: 40, team: 'b', color: COLORS.playerRed, label: '2', angle: 0 },
+    outfield(15, 18, '1'),
+    outfield(15, 50, '2'),
+    outfield(38, 14, '3'),
+    outfield(38, 54, '4'),
+    { id: 'tpl-d1', x: 24, y: 30, team: 'b', color: COLORS.playerRed, label: '1' },
+    { id: 'tpl-d2', x: 30, y: 40, team: 'b', color: COLORS.playerRed, label: '2' },
   ],
-  equipment: [ball(24, 34)],
+  equipment: [ball(26, 34)],
   lines: [],
   shapes: [],
   textItems: [],
