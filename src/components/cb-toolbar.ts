@@ -1102,6 +1102,10 @@ export class CbToolbar extends LitElement {
               <span class="btn-text">Rotate</span>
             </button>
             ` : nothing}
+            ${this.selectedItems.length >= 2 ? html`
+              <span class="divider"></span>
+              ${this.#renderAlignmentControls()}
+            ` : nothing}
             <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''}" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''}"
                     @click="${this.#requestDelete}">
               <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
@@ -1110,10 +1114,6 @@ export class CbToolbar extends LitElement {
               </svg>
               <span class="btn-text">Delete</span>
             </button>
-            ${this.selectedItems.length >= 2 ? html`
-              <span class="divider"></span>
-              ${this.#renderAlignmentControls()}
-            ` : nothing}
           </div>
         ` : nothing}
       </div>
