@@ -7,6 +7,7 @@ import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfFi
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
+import { registerSW } from 'virtual:pwa-register';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
@@ -301,6 +302,41 @@ export class CoachBoard extends LitElement {
       z-index: 10;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
       padding-top: env(safe-area-inset-top);
+    }
+
+    .update-toast {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--pt-accent);
+      color: white;
+      font-size: 0.85rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      z-index: 100;
+    }
+
+    .update-toast span {
+      flex: 1;
+    }
+
+    .update-toast button {
+      padding: 6px 16px;
+      border-radius: 6px;
+      font: bold 0.8rem system-ui, sans-serif;
+      cursor: pointer;
+      border: none;
+    }
+
+    .update-toast .refresh-btn {
+      background: white;
+      color: var(--pt-accent);
+    }
+
+    .update-toast .dismiss-btn {
+      background: transparent;
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.5);
     }
 
     .readonly-branding {
@@ -1363,6 +1399,8 @@ export class CoachBoard extends LitElement {
   @state() private accessor _printWhiteBg: boolean = true;
   @state() private accessor _boardNotes: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
+  @state() private accessor _updateAvailable: boolean = false;
+  #updateSW: ((reloadPage?: boolean) => Promise<void>) | null = null;
   @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
   @state() private accessor _pauseFlash: boolean = false;
@@ -1912,6 +1950,10 @@ export class CoachBoard extends LitElement {
     } else {
       this.#loadFromUrl();
     }
+
+    this.#updateSW = registerSW({
+      onNeedRefresh: () => { this._updateAvailable = true; },
+    });
   }
 
   disconnectedCallback() {
@@ -1942,6 +1984,13 @@ export class CoachBoard extends LitElement {
     const vbH = fd.h + PADDING * 2;
 
     return html`
+      ${this._updateAvailable ? html`
+        <div class="update-toast">
+          <span>A new version of CoachingBoard is available.</span>
+          <button class="dismiss-btn" @click="${() => { this._updateAvailable = false; }}">Dismiss</button>
+          <button class="refresh-btn" @click="${() => { this.#updateSW?.(true); }}">Refresh</button>
+        </div>
+      ` : nothing}
       ${this._viewMode === 'readonly' ? html`
         <div class="toolbar-area readonly-branding">
           <a href="/" class="branding-link" title="Open CoachingBoard">
