@@ -4658,6 +4658,24 @@ export class CoachBoard extends LitElement {
     this.#pushUndo();
     const ids = this.selectedIds;
     const delta = e.delta;
+
+    if (this._animationMode && this.activeFrameIndex > 0) {
+      const frame = this.animationFrames[this.activeFrameIndex];
+      if (!frame) return;
+      const newPositions = { ...frame.positions };
+      for (const id of ids) {
+        const base = this.players.find(p => p.id === id) ?? this.equipment.find(eq => eq.id === id);
+        if (!base) continue;
+        const pos = newPositions[id] ?? this.#getItemPositionAtFrame(id, base.x, base.y, this.activeFrameIndex);
+        const currentAngle = this.#getItemAngleAtFrame(id, (base as { angle?: number }).angle, this.activeFrameIndex) ?? 0;
+        newPositions[id] = { ...pos, angle: ((currentAngle + delta) + 360) % 360 };
+      }
+      this.animationFrames = this.animationFrames.map((f, i) =>
+        i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
+      );
+      return;
+    }
+
     this.players = this.players.map(p =>
       ids.has(p.id) ? { ...p, angle: ((p.angle ?? 0) + delta + 360) % 360 } : p
     );
@@ -5181,13 +5199,15 @@ export class CoachBoard extends LitElement {
       const p = this.players.find(pl => pl.id === id);
       if (p) {
         const pos = this.#getItemPosition(p.id, p.x, p.y);
-        newPositions[id] = { x: pos.x, y: pos.y, angle: this.#getItemAngle(p.id, p.angle) };
+        const existing = frame.positions[id];
+        newPositions[id] = { x: pos.x, y: pos.y, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
         continue;
       }
       const eq = this.equipment.find(e => e.id === id);
       if (eq) {
         const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
-        newPositions[id] = { x: pos.x, y: pos.y, angle: this.#getItemAngle(eq.id, eq.angle) };
+        const existing = frame.positions[id];
+        newPositions[id] = { x: pos.x, y: pos.y, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
         continue;
       }
     }
