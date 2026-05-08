@@ -12,6 +12,7 @@ export default async (request: Request, context: Context) => {
 
   const id = match[1];
   let boardName = 'CoachingBoard';
+  let hasPreview = false;
 
   try {
     const store = getStore('shared-boards');
@@ -22,16 +23,17 @@ export default async (request: Request, context: Context) => {
         boardName = meta.name as string;
       }
     }
-  } catch { /* blob fetch failed, use default */ }
+    const preview = await store.get(`${id}-preview`, { type: 'arrayBuffer' });
+    hasPreview = !!preview;
+  } catch { /* blob fetch failed, use defaults */ }
 
   const ogTitle = boardName !== 'CoachingBoard' ? `${boardName} — CoachingBoard` : 'CoachingBoard';
   const ogDescription = 'Soccer coaching tactical board';
   const ogUrl = url.toString();
+  const ogImage = hasPreview ? `${url.origin}/api/share/${id}/image` : `${url.origin}/icon-512.png`;
 
   const response = await context.next();
   const html = await response.text();
-
-  const ogImage = `${url.origin}/icon-512.png`;
 
   const injected = html.replace(
     '</head>',
@@ -40,7 +42,7 @@ export default async (request: Request, context: Context) => {
     `<meta property="og:type" content="website">\n` +
     `<meta property="og:url" content="${ogUrl}">\n` +
     `<meta property="og:image" content="${ogImage}">\n` +
-    `<meta name="twitter:card" content="summary">\n` +
+    `<meta name="twitter:card" content="summary_large_image">\n` +
     `<meta name="twitter:title" content="${ogTitle.replace(/"/g, '&quot;')}">\n` +
     `<meta name="twitter:description" content="${ogDescription}">\n` +
     `<meta name="twitter:image" content="${ogImage}">\n` +

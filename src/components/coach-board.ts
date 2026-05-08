@@ -1739,6 +1739,53 @@ export class CoachBoard extends LitElement {
     img.src = svgUrl;
   }
 
+  #renderThumbnail(): Promise<Blob | null> {
+    return new Promise(resolve => {
+      try {
+        const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+        svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+        svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+        svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+        svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+        svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+        const vb = this.svgEl.viewBox.baseVal;
+        const scale = 3;
+        const w = vb.width * scale;
+        const h = vb.height * scale;
+        svgClone.setAttribute('width', String(w));
+        svgClone.setAttribute('height', String(h));
+
+        const svgString = new XMLSerializer().serializeToString(svgClone);
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(svgUrl);
+          canvas.toBlob(blob => resolve(blob), 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null); };
+        img.src = svgUrl;
+      } catch { resolve(null); }
+    });
+  }
+
+  async #uploadThumbnail(shareId: string) {
+    const blob = await this.#renderThumbnail();
+    if (!blob) return;
+    await fetch(`/api/share/${shareId}/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/png' },
+      body: blob,
+    });
+  }
+
   async #saveGif() {
     this._menuOpen = false;
     if (this.animationFrames.length < 2) return;
@@ -3909,6 +3956,7 @@ export class CoachBoard extends LitElement {
           const { id } = await res.json() as { id: string };
           this.#shareShortId = id;
           this.#lastSharedData = data;
+          this.#uploadThumbnail(id).catch(() => {});
         }
       } catch { /* API unavailable, fall back to hash */ }
     }
