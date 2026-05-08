@@ -1418,6 +1418,7 @@ export class CoachBoard extends LitElement {
   #playbackRaf: number | null = null;
   #playbackLastTime: number | null = null;
   #trailDrag: { id: string; cp: 'cp1' | 'cp2' } | null = null;
+  #lastPlacedId: string | null = null;
   #isPrinting = false;
   #cachedSummary: {
     name: string; pitchLabel: string; orientation: string;
@@ -4647,6 +4648,7 @@ export class CoachBoard extends LitElement {
     this.selectedIds = new Set();
     this.ghost = null;
     this._multiSelect = false;
+    this.#lastPlacedId = null;
 
     if (e.playerColor) this.playerColor = e.playerColor;
     if (e.playerTeam) this.playerTeam = e.playerTeam;
@@ -4769,22 +4771,18 @@ export class CoachBoard extends LitElement {
     if (this.isPlaying) return;
     const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
 
-    if (this.activeTool === 'add-player') {
-      this.#pushUndo();
-      this.#addPlayer(pt.x, pt.y);
-      return;
-    }
-
-    if (this.activeTool === 'add-equipment') {
-      this.#pushUndo();
-      this.#addEquipment(pt.x, pt.y);
-      return;
-    }
-
-    if (this.activeTool === 'add-text') {
-      this.#pushUndo();
-      this.#addTextItem(pt.x, pt.y, 'Text');
-      return;
+    if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
+      const hit = resolveHit(e.target);
+      if (hit && hit.id === this.#lastPlacedId) {
+        this.activeTool = 'select';
+        this.#lastPlacedId = null;
+      } else {
+        this.#pushUndo();
+        if (this.activeTool === 'add-player') this.#addPlayer(pt.x, pt.y);
+        else if (this.activeTool === 'add-equipment') this.#addEquipment(pt.x, pt.y);
+        else this.#addTextItem(pt.x, pt.y, 'Text');
+        return;
+      }
     }
 
     if (this.activeTool === 'draw-line') {
@@ -5342,6 +5340,8 @@ export class CoachBoard extends LitElement {
       label,
     };
     this.players = [...this.players, newPlayer];
+    this.selectedIds = new Set([newPlayer.id]);
+    this.#lastPlacedId = newPlayer.id;
   }
 
   #addEquipment(x: number, y: number) {
@@ -5354,6 +5354,8 @@ export class CoachBoard extends LitElement {
       ...(needsAngle ? { angle: 0 } : {}),
     };
     this.equipment = [...this.equipment, newEq];
+    this.selectedIds = new Set([newEq.id]);
+    this.#lastPlacedId = newEq.id;
   }
 
   #addTextItem(x: number, y: number, text: string) {
@@ -5364,7 +5366,7 @@ export class CoachBoard extends LitElement {
     };
     this.textItems = [...this.textItems, newText];
     this.selectedIds = new Set([newText.id]);
-    this.activeTool = 'select';
+    this.#lastPlacedId = newText.id;
   }
 }
 
