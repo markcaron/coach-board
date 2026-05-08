@@ -5299,6 +5299,9 @@ export class CoachBoard extends LitElement {
   }
 
   #onKeyDown(e: KeyboardEvent) {
+    const tag = (e.composedPath()[0] as HTMLElement)?.tagName;
+    const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
       this.#undo();
@@ -5309,8 +5312,19 @@ export class CoachBoard extends LitElement {
       this.#redo();
       return;
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !inInput) {
+      e.preventDefault();
+      this.selectedIds = new Set([
+        ...this.players.map(p => p.id),
+        ...this.equipment.map(eq => eq.id),
+        ...this.lines.map(l => l.id),
+        ...this.shapes.map(s => s.id),
+        ...this.textItems.map(t => t.id),
+      ]);
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedIds.size > 0) {
-      if (document.activeElement?.tagName === 'INPUT') return;
+      if (inInput) return;
       this.#pushUndo();
       const ids = this.selectedIds;
       this.players = this.players.filter(p => !ids.has(p.id));
@@ -5319,11 +5333,44 @@ export class CoachBoard extends LitElement {
       this.shapes = this.shapes.filter(s => !ids.has(s.id));
       this.textItems = this.textItems.filter(t => !ids.has(t.id));
       this.selectedIds = new Set();
+      return;
     }
     if (e.key === 'Escape') {
       this.activeTool = 'select';
       this.ghost = null;
       this.selectedIds = new Set();
+      this.#lastPlacedId = null;
+      return;
+    }
+
+    if (inInput || e.metaKey || e.ctrlKey || e.altKey || this._viewMode === 'readonly') return;
+
+    switch (e.key.toLowerCase()) {
+      case 'v':
+        this.activeTool = 'select'; this.ghost = null;
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'p':
+        this.activeTool = 'add-player';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'e':
+        this.activeTool = 'add-equipment';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'd':
+        this.activeTool = 'draw-line';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 't':
+        this.activeTool = 'add-text';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'r':
+        if (this.selectedIds.size > 0) {
+          this.#onRotateItems(new RotateItemsEvent(-45));
+        }
+        break;
     }
   }
 
