@@ -166,8 +166,8 @@ function teamBGK(x: number, y: number): Player {
   return { id: 'tpl-b-gk', x, y, team: 'b', color: COLORS.playerPurple, label: '1' };
 }
 
-const HALF_ATT_OVERLOAD: BoardTemplate = {
-  id: 'half-att-overload',
+const HALF_ATT_SHAPE: BoardTemplate = {
+  id: 'half-att-shape',
   name: 'Attacking Shape',
   pitchType: 'half-attack',
   players: [
@@ -234,7 +234,7 @@ export const BUILT_IN_TEMPLATES: BoardTemplate[] = [
   FULL_442,
   FULL_352,
   HALF_DEF_BLOCK,
-  HALF_ATT_OVERLOAD,
+  HALF_ATT_SHAPE,
   OPEN_RONDO,
 ];
 
