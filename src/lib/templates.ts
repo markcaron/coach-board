@@ -157,20 +157,41 @@ const HALF_DEF_BLOCK: BoardTemplate = {
   textItems: [],
 };
 
-// Half pitch (attacking): no GK
+// Half pitch (attacking): both teams — Team A attacking, Team B defending
+function teamB(x: number, y: number, label: string): Player {
+  return { id: `tpl-b-${label}`, x, y, team: 'b', color: COLORS.playerRed, label };
+}
+
+function teamBGK(x: number, y: number): Player {
+  return { id: 'tpl-b-gk', x, y, team: 'b', color: COLORS.playerPurple, label: '1' };
+}
+
 const HALF_ATT_OVERLOAD: BoardTemplate = {
   id: 'half-att-overload',
-  name: 'Attacking Overload',
+  name: 'Attacking Shape',
   pitchType: 'half-attack',
   players: [
-    outfield(42, W - 8, '2'),  // RB overlapping
-    outfield(42, 8, '3'),      // LB overlapping
+    // Team A attacking (from left)
+    outfield(48, W - 8, '2'),  // RB overlapping
+    outfield(48, 8, '3'),      // LB overlapping
+    outfield(42, 8, '5'),      // LCB — covering
+    outfield(42, W - 8, '4'),  // RCB — covering
+    outfield(32, cy, '6'),     // CDM
     outfield(28, W - 20, '8'), // RCM
-    outfield(28, cy, '6'),     // CDM
-    outfield(28, 20, '10'),    // CAM
+    outfield(28, 20, '10'),    // LCM
     outfield(14, W - 8, '7'),  // RW
     outfield(14, cy, '9'),     // ST
     outfield(14, 8, '11'),     // LW
+
+    // Team B defending (right side, near goal)
+    teamBGK(3, cy),
+    teamB(10, W - 12, '2'),    // RB
+    teamB(10, W - 27, '4'),    // RCB
+    teamB(10, 27, '5'),        // LCB
+    teamB(10, 12, '3'),        // LB
+    teamB(20, W - 18, '8'),    // RCM
+    teamB(20, cy, '6'),        // CDM
+    teamB(20, 18, '10'),       // LCM
   ],
   equipment: [ball(16, cy)],
   lines: [],
@@ -178,19 +199,30 @@ const HALF_ATT_OVERLOAD: BoardTemplate = {
   textItems: [],
 };
 
+// Open grass: Rondo 4v2 with cones marking the area, no player labels
+function cone(x: number, y: number): Equipment {
+  return { id: `tpl-cone-${x}-${y}`, x, y, kind: 'cone', color: COLORS.coneNeonOrange };
+}
+
 const OPEN_RONDO: BoardTemplate = {
   id: 'open-rondo',
   name: 'Rondo (4v2)',
   pitchType: 'open',
   players: [
-    outfield(15, 18, '1'),
-    outfield(15, 50, '2'),
-    outfield(38, 14, '3'),
-    outfield(38, 54, '4'),
-    { id: 'tpl-d1', x: 24, y: 30, team: 'b', color: COLORS.playerRed, label: '1' },
-    { id: 'tpl-d2', x: 30, y: 40, team: 'b', color: COLORS.playerRed, label: '2' },
+    { id: 'tpl-a1', x: 30, y: 12, team: 'a', color: COLORS.playerBlue },
+    { id: 'tpl-a2', x: 18, y: cy, team: 'a', color: COLORS.playerBlue },
+    { id: 'tpl-a3', x: 30, y: W - 12, team: 'a', color: COLORS.playerBlue },
+    { id: 'tpl-a4', x: 50, y: cy, team: 'a', color: COLORS.playerBlue },
+    { id: 'tpl-d1', x: 32, y: 28, team: 'b', color: COLORS.playerRed },
+    { id: 'tpl-d2', x: 36, y: 42, team: 'b', color: COLORS.playerRed },
   ],
-  equipment: [ball(26, 34)],
+  equipment: [
+    ball(30, cy),
+    cone(15, 10),
+    cone(15, W - 10),
+    cone(52, 10),
+    cone(52, W - 10),
+  ],
   lines: [],
   shapes: [],
   textItems: [],
