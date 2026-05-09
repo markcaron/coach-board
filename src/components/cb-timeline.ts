@@ -83,8 +83,9 @@ export class CbTimeline extends LitElement {
       /* Padding + negative margin trick: gives focus rings (outline 2px +
          offset 2px = 4px) room to render without being clipped by the
          overflow-x container, while keeping the layout unchanged. */
-      padding: 4px 2px;
+      padding: 4px;
       margin-block: -4px;
+      margin-inline: -4px;
     }
 
     .frames-scroll-wrap {
