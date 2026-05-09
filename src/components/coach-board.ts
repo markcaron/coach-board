@@ -164,7 +164,7 @@ export class CoachBoard extends LitElement {
       display: grid;
       grid-template-columns: 100dvw var(--panel-w);
       height: 100dvh;
-      transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+      transition: transform 420ms cubic-bezier(0.32, 0.72, 0, 1);
     }
 
     .app-wrap.menu-open {
