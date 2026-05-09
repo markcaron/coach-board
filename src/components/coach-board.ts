@@ -77,12 +77,34 @@ interface Snapshot {
   shapes: Shape[];
   textItems: TextItem[];
   animationFrames: AnimationFrame[];
+  fieldOrientation: FieldOrientation;
+  fieldTheme: FieldTheme;
+  pitchType: PitchType;
 }
 
 const MAX_HISTORY = 50;
 
 function isModifier(e: PointerEvent | MouseEvent): boolean {
   return e.shiftKey || e.metaKey || e.ctrlKey;
+}
+
+/**
+ * Constrains a (dx, dy) displacement to the nearest axis when Shift is held:
+ * horizontal (dy=0), vertical (dx=0), or 45° diagonal (|dx|===|dy|).
+ * Axis is chosen within ±22.5° of each direction.
+ * Returns the original values unchanged when Shift is not held or the
+ * displacement is below the 1.5-unit threshold needed to determine direction.
+ */
+function axisConstrain(dx: number, dy: number, shiftKey: boolean): { dx: number; dy: number } {
+  if (!shiftKey) return { dx, dy };
+  const absDx = Math.abs(dx), absDy = Math.abs(dy);
+  if (absDx < 1.5 && absDy < 1.5) return { dx: 0, dy: 0 };
+  const angle = Math.atan2(absDy, absDx) * 180 / Math.PI; // 0°=horizontal, 90°=vertical
+  if (angle < 22.5) return { dx, dy: 0 };
+  if (angle > 67.5) return { dx: 0, dy };
+  // 45° diagonal: lock both components to the larger magnitude
+  const d = Math.max(absDx, absDy);
+  return { dx: dx < 0 ? -d : d, dy: dy < 0 ? -d : d };
 }
 
 function rad2deg(r: number): number { return r * 180 / Math.PI; }
@@ -631,6 +653,9 @@ export class CoachBoard extends LitElement {
       shapes: structuredClone(this.shapes),
       textItems: structuredClone(this.textItems),
       animationFrames: structuredClone(this.animationFrames),
+      fieldOrientation: this.fieldOrientation,
+      fieldTheme: this.fieldTheme,
+      pitchType: this.pitchType,
     };
   }
 
@@ -844,6 +869,9 @@ export class CoachBoard extends LitElement {
     this.shapes = prev.shapes;
     this.textItems = prev.textItems;
     this.animationFrames = prev.animationFrames;
+    this.fieldOrientation = prev.fieldOrientation;
+    this.fieldTheme = prev.fieldTheme;
+    this.pitchType = prev.pitchType;
     this.selectedIds = new Set();
   }
 
@@ -857,6 +885,9 @@ export class CoachBoard extends LitElement {
     this.shapes = next.shapes;
     this.textItems = next.textItems;
     this.animationFrames = next.animationFrames;
+    this.fieldOrientation = next.fieldOrientation;
+    this.fieldTheme = next.fieldTheme;
+    this.pitchType = next.pitchType;
     this.selectedIds = new Set();
   }
 
@@ -2729,7 +2760,12 @@ export class CoachBoard extends LitElement {
     }
 
     if (this._draw) {
-      this._draw = { ...this._draw, x2: pt.x, y2: pt.y };
+      if (e.shiftKey) {
+        const raw = axisConstrain(pt.x - this._draw.x1, pt.y - this._draw.y1, true);
+        this._draw = { ...this._draw, x2: this._draw.x1 + raw.dx, y2: this._draw.y1 + raw.dy };
+      } else {
+        this._draw = { ...this._draw, x2: pt.x, y2: pt.y };
+      }
       return;
     }
 
@@ -2840,10 +2876,18 @@ export class CoachBoard extends LitElement {
       if (frame) {
         const existing = frame.trails[id] ?? this.#defaultTrailCP(id);
         const newTrails = { ...frame.trails };
+        // Shift constrains control point to horizontal/vertical/45° from its anchor
+        let cpX = pt.x, cpY = pt.y;
+        if (e.shiftKey) {
+          const anchorX = cp === 'cp1' ? existing.cp2x : existing.cp1x;
+          const anchorY = cp === 'cp1' ? existing.cp2y : existing.cp1y;
+          const c = axisConstrain(pt.x - anchorX, pt.y - anchorY, true);
+          cpX = anchorX + c.dx; cpY = anchorY + c.dy;
+        }
         if (cp === 'cp1') {
-          newTrails[id] = { ...existing, cp1x: pt.x, cp1y: pt.y };
+          newTrails[id] = { ...existing, cp1x: cpX, cp1y: cpY };
         } else {
-          newTrails[id] = { ...existing, cp2x: pt.x, cp2y: pt.y };
+          newTrails[id] = { ...existing, cp2x: cpX, cp2y: cpY };
         }
         this.animationFrames = this.animationFrames.map((f, i) =>
           i === this.activeFrameIndex ? { ...f, trails: newTrails } : f
@@ -2855,9 +2899,23 @@ export class CoachBoard extends LitElement {
     if (this.#handleDrag) {
       const { kind, id } = this.#handleDrag;
       if (kind === 'line-start') {
-        this.lines = this.lines.map(l => l.id === id ? { ...l, x1: pt.x, y1: pt.y } : l);
+        this.lines = this.lines.map(l => {
+          if (l.id !== id) return l;
+          if (e.shiftKey) {
+            const c = axisConstrain(pt.x - l.x2, pt.y - l.y2, true);
+            return { ...l, x1: l.x2 + c.dx, y1: l.y2 + c.dy };
+          }
+          return { ...l, x1: pt.x, y1: pt.y };
+        });
       } else if (kind === 'line-end') {
-        this.lines = this.lines.map(l => l.id === id ? { ...l, x2: pt.x, y2: pt.y } : l);
+        this.lines = this.lines.map(l => {
+          if (l.id !== id) return l;
+          if (e.shiftKey) {
+            const c = axisConstrain(pt.x - l.x1, pt.y - l.y1, true);
+            return { ...l, x2: l.x1 + c.dx, y2: l.y1 + c.dy };
+          }
+          return { ...l, x2: pt.x, y2: pt.y };
+        });
       } else if (kind === 'line-control') {
         this.lines = this.lines.map(l => l.id === id ? { ...l, cx: pt.x, cy: pt.y } : l);
       }
@@ -2867,8 +2925,7 @@ export class CoachBoard extends LitElement {
     if (!this.#groupDrag) return;
 
     const { anchorX, anchorY, pointOrigins, lineOrigins } = this.#groupDrag;
-    const dx = pt.x - anchorX;
-    const dy = pt.y - anchorY;
+    const { dx, dy } = axisConstrain(pt.x - anchorX, pt.y - anchorY, e.shiftKey);
 
     if (pointOrigins.size > 0) {
       if (this._animationMode && this.activeFrameIndex > 0) {
@@ -2998,6 +3055,13 @@ export class CoachBoard extends LitElement {
         this.shapes = [...this.shapes, newShape];
         this.selectedIds = new Set([newShape.id]);
         this.activeTool = 'select';
+        if (this._animationMode && this.activeFrameIndex > 0) {
+          this.animationFrames = this.animationFrames.map((f, i) =>
+            i === this.activeFrameIndex
+              ? { ...f, visibleShapeIds: [...(f.visibleShapeIds ?? []), newShape.id] }
+              : f
+          );
+        }
       }
       this._shapeDraw = null;
     }

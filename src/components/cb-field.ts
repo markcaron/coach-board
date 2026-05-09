@@ -337,6 +337,7 @@ export class CbField extends LitElement {
       this.#animatedIds = new Set(
         this.animationFrames.flatMap(f => Object.keys(f.positions))
       );
+      this.#frameShapeIds = this.animationFrames.slice(1).flatMap(f => f.visibleShapeIds ?? []);
     }
   }
 
@@ -404,6 +405,19 @@ export class CbField extends LitElement {
     const allFrameLineIds = this.animationFrames.slice(1).flatMap(f => f.visibleLineIds);
     if (allFrameLineIds.includes(lineId)) return false;
     return true;
+  }
+
+  // Returns false only when a shape was explicitly registered in a later frame
+  // and the current active frame hasn't reached it yet. All other cases → true.
+  #frameShapeIds: string[] = [];
+
+  #shapeVisibleOnFrame(shapeId: string): boolean {
+    if (!this.animationMode || this.activeFrameIndex === 0) return true;
+    if (!this.#frameShapeIds.includes(shapeId)) return true;
+    for (let i = 1; i <= this.activeFrameIndex; i++) {
+      if (this.animationFrames[i]?.visibleShapeIds?.includes(shapeId)) return true;
+    }
+    return false;
   }
 
   #getFramePlayers(): Player[] {
@@ -1002,35 +1016,45 @@ export class CbField extends LitElement {
     `;
   }
 
-  #getShapeVisuals(style: ShapeStyle): { fill: string; stroke: string } {
+  #getShapeVisuals(style: ShapeStyle) {
     const visuals = getShapeStyles(this.fieldTheme).find(s => s.value === style);
-    return { fill: visuals?.fill ?? 'none', stroke: visuals?.stroke ?? COLORS.shapeStrokeGray };
+    return {
+      fill: visuals?.fill ?? 'none',
+      fillOpacity: visuals?.fillOpacity ?? 0,
+      stroke: visuals?.stroke ?? COLORS.shapeStrokeGray,
+      strokeWidth: visuals?.strokeWidth ?? 0.18,
+      strokeDasharray: visuals?.strokeDasharray,
+    };
   }
 
   #renderShape(s: Shape) {
     const selected = this.selectedIds.has(s.id);
     const singleSelected = selected && this.selectedIds.size === 1;
+    const vis = this.#getShapeVisuals(s.style);
     const angle = s.angle ?? 0;
-    const { fill, stroke } = this.#getShapeVisuals(s.style);
-    const pad = 0.5;
+    const pad = 0.3;
 
     return svg`
       <g data-id="${s.id}" data-kind="shape"
          transform="translate(${s.cx}, ${s.cy}) rotate(${angle})">
+        ${s.kind === 'rect'
+          ? svg`<rect x="${-s.hw}" y="${-s.hh}" width="${s.hw * 2}" height="${s.hh * 2}"
+                      fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
+                      stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                      stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
+                      style="cursor: pointer" />`
+          : svg`<ellipse rx="${s.hw}" ry="${s.hh}"
+                         fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
+                         stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                         stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
+                         style="cursor: pointer" />`
+        }
         ${selected ? svg`
-          <${s.kind === 'rect' ? 'rect' : 'ellipse'}
-            ${s.kind === 'rect'
-              ? svg`x="${-s.hw - pad}" y="${-s.hh - pad}" width="${(s.hw + pad) * 2}" height="${(s.hh + pad) * 2}"`
-              : svg`rx="${s.hw + pad}" ry="${s.hh + pad}"`}
-            fill="none" stroke="${this.#selColor}" stroke-width="0.12"
-            stroke-dasharray="0.5,0.3" rx="0.2" />
+          <rect x="${-s.hw - pad}" y="${-s.hh - pad}"
+                width="${(s.hw + pad) * 2}" height="${(s.hh + pad) * 2}"
+                fill="none" stroke="${this.#selColor}" stroke-width="0.12"
+                stroke-dasharray="0.5,0.3" rx="0.2" />
         ` : nothing}
-        <${s.kind === 'rect' ? 'rect' : 'ellipse'}
-          ${s.kind === 'rect'
-            ? svg`x="${-s.hw}" y="${-s.hh}" width="${s.hw * 2}" height="${s.hh * 2}"`
-            : svg`rx="${s.hw}" ry="${s.hh}"`}
-          fill="${fill}" stroke="${stroke}" stroke-width="0.2"
-          style="cursor: pointer" />
         ${singleSelected ? svg`
           ${this.#renderShapeHandles(s)}
           ${this.#shouldShowRotate(s.id, singleSelected) ? this.#renderRectRotateHandles(s.id,
@@ -1149,6 +1173,8 @@ export class CbField extends LitElement {
       const prev = this.#getItemPositionAtFrame(p.id, p.x, p.y, this.activeFrameIndex - 1);
       if (curr.x === prev.x && curr.y === prev.y) continue;
 
+      const prevAngle = this.#getItemAngleAtFrame(p.id, p.angle, this.activeFrameIndex - 1) ?? 0;
+
       const trail = frame.trails[p.id];
       const cp1x = trail?.cp1x ?? prev.x + (curr.x - prev.x) / 3;
       const cp1y = trail?.cp1y ?? prev.y + (curr.y - prev.y) / 3;
@@ -1158,13 +1184,17 @@ export class CbField extends LitElement {
       trails.push(svg`
         <g opacity="0.3">
           ${p.team === 'a'
-            ? svg`<polygon points="${triPoints(prev.x, prev.y, PLAYER_RADIUS)}"
-                           fill="${p.color}" stroke="white" stroke-width="0.15"
-                           stroke-linejoin="round" style="pointer-events:none" />`
+            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" style="pointer-events:none">
+                    <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
+                             fill="${p.color}" stroke="white" stroke-width="0.15"
+                             stroke-linejoin="round" />
+                  </g>`
             : p.team === 'neutral'
-            ? svg`<polygon points="${prev.x},${prev.y - DIAMOND_HH} ${prev.x + DIAMOND_HW},${prev.y} ${prev.x},${prev.y + DIAMOND_HH} ${prev.x - DIAMOND_HW},${prev.y}"
-                           fill="${p.color}" stroke="white" stroke-width="0.15"
-                           stroke-linejoin="round" style="pointer-events:none" />`
+            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" style="pointer-events:none">
+                    <polygon points="0,${-DIAMOND_HH} ${DIAMOND_HW},0 0,${DIAMOND_HH} ${-DIAMOND_HW},0"
+                             fill="${p.color}" stroke="white" stroke-width="0.15"
+                             stroke-linejoin="round" />
+                  </g>`
             : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
                           fill="${p.color}" stroke="white" stroke-width="0.15"
                           style="pointer-events:none" />`
@@ -1261,7 +1291,7 @@ export class CbField extends LitElement {
             })()}
 
             <g class="shapes-layer">
-              ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
+              ${this.shapes.filter(s => !this.selectedIds.has(s.id) && this.#shapeVisibleOnFrame(s.id)).map(s => this.#renderShape(s))}
               ${this.shapeDraw ? this.#renderShapeDrawPreview() : nothing}
             </g>
 
@@ -1298,7 +1328,7 @@ export class CbField extends LitElement {
             </g>
 
             <g class="selected-layer">
-              ${this.shapes.filter(s => this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
+              ${this.shapes.filter(s => this.selectedIds.has(s.id) && this.#shapeVisibleOnFrame(s.id)).map(s => this.#renderShape(s))}
               ${this.lines.filter(l => this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
               ${this.#getFramePlayers().filter(p => this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
               ${this.#getFrameEquipment().filter(eq => this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
