@@ -15,6 +15,7 @@ import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEven
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
+import './cb-board-bar.js';
 import './cb-timeline.js';
 import './cb-dialogs.js';
 import type { CbDialogs, BoardSummary } from './cb-dialogs.js';
@@ -413,31 +414,6 @@ export class CoachBoard extends LitElement {
       color: var(--pt-text);
     }
 
-    .board-name-bar {
-      text-align: center;
-      padding: 12px 12px 0;
-      font-size: 0.75rem;
-      color: var(--pt-text);
-      background: var(--pt-bg-body);
-      user-select: none;
-    }
-
-    .board-name-bar .board-label {
-      color: var(--pt-text-muted);
-    }
-
-    .board-name-bar.theme-white {
-      background: var(--pt-field-area-white);
-      color: var(--pt-color-gray-600);
-    }
-
-    .board-name-bar.theme-white .unsaved {
-      color: var(--pt-color-gray-500);
-    }
-
-    .board-name-bar .unsaved {
-      opacity: 0.6;
-      font-style: italic;
     }
 
     .field-area {
@@ -792,7 +768,7 @@ export class CoachBoard extends LitElement {
         overflow: visible !important;
         background: white !important;
       }
-      .toolbar-area, .bottom-bar, .board-name-bar,
+      .toolbar-area, .bottom-bar, cb-board-bar,
       .play-overlay, .rotate-overlay, cb-dialogs {
         display: none !important;
       }
@@ -1494,11 +1470,11 @@ export class CoachBoard extends LitElement {
       `}
 
       ${this._viewMode !== 'readonly' ? html`
-        <div class="board-name-bar ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
-          <span class="board-label">Board:</span> ${this.#isBoardSaved
-            ? html`<span class="board-name">${this._boardName}</span>`
-            : html`<span class="unsaved">${this._boardName} (unsaved)</span>`}
-        </div>
+        <cb-board-bar
+          .boardName="${this._boardName}"
+          .isSaved="${this.#isBoardSaved}"
+          .isWhiteTheme="${this.fieldTheme === 'white'}"
+        ></cb-board-bar>
       ` : nothing}
 
       <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
