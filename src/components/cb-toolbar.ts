@@ -18,12 +18,6 @@ export class ToolChangedEvent extends Event {
   }
 }
 
-export class ClearAllEvent extends Event {
-  static readonly eventName = 'clear-all' as const;
-  constructor() {
-    super(ClearAllEvent.eventName, { bubbles: true, composed: true });
-  }
-}
 
 export class UndoEvent extends Event {
   static readonly eventName = 'undo' as const;

@@ -12,7 +12,7 @@ import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getAct
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
-import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -350,15 +350,6 @@ export class CoachBoard extends LitElement {
       pointer-events: none;
     }
 
-    .bottom-bar button.danger {
-      background: transparent;
-      color: var(--pt-danger-lightest);
-      border-color: var(--pt-danger-lightest);
-    }
-
-    .bottom-bar button.danger:hover {
-      background: rgba(248, 113, 113, 0.1);
-    }
 
     .theme-select {
       background: var(--pt-bg-surface);
@@ -1330,15 +1321,6 @@ export class CoachBoard extends LitElement {
           ` : nothing}
         </div>
         <div class="bottom-right">
-          ${this._viewMode !== 'readonly' ? html`
-          <button class="danger" aria-label="Reset all" title="Reset all"
-                  @click="${this.#requestClearAll}">
-            <svg viewBox="0 0 1600 1600" width="18" height="18" style="flex-shrink:0">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M515.399 422.213C594.372 362.859 692.519 327.687 798.799 327.687C1059.49 327.687 1271.12 539.313 1271.12 800.007C1271.12 1060.7 1059.49 1272.33 798.799 1272.33C550.319 1272.33 346.439 1080.03 327.866 836.273C325.22 801.607 351.199 771.347 385.866 768.7C420.532 766.053 450.792 792.033 453.439 826.7C467.075 1005.43 616.612 1146.37 798.799 1146.37C989.959 1146.37 1145.16 991.167 1145.16 799.993C1145.16 608.833 989.959 453.633 798.799 453.633C724.736 453.633 656.066 476.931 599.732 516.607H641.358C676.118 516.607 704.331 544.82 704.331 579.58C704.331 614.345 676.118 642.559 641.358 642.559H452.424C417.627 642.559 389.446 614.376 389.446 579.58V390.647C389.446 355.887 417.659 327.673 452.424 327.673C487.184 327.673 515.398 355.887 515.398 390.647L515.399 422.213Z" fill="currentColor"/>
-            </svg>
-            <span class="btn-text">Reset All</span>
-          </button>
-          ` : nothing}
           <div class="dropdown-wrap">
             <button aria-label="Menu" title="Menu"
                     aria-haspopup="menu"
@@ -1449,8 +1431,6 @@ export class CoachBoard extends LitElement {
         .animationFrameCount="${this.animationFrames.length}"
         .boardNotes="${this._boardNotes}"
         @cb-import-confirm="${this.#confirmImport}"
-        @cb-cancel-clear-all="${this.#cancelClearAll}"
-        @cb-confirm-clear-all="${this.#confirmClearAll}"
         @cb-save-board-confirm="${this.#confirmSaveBoard}"
         @cb-save-board-skip="${this.#skipSaveBoard}"
         @cb-save-board-closed="${this.#onSaveBoardClosed}"
@@ -2307,21 +2287,6 @@ export class CoachBoard extends LitElement {
     this.#applyOrientation(orientation, hasItems);
   }
 
-  #requestClearAll() {
-    const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length || this.animationFrames.length;
-    if (hasItems) {
-      this._dialogs?.showReset();
-    }
-  }
-
-  #cancelClearAll() {
-    this._dialogs?.closeReset();
-  }
-
-  #confirmClearAll() {
-    this._dialogs?.closeReset();
-    this.#onClearAll(new ClearAllEvent());
-  }
 
   // Supports both directions, but currently only called for horizontal→vertical
   // (mobile forces vertical). Also used by #applyOrientation for manual changes.
@@ -2527,22 +2492,6 @@ export class CoachBoard extends LitElement {
     this.selectedIds = new Set();
   }
 
-  #onClearAll(_e: ClearAllEvent) {
-    if (this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length || this.animationFrames.length) {
-      this.#pushUndo();
-    }
-    this.players = [];
-    this.lines = [];
-    this.equipment = [];
-    this.shapes = [];
-    this.textItems = [];
-    this.animationFrames = [];
-    this.activeFrameIndex = 0;
-    this._animationMode = false;
-    this.#stopPlayback();
-    this._playbackProgress = 0;
-    this.selectedIds = new Set();
-  }
 
   #onPlayerUpdate(e: PlayerUpdateEvent) {
     this.#pushUndo();
