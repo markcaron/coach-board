@@ -12,6 +12,10 @@ export class CbShare extends LitElement {
       display: contents;
     }
 
+    dialog:not([open]) {
+      display: none;
+    }
+
     dialog {
       background: var(--pt-bg-surface);
       border: 1px solid var(--pt-border);
@@ -68,6 +72,11 @@ export class CbShare extends LitElement {
       outline-offset: 2px;
     }
 
+    .dialog-close svg {
+      width: 14px;
+      height: 14px;
+    }
+
     .dialog-body {
       padding: 20px 16px;
     }
@@ -107,42 +116,63 @@ export class CbShare extends LitElement {
 
     .confirm-actions {
       display: flex;
-      justify-content: flex-end;
       gap: 8px;
-      margin-top: 20px;
-      align-items: center;
+      justify-content: space-between;
+      margin-top: 32px;
     }
 
     .cancel-btn {
-      padding: 8px 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 20px;
+      min-height: 44px;
+      border: 1px solid var(--pt-accent);
       border-radius: 6px;
-      border: 1px solid var(--pt-border);
       background: transparent;
-      color: var(--pt-text);
+      color: var(--pt-text-white);
+      font: inherit;
+      font-size: 0.85rem;
       cursor: pointer;
-      font-size: 0.875rem;
+      transition: background 0.15s, border-color 0.15s;
     }
 
     .cancel-btn:hover {
-      background: var(--pt-border);
+      background: rgba(78, 168, 222, 0.15);
+    }
+
+    .cancel-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .confirm-success {
-      padding: 8px 16px;
-      border-radius: 6px;
-      border: none;
-      background: var(--pt-color-green-600);
-      color: white;
-      cursor: pointer;
-      font-size: 0.875rem;
-      font-weight: 600;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
+      padding: 8px 20px;
+      min-height: 44px;
+      border: 1px solid var(--pt-success-hover);
+      border-radius: 6px;
+      background: var(--pt-success-hover);
+      color: var(--pt-text-white);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
     }
 
     .confirm-success:hover {
-      background: var(--pt-color-green-700);
+      background: var(--pt-success-btn-hover);
+      border-color: var(--pt-success-btn-hover);
+    }
+
+    .confirm-success:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
   `;
 
