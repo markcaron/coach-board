@@ -77,6 +77,9 @@ interface Snapshot {
   shapes: Shape[];
   textItems: TextItem[];
   animationFrames: AnimationFrame[];
+  fieldOrientation: FieldOrientation;
+  fieldTheme: FieldTheme;
+  pitchType: PitchType;
 }
 
 const MAX_HISTORY = 50;
@@ -650,6 +653,9 @@ export class CoachBoard extends LitElement {
       shapes: structuredClone(this.shapes),
       textItems: structuredClone(this.textItems),
       animationFrames: structuredClone(this.animationFrames),
+      fieldOrientation: this.fieldOrientation,
+      fieldTheme: this.fieldTheme,
+      pitchType: this.pitchType,
     };
   }
 
@@ -863,6 +869,9 @@ export class CoachBoard extends LitElement {
     this.shapes = prev.shapes;
     this.textItems = prev.textItems;
     this.animationFrames = prev.animationFrames;
+    this.fieldOrientation = prev.fieldOrientation;
+    this.fieldTheme = prev.fieldTheme;
+    this.pitchType = prev.pitchType;
     this.selectedIds = new Set();
   }
 
@@ -876,6 +885,9 @@ export class CoachBoard extends LitElement {
     this.shapes = next.shapes;
     this.textItems = next.textItems;
     this.animationFrames = next.animationFrames;
+    this.fieldOrientation = next.fieldOrientation;
+    this.fieldTheme = next.fieldTheme;
+    this.pitchType = next.pitchType;
     this.selectedIds = new Set();
   }
 
