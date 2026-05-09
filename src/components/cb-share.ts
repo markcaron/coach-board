@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property, state, query } from 'lit/decorators.js';
+import { customElement, state, query } from 'lit/decorators.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, AnimationFrame, FieldTheme, PitchType } from '../lib/types.js';
 import { COLORS } from '../lib/types.js';
@@ -146,21 +146,23 @@ export class CbShare extends LitElement {
     }
   `;
 
-  // ── Board data for serialization ────────────────────────────────
-  @property({ attribute: false }) accessor players: Player[] = [];
-  @property({ attribute: false }) accessor lines: Line[] = [];
-  @property({ attribute: false }) accessor equipment: Equipment[] = [];
-  @property({ attribute: false }) accessor shapes: Shape[] = [];
-  @property({ attribute: false }) accessor textItems: TextItem[] = [];
-  @property({ attribute: false }) accessor animationFrames: AnimationFrame[] = [];
-  @property() accessor fieldTheme: FieldTheme = 'green';
-  @property() accessor fieldOrientation: FieldOrientation = 'horizontal';
-  @property() accessor pitchType: PitchType = 'full';
-  @property() accessor boardName: string = '';
-  @property({ type: Boolean }) accessor playbackLoop: boolean = false;
+  // ── Board data for serialization (plain fields — not reactive) ──
+  // None of these are read in render(), only in triggerShare(). Using
+  // plain fields means board edits don't trigger a cb-share re-render.
+  players: Player[] = [];
+  lines: Line[] = [];
+  equipment: Equipment[] = [];
+  shapes: Shape[] = [];
+  textItems: TextItem[] = [];
+  animationFrames: AnimationFrame[] = [];
+  fieldTheme: FieldTheme = 'green';
+  fieldOrientation: FieldOrientation = 'horizontal';
+  pitchType: PitchType = 'full';
+  boardName: string = '';
+  playbackLoop: boolean = false;
 
-  // ── SVG reference for thumbnail upload ──────────────────────────
-  @property({ attribute: false }) accessor svgEl: SVGSVGElement | null = null;
+  // ── SVG reference for thumbnail upload (plain field — not reactive) ──
+  svgEl: SVGSVGElement | null = null;
 
   // ── Internal state ──────────────────────────────────────────────
   @state() private accessor _shareMessage: string = '';
