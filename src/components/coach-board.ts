@@ -250,13 +250,6 @@ export class CoachBoard extends LitElement {
 
     }
 
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    }
-
     .bottom-bar {
       flex-shrink: 0;
       display: grid;
