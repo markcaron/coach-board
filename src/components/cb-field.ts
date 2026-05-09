@@ -327,6 +327,19 @@ export class CbField extends LitElement {
 
   @query('svg') private accessor _svgEl!: SVGSVGElement;
 
+  // Set of item IDs that have at least one position entry across all frames.
+  // Items absent from this set never animate — we can return the original
+  // object reference immediately, skipping all computation and allocation.
+  #animatedIds: Set<string> = new Set();
+
+  willUpdate(changed: Map<string, unknown>) {
+    if (changed.has('animationFrames')) {
+      this.#animatedIds = new Set(
+        this.animationFrames.flatMap(f => Object.keys(f.positions))
+      );
+    }
+  }
+
   // ── Public methods for coach-board pointer handling ─────────────
 
   get svgEl(): SVGSVGElement {
@@ -397,8 +410,10 @@ export class CbField extends LitElement {
     if (!this.animationMode) return this.players;
     if (this.isPlaying) return this.#getInterpolatedPlayers();
     return this.players.map(p => {
+      if (!this.#animatedIds.has(p.id)) return p;
       const pos = this.#getItemPosition(p.id, p.x, p.y);
       const angle = this.#getItemAngle(p.id, p.angle);
+      if (pos.x === p.x && pos.y === p.y && angle === p.angle) return p;
       return { ...p, x: pos.x, y: pos.y, angle };
     });
   }
@@ -407,8 +422,10 @@ export class CbField extends LitElement {
     if (!this.animationMode) return this.equipment;
     if (this.isPlaying) return this.#getInterpolatedEquipment();
     return this.equipment.map(eq => {
+      if (!this.#animatedIds.has(eq.id)) return eq;
       const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
       const angle = this.#getItemAngle(eq.id, eq.angle);
+      if (pos.x === eq.x && pos.y === eq.y && angle === eq.angle) return eq;
       return { ...eq, x: pos.x, y: pos.y, angle };
     });
   }
@@ -419,19 +436,28 @@ export class CbField extends LitElement {
     const toIdx = fromIdx + 1;
     if (toIdx >= this.animationFrames.length) {
       return this.players.map(p => {
+        if (!this.#animatedIds.has(p.id)) return p;
         const pos = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
         const angle = this.#getItemAngleAtFrame(p.id, p.angle, fromIdx);
+        if (pos.x === p.x && pos.y === p.y && angle === p.angle) return p;
         return { ...p, x: pos.x, y: pos.y, angle };
       });
     }
     return this.players.map(p => {
+      if (!this.#animatedIds.has(p.id)) return p;
       const from = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
       const to = this.#getItemPositionAtFrame(p.id, p.x, p.y, toIdx);
       const fromAngle = this.#getItemAngleAtFrame(p.id, p.angle, fromIdx) ?? 0;
       const toAngle = this.#getItemAngleAtFrame(p.id, p.angle, toIdx) ?? 0;
+      const posStatic = from.x === to.x && from.y === to.y;
+      const angleStatic = fromAngle === toAngle;
+      if (posStatic && angleStatic) {
+        return (from.x === p.x && from.y === p.y && fromAngle === (p.angle ?? 0)) ? p
+          : { ...p, x: from.x, y: from.y, angle: fromAngle };
+      }
       const angleDelta = ((toAngle - fromAngle + 180) % 360 + 360) % 360 - 180;
       const angle = fromAngle + angleDelta * t;
-      if (from.x === to.x && from.y === to.y) return { ...p, x: from.x, y: from.y, angle };
+      if (posStatic) return { ...p, x: from.x, y: from.y, angle };
       const toFrame = this.animationFrames[toIdx];
       const trail = toFrame?.trails[p.id];
       const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
@@ -453,19 +479,28 @@ export class CbField extends LitElement {
     const toIdx = fromIdx + 1;
     if (toIdx >= this.animationFrames.length) {
       return this.equipment.map(eq => {
+        if (!this.#animatedIds.has(eq.id)) return eq;
         const pos = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
         const angle = this.#getItemAngleAtFrame(eq.id, eq.angle, fromIdx);
+        if (pos.x === eq.x && pos.y === eq.y && angle === eq.angle) return eq;
         return { ...eq, x: pos.x, y: pos.y, angle };
       });
     }
     return this.equipment.map(eq => {
+      if (!this.#animatedIds.has(eq.id)) return eq;
       const from = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
       const to = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, toIdx);
       const fromAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, fromIdx) ?? 0;
       const toAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, toIdx) ?? 0;
+      const posStatic = from.x === to.x && from.y === to.y;
+      const angleStatic = fromAngle === toAngle;
+      if (posStatic && angleStatic) {
+        return (from.x === eq.x && from.y === eq.y && fromAngle === (eq.angle ?? 0)) ? eq
+          : { ...eq, x: from.x, y: from.y, angle: fromAngle };
+      }
       const angleDelta = ((toAngle - fromAngle + 180) % 360 + 360) % 360 - 180;
       const angle = fromAngle + angleDelta * t;
-      if (from.x === to.x && from.y === to.y) return { ...eq, x: from.x, y: from.y, angle };
+      if (posStatic) return { ...eq, x: from.x, y: from.y, angle };
       const toFrame = this.animationFrames[toIdx];
       const trail = toFrame?.trails[eq.id];
       const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
