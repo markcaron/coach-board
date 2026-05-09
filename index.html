@@ -151,6 +151,13 @@
       coach-board {
         width: 100%;
       }
+
+      @media print {
+        html, body, main {
+          background: white !important;
+          color-scheme: light !important;
+        }
+      }
     </style>
     <script type="module" src="/src/index.ts"></script>
   </head>
