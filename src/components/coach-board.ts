@@ -1102,7 +1102,7 @@ export class CoachBoard extends LitElement {
           </svg>
           <span>A new version of CoachingBoard is available.</span>
           <button class="dismiss-btn" @click="${() => { this._updateAvailable = false; }}">Dismiss</button>
-          <button class="refresh-btn" @click="${async () => { await this.#updateSW?.(true); window.location.reload(); }}">Refresh</button>
+          <button class="refresh-btn" @click="${() => this.#updateSW?.(true)}">Refresh</button>
         </div>
       ` : nothing}
       ${this._viewMode === 'readonly' ? html`
