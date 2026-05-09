@@ -337,6 +337,7 @@ export class CbField extends LitElement {
       this.#animatedIds = new Set(
         this.animationFrames.flatMap(f => Object.keys(f.positions))
       );
+      this.#frameShapeIds = this.animationFrames.slice(1).flatMap(f => f.visibleShapeIds ?? []);
     }
   }
 
@@ -406,15 +407,15 @@ export class CbField extends LitElement {
     return true;
   }
 
-  #isShapeVisible(shapeId: string): boolean {
+  // Returns false only when a shape was explicitly registered in a later frame
+  // and the current active frame hasn't reached it yet. All other cases → true.
+  #frameShapeIds: string[] = [];
+
+  #shapeVisibleOnFrame(shapeId: string): boolean {
     if (!this.animationMode || this.activeFrameIndex === 0) return true;
-    // Shapes with no frame registration are always visible (backward-compat)
-    const allFrameShapeIds = this.animationFrames.slice(1).flatMap(f => f.visibleShapeIds ?? []);
-    if (!allFrameShapeIds.includes(shapeId)) return true;
-    // Shape is frame-registered: show from the frame it was added on
+    if (!this.#frameShapeIds.includes(shapeId)) return true;
     for (let i = 1; i <= this.activeFrameIndex; i++) {
-      const frame = this.animationFrames[i];
-      if (frame?.visibleShapeIds?.includes(shapeId)) return true;
+      if (this.animationFrames[i]?.visibleShapeIds?.includes(shapeId)) return true;
     }
     return false;
   }
@@ -1280,7 +1281,7 @@ export class CbField extends LitElement {
             })()}
 
             <g class="shapes-layer">
-              ${this.shapes.filter(s => !this.selectedIds.has(s.id) && this.#isShapeVisible(s.id)).map(s => this.#renderShape(s))}
+              ${this.shapes.filter(s => !this.selectedIds.has(s.id) && this.#shapeVisibleOnFrame(s.id)).map(s => this.#renderShape(s))}
               ${this.shapeDraw ? this.#renderShapeDrawPreview() : nothing}
             </g>
 
@@ -1317,7 +1318,7 @@ export class CbField extends LitElement {
             </g>
 
             <g class="selected-layer">
-              ${this.shapes.filter(s => this.selectedIds.has(s.id) && this.#isShapeVisible(s.id)).map(s => this.#renderShape(s))}
+              ${this.shapes.filter(s => this.selectedIds.has(s.id) && this.#shapeVisibleOnFrame(s.id)).map(s => this.#renderShape(s))}
               ${this.lines.filter(l => this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
               ${this.#getFramePlayers().filter(p => this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
               ${this.#getFrameEquipment().filter(eq => this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
