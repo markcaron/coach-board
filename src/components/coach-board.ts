@@ -572,7 +572,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _pauseFlash: boolean = false;
   @state() private accessor _playBtnAnim: '' | 'press-out' | 'press-in' = '';
   #currentBoard: SavedBoard | null = null;
-  #pendingBoardAction: PendingBoardAction = null;
+
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1602,7 +1602,6 @@ export class CoachBoard extends LitElement {
 
   #showSaveBoard() {
     this._menuOpen = false;
-    this.#pendingBoardAction = null;
     this.#pendingOpenBoardId = null;
     const name = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
     this._dialogs?.openSaveBoard(name, null);
@@ -1610,7 +1609,6 @@ export class CoachBoard extends LitElement {
 
   #handleSaveAs() {
     this._menuOpen = false;
-    this.#pendingBoardAction = 'save-as';
     this.#pendingOpenBoardId = null;
     this._dialogs?.openSaveBoard(`Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`, 'save-as');
   }
@@ -1776,7 +1774,6 @@ export class CoachBoard extends LitElement {
   #handleNewBoard() {
     this._menuOpen = false;
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this.#pendingBoardAction = 'new';
       this._dialogs?.openSaveBoard('', 'new');
       return;
     }
@@ -1837,7 +1834,6 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this.#pendingBoardAction = 'open';
       this.#pendingOpenBoardId = id;
       this._dialogs?.closeMyBoards();
       this._dialogs?.openSaveBoard('', 'open');
@@ -1975,7 +1971,6 @@ export class CoachBoard extends LitElement {
   #pendingImportData: Record<string, unknown> | null = null;
 
   #onSaveBoardClosed() {
-    this.#pendingBoardAction = null;
     this.#pendingOpenBoardId = null;
   }
 
