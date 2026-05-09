@@ -1149,6 +1149,8 @@ export class CbField extends LitElement {
       const prev = this.#getItemPositionAtFrame(p.id, p.x, p.y, this.activeFrameIndex - 1);
       if (curr.x === prev.x && curr.y === prev.y) continue;
 
+      const prevAngle = this.#getItemAngleAtFrame(p.id, p.angle, this.activeFrameIndex - 1) ?? 0;
+
       const trail = frame.trails[p.id];
       const cp1x = trail?.cp1x ?? prev.x + (curr.x - prev.x) / 3;
       const cp1y = trail?.cp1y ?? prev.y + (curr.y - prev.y) / 3;
@@ -1158,13 +1160,17 @@ export class CbField extends LitElement {
       trails.push(svg`
         <g opacity="0.3">
           ${p.team === 'a'
-            ? svg`<polygon points="${triPoints(prev.x, prev.y, PLAYER_RADIUS)}"
-                           fill="${p.color}" stroke="white" stroke-width="0.15"
-                           stroke-linejoin="round" style="pointer-events:none" />`
+            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" style="pointer-events:none">
+                    <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
+                             fill="${p.color}" stroke="white" stroke-width="0.15"
+                             stroke-linejoin="round" />
+                  </g>`
             : p.team === 'neutral'
-            ? svg`<polygon points="${prev.x},${prev.y - DIAMOND_HH} ${prev.x + DIAMOND_HW},${prev.y} ${prev.x},${prev.y + DIAMOND_HH} ${prev.x - DIAMOND_HW},${prev.y}"
-                           fill="${p.color}" stroke="white" stroke-width="0.15"
-                           stroke-linejoin="round" style="pointer-events:none" />`
+            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" style="pointer-events:none">
+                    <polygon points="0,${-DIAMOND_HH} ${DIAMOND_HW},0 0,${DIAMOND_HH} ${-DIAMOND_HW},0"
+                             fill="${p.color}" stroke="white" stroke-width="0.15"
+                             stroke-linejoin="round" />
+                  </g>`
             : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
                           fill="${p.color}" stroke="white" stroke-width="0.15"
                           style="pointer-events:none" />`
