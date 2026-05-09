@@ -407,7 +407,7 @@ export class CbField extends LitElement {
   }
 
   #isShapeVisible(shapeId: string): boolean {
-    if (!this.animationMode) return true;
+    if (!this.animationMode || this.activeFrameIndex === 0) return true;
     // Shapes with no frame registration are always visible (backward-compat)
     const allFrameShapeIds = this.animationFrames.slice(1).flatMap(f => f.visibleShapeIds ?? []);
     if (!allFrameShapeIds.includes(shapeId)) return true;
