@@ -1016,35 +1016,45 @@ export class CbField extends LitElement {
     `;
   }
 
-  #getShapeVisuals(style: ShapeStyle): { fill: string; stroke: string } {
+  #getShapeVisuals(style: ShapeStyle) {
     const visuals = getShapeStyles(this.fieldTheme).find(s => s.value === style);
-    return { fill: visuals?.fill ?? 'none', stroke: visuals?.stroke ?? COLORS.shapeStrokeGray };
+    return {
+      fill: visuals?.fill ?? 'none',
+      fillOpacity: visuals?.fillOpacity ?? 0,
+      stroke: visuals?.stroke ?? COLORS.shapeStrokeGray,
+      strokeWidth: visuals?.strokeWidth ?? 0.18,
+      strokeDasharray: visuals?.strokeDasharray,
+    };
   }
 
   #renderShape(s: Shape) {
     const selected = this.selectedIds.has(s.id);
     const singleSelected = selected && this.selectedIds.size === 1;
+    const vis = this.#getShapeVisuals(s.style);
     const angle = s.angle ?? 0;
-    const { fill, stroke } = this.#getShapeVisuals(s.style);
-    const pad = 0.5;
+    const pad = 0.3;
 
     return svg`
       <g data-id="${s.id}" data-kind="shape"
          transform="translate(${s.cx}, ${s.cy}) rotate(${angle})">
+        ${s.kind === 'rect'
+          ? svg`<rect x="${-s.hw}" y="${-s.hh}" width="${s.hw * 2}" height="${s.hh * 2}"
+                      fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
+                      stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                      stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
+                      style="cursor: pointer" />`
+          : svg`<ellipse rx="${s.hw}" ry="${s.hh}"
+                         fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
+                         stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
+                         stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
+                         style="cursor: pointer" />`
+        }
         ${selected ? svg`
-          <${s.kind === 'rect' ? 'rect' : 'ellipse'}
-            ${s.kind === 'rect'
-              ? svg`x="${-s.hw - pad}" y="${-s.hh - pad}" width="${(s.hw + pad) * 2}" height="${(s.hh + pad) * 2}"`
-              : svg`rx="${s.hw + pad}" ry="${s.hh + pad}"`}
-            fill="none" stroke="${this.#selColor}" stroke-width="0.12"
-            stroke-dasharray="0.5,0.3" rx="0.2" />
+          <rect x="${-s.hw - pad}" y="${-s.hh - pad}"
+                width="${(s.hw + pad) * 2}" height="${(s.hh + pad) * 2}"
+                fill="none" stroke="${this.#selColor}" stroke-width="0.12"
+                stroke-dasharray="0.5,0.3" rx="0.2" />
         ` : nothing}
-        <${s.kind === 'rect' ? 'rect' : 'ellipse'}
-          ${s.kind === 'rect'
-            ? svg`x="${-s.hw}" y="${-s.hh}" width="${s.hw * 2}" height="${s.hh * 2}"`
-            : svg`rx="${s.hw}" ry="${s.hh}"`}
-          fill="${fill}" stroke="${stroke}" stroke-width="0.2"
-          style="cursor: pointer" />
         ${singleSelected ? svg`
           ${this.#renderShapeHandles(s)}
           ${this.#shouldShowRotate(s.id, singleSelected) ? this.#renderRectRotateHandles(s.id,
