@@ -1,0 +1,15 @@
+---
+description: Safety checks before pushing to or commenting on GitHub PRs
+alwaysApply: true
+---
+
+# PR Safety
+
+Before pushing commits to a branch associated with a PR, or replying to a PR review, always verify the PR is still open:
+
+```bash
+gh pr view <number> --json state --jq '.state'
+# Must return "OPEN" — never push to a CLOSED or MERGED PR
+```
+
+If the PR is closed or merged, stop and ask the user how to proceed before taking any action.
