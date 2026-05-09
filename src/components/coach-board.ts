@@ -134,6 +134,7 @@ export class CoachBoard extends LitElement {
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
+      --panel-w: min(280px, 85vw);
       touch-action: manipulation;
       --color-blue: var(--pt-color-blue-400);
       --color-red: var(--pt-color-red-400);
@@ -156,24 +157,24 @@ export class CoachBoard extends LitElement {
     }
 
     /* ── Push-drawer layout ───────────────────────────────────── */
+    /* --panel-w is defined once and shared by the grid, transform,
+       and the panel element to guarantee they all use the same value. */
 
     .app-wrap {
-      display: flex;
-      flex-direction: row;
-      /* Extra width = menu panel width so both fit side-by-side */
-      width: calc(100% + min(280px, 85vw));
+      display: grid;
+      grid-template-columns: 100dvw var(--panel-w);
       height: 100dvh;
       transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
       will-change: transform;
     }
 
     .app-wrap.menu-open {
-      transform: translateX(calc(-1 * min(280px, 85vw)));
+      transform: translateX(calc(var(--panel-w) * -1));
     }
 
     .app-board {
-      flex: none;
-      width: 100dvw;
+      grid-column: 1;
+      min-width: 0;
       height: 100dvh;
       display: flex;
       flex-direction: column;
@@ -193,8 +194,8 @@ export class CoachBoard extends LitElement {
     /* ── Menu panel ───────────────────────────────────────────── */
 
     .menu-panel {
-      flex: none;
-      width: min(280px, 85vw);
+      grid-column: 2;
+      width: var(--panel-w);
       height: 100dvh;
       background: white;
       color: var(--pt-color-navy-800, #16213e);
@@ -1269,7 +1270,7 @@ export class CoachBoard extends LitElement {
             <div class="menu-nav-divider"></div>
           ` : nothing}
 
-          ${menuItem('Share Link', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m300 837.5c36.375-0.11328 72.234-8.625 104.79-24.867 32.547-16.242 60.906-39.781 82.863-68.781l233.15 125.6-0.003906 0.003906c-5.2422 18.062-8.0352 36.746-8.3008 55.551-0.25 51.039 17.758 100.48 50.77 139.41 33.012 38.922 78.852 64.762 129.25 72.844 50.395 8.0859 102.02-2.1172 145.55-28.762s76.102-67.973 91.828-116.53c15.727-48.555 13.57-101.13-6.0703-148.24-19.645-47.105-55.484-85.637-101.05-108.63-45.562-22.992-97.848-28.938-147.41-16.762-49.566 12.18-93.141 41.68-122.86 83.172l-229.45-123.6c18.93-50.207 18.93-105.59 0-155.8l229.7-123.6c29.523 40.945 72.699 70 121.75 81.93 49.047 11.93 100.75 5.9492 145.77-16.867 45.031-22.816 80.43-60.961 99.824-107.57 19.391-46.605 21.5-98.605 5.9453-146.63-15.551-48.023-47.746-88.91-90.781-115.3-43.031-26.387-94.074-36.539-143.93-28.621s-95.242 33.379-127.98 71.801c-32.742 38.418-50.688 87.27-50.598 137.75 0.26562 18.805 3.0586 37.488 8.3008 55.551l-233.4 125.6c-32.859-42.824-79.348-73.152-131.79-85.969-52.438-12.816-107.68-7.3516-156.59 15.488-48.91 22.84-88.559 61.688-112.39 110.12-23.832 48.434-30.422 103.55-18.676 156.24 11.742 52.688 41.117 99.785 83.266 133.51 42.148 33.727 94.543 52.055 148.52 51.961z"/></svg>`,
+          ${menuItem('Share Link', html`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-4.95-4.95L7 4.1"/><path d="M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 4.95 4.95L9 11.9"/></svg>`,
               () => this._share.triggerShare())}
 
           <div class="menu-nav-divider"></div>
