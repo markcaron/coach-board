@@ -245,6 +245,7 @@ export class CoachBoard extends LitElement {
       padding: 13px 20px;
       background: transparent;
       border: none;
+      border-radius: 6px;
       color: var(--pt-color-navy-800, #16213e);
       font: inherit;
       font-size: 0.95rem;
@@ -254,12 +255,13 @@ export class CoachBoard extends LitElement {
     }
 
     .menu-nav button:hover {
-      background: rgba(0, 0, 0, 0.04);
+      background: rgba(78, 168, 222, 0.08);
     }
 
     .menu-nav button:focus-visible {
       outline: 2px solid var(--pt-accent);
-      outline-offset: -2px;
+      outline-offset: -4px;
+      background: rgba(78, 168, 222, 0.08);
     }
 
     .menu-nav svg {
@@ -1271,11 +1273,6 @@ export class CoachBoard extends LitElement {
             <div class="menu-nav-divider"></div>
           ` : nothing}
 
-          ${menuItem('Share Link', html`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-4.95-4.95L7 4.1"/><path d="M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 4.95 4.95L9 11.9"/></svg>`,
-              () => this._share.triggerShare())}
-
-          <div class="menu-nav-divider"></div>
-
           ${this._viewMode !== 'readonly' ? html`
             ${menuItem('Board Summary', html`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 5h6M5 8h6M5 11h4" stroke-linecap="round"/></svg>`,
               this.#showBoardSummary)}
@@ -1507,6 +1504,14 @@ export class CoachBoard extends LitElement {
           ` : nothing}
         </div>
         <div class="bottom-right">
+          ${this._viewMode !== 'readonly' ? html`
+          <button class="icon-btn" aria-label="Share Board" title="Share Board"
+                  @click="${() => this._share.triggerShare()}">
+            <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0" fill="currentColor">
+              <path d="m12.141 1065.2c24.141-696.05 564.37-780.94 692.44-791.29l0.09375-140.06c0.09375-6.2344 2.1562-12.469 6.5156-17.672 9.75-11.578 27.094-13.078 38.672-3.3281l428.06 360.14c1.3125 1.0781 2.5312 2.25 3.6562 3.6094 9.75 11.578 8.25 28.922-3.3281 38.672l-426.32 358.69c-5.0156 5.1094-12 8.2969-19.688 8.2969-15.234 0-27.562-12.328-27.562-27.562v-157.26c-509.53-48.328-632.9 356.81-638.39 375.56-3.1406 12.141-14.344 20.953-27.422 20.531-15.141-0.46875-27.094-13.125-26.625-28.312z" fill-rule="evenodd"/>
+            </svg>
+          </button>
+          ` : nothing}
           <button aria-label="Menu" title="Menu"
                   aria-haspopup="true"
                   aria-expanded="${this._menuOpen}"
