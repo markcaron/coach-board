@@ -70,7 +70,7 @@ export class CbTimeline extends LitElement {
       align-items: center;
       gap: 6px;
       min-width: 0;
-      overflow: hidden;
+      /* overflow: hidden removed — it clips focus rings on child buttons */
     }
 
     .frames-scroll {
@@ -78,10 +78,13 @@ export class CbTimeline extends LitElement {
       align-items: center;
       gap: 6px;
       overflow-x: auto;
-      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       min-width: 0;
-      padding: 0 2px;
+      /* Padding + negative margin trick: gives focus rings (outline 2px +
+         offset 2px = 4px) room to render without being clipped by the
+         overflow-x container, while keeping the layout unchanged. */
+      padding: 4px 2px;
+      margin-block: -4px;
     }
 
     .frames-scroll-wrap {
@@ -342,8 +345,15 @@ export class CbTimeline extends LitElement {
     if (changedProperties.has('frameCount') || changedProperties.has('activeFrame')) {
       requestAnimationFrame(() => {
         this.#checkScrollShadows();
-        this.shadowRoot?.querySelector('.frame-btn.active')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        // When a frame was added (frameCount grew), scroll the add button into
+        // view — focus stays there so this keeps the focused element visible.
+        // Otherwise scroll the newly active frame button into view (e.g. scrubbing).
+        const frameAdded = changedProperties.has('frameCount')
+          && (changedProperties.get('frameCount') as number) < this.frameCount;
+        const target = frameAdded
+          ? this.shadowRoot?.querySelector<HTMLElement>('.add-btn')
+          : this.shadowRoot?.querySelector<HTMLElement>('.frame-btn.active');
+        target?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
       });
     }
   }
