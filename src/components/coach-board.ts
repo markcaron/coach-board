@@ -164,7 +164,7 @@ export class CoachBoard extends LitElement {
       display: grid;
       grid-template-columns: 100dvw var(--panel-w);
       height: 100dvh;
-      transition: transform 420ms cubic-bezier(0.32, 0.72, 0, 1);
+      transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .app-wrap.menu-open {
@@ -278,7 +278,9 @@ export class CoachBoard extends LitElement {
     .menu-spacer { flex: 1; }
 
     @media (prefers-reduced-motion: reduce) {
-      .app-wrap { transition: none; }
+      /* Use a short duration instead of none so the slide is still
+         perceptible but instant for users who prefer reduced motion */
+      .app-wrap { transition: transform 150ms ease; }
     }
 
     .toolbar-area {
@@ -1708,7 +1710,7 @@ export class CoachBoard extends LitElement {
     if (this._menuOpen) {
       this.updateComplete.then(() => {
         const first = this.renderRoot.querySelector('.menu-nav button') as HTMLElement | null;
-        first?.focus();
+        first?.focus({ preventScroll: true });
       });
     }
   }
