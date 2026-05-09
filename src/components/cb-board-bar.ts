@@ -36,9 +36,9 @@ export class CbBoardBar extends LitElement {
     }
   `;
 
-  @property() accessor boardName: string = '';
-  @property({ type: Boolean }) accessor isSaved: boolean = false;
-  @property({ type: Boolean }) accessor isWhiteTheme: boolean = false;
+  @property() boardName: string = '';
+  @property({ type: Boolean }) isSaved: boolean = false;
+  @property({ type: Boolean }) isWhiteTheme: boolean = false;
 
   render() {
     return html`
