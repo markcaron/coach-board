@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.3.0 — KC Current (2026-05-09)
+
+### Features
+
+- **Per-frame shape visibility** (#57): Shapes drawn in animation mode are tied to the frame they were created on, appearing from that frame onward — like lines. Enables pressing-zone boxes, tactical highlights, and zone annotations that appear and disappear during playback.
+- **Shift+drag axis constraint** (#56): Holding Shift while dragging an element constrains movement to the nearest axis — horizontal, vertical, or 45° diagonal. Works for player/equipment/shape/text drags (including animation frame drags), line endpoint drags, and trail control point drags.
+- **Animation timeline progress bar** (#58): The active frame button shows a growing progress bar during playback, and the timeline auto-scrolls to keep the active frame visible as it advances.
+- **Component decomposition** (#76): `coach-board.ts` decomposed into `<cb-board-bar>`, `<cb-field>`, `<cb-dialogs>`, and `<cb-share>` web components, reducing render coupling and improving maintainability.
+- **Dialog state decoupled from field renders** (#85): Dialog-specific state moved into `<cb-dialogs>` so board edits no longer trigger unnecessary dialog re-renders.
+
+### Bug Fixes
+
+- **Shape rendering regression**: Shapes (rectangles and ellipses) were invisible on all boards due to a Lit template issue introduced during the `<cb-field>` extraction. Dynamic tag names (`<${kind}>`) are not supported in Lit `svg\`` templates; restored to explicit conditional branches. Also fixed missing `fill-opacity`, `strokeWidth`, and `strokeDasharray` from shape styles.
+- **Ghost trail rotation** (#81): Animation ghost/trail markers for Team A and Neutral players always rendered facing up regardless of rotation. Now reads the player's angle at the previous frame and applies a `translate + rotate` transform.
+- **Arrow key nudge in animation mode** (#53): Nudging with arrow keys now writes to the frame's position record instead of modifying the base player coordinates, matching how drag-move works. Fixes the "ghost moves instead of player" bug.
+- **Undo/redo for animation frames** (#54): `animationFrames` is now included in the undo snapshot, making frame position drags, frame add/delete, and per-frame shape registrations all undoable.
+- **Undo/redo restores field orientation, theme, and pitch type**: Undoing across a field orientation change (e.g. a responsive mobile resize) now correctly restores the orientation alongside the element coordinates.
+- **SW Refresh double-reload**: The "Refresh" button in the update toast no longer causes a blank page by triggering two sequential reloads.
+- **CSS corruption in bottom bar**: A stray top-level `}` left by a conflict resolution caused the entire `.bottom-bar` CSS to be silently dropped. Bottom toolbar now renders correctly.
+- **cb-share dialog showing on load**: The share dialog appeared on every page load because `dialog { display: flex }` overrides the UA stylesheet's hidden state. Added `dialog:not([open]) { display: none }`.
+- **iOS print dark background** (#61): Added global `@media print` rules on `html`, `body`, and `main` to force white background and light color-scheme, fixing the dark navy bleed on iOS Safari.
+- **Animation GC pressure** (#80): Items that never move across any animation frame now return their original object reference directly (zero allocation per rAF tick). Items static within a frame segment also return the original reference.
+
+### Performance & Architecture
+
+- **Lit directives** (#83): Applied `guard()` and `repeat()` for SVG field rendering to skip diffing unchanged sections.
+- **Animation interpolation GC** (#80): Pre-computed `#animatedIds` set in `willUpdate` avoids repeated `flatMap` in hot render paths.
+- **5 dialog event round-trips eliminated** (#85): Board name typing, pitch type selection, print checkbox toggles, etc. are now handled internally in `<cb-dialogs>` with no parent re-renders.
+
+### Accessibility
+
+- **Timeline focus ring clipping**: The frames scroll container no longer clips focus outlines. Pressing "+" to add a frame keeps focus on the button and scrolls it into view.
+- **a11y rule added**: Agent rule prevents dismissing accessibility concerns without filing a tracked issue.
+
 ## 1.2.3 (2026-05-08)
 
 ### Bug Fixes
