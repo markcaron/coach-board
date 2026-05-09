@@ -1,0 +1,32 @@
+---
+description: Never dismiss accessibility concerns as "acceptable" or "minor" without first implementing a fix or filing a tracked issue.
+alwaysApply: true
+---
+
+# Accessibility: Never Dismiss, Always Act
+
+When a code review, audit, or user flags an a11y concern, do one of the following — do NOT mark it as "acceptable as-is" and move on:
+
+1. **Fix it in the current PR** (preferred when the fix is small)
+2. **File a GitHub issue** to track it: `gh issue create --title "a11y: ..." --body "..."`
+
+## What counts as an a11y concern
+
+- Missing `focus-visible` / keyboard navigation
+- Missing ARIA labels, roles, or live regions
+- Insufficient color contrast
+- Click targets smaller than 44×44px
+- Form inputs without associated labels
+- Dialogs without proper focus management
+- Screen reader announcements missing
+
+## Examples
+
+```
+❌ "Minor a11y gap, left as-is."
+❌ "Acceptable trade-off, no action taken."
+
+✅ Fix it inline, or:
+✅ gh issue create --title "a11y: focus-visible missing on cb-share close button" \
+     --body "Identified in PR #88 review. Add outline: 2px solid var(--pt-accent)."
+```

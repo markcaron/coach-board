@@ -529,33 +529,6 @@ export class CbDialogs extends LitElement {
       margin-top: 4px;
     }
 
-    /* Share dialog */
-    .share-url {
-      display: block;
-      margin-top: 24px;
-      padding: 10px 12px;
-      background: var(--pt-bg-primary);
-      border: 1px solid var(--pt-border);
-      border-radius: 6px;
-      font-family: monospace;
-      font-size: 0.7rem;
-      color: var(--pt-text-muted);
-      word-break: break-all;
-      max-height: 80px;
-      overflow-y: auto;
-      user-select: all;
-    }
-
-    .share-editable-label {
-      display: flex;
-      align-items: center;
-      margin-top: 12px;
-      gap: 8px;
-      font-size: 0.85rem;
-      color: var(--pt-text);
-      cursor: pointer;
-      margin-right: auto;
-    }
 
     /* Board summary dialog */
     .summary-section {
@@ -607,9 +580,6 @@ export class CbDialogs extends LitElement {
     }
   `;
 
-  @property() accessor shareMessage: string = '';
-  @property() accessor shareUrl: string = '';
-  @property({ type: Boolean }) accessor shareEditable: boolean = false;
   @property() accessor saveBoardName: string = '';
   @property({ attribute: false }) accessor pendingBoardAction: PendingBoardAction = null;
   @property({ attribute: false }) accessor newBoardPitchType: PitchType = 'full';
@@ -627,7 +597,6 @@ export class CbDialogs extends LitElement {
   @query('#about-dialog') private accessor _aboutDialog!: HTMLDialogElement;
   @query('#import-confirm-dialog') private accessor _importConfirmDialog!: HTMLDialogElement;
   @query('#import-error-dialog') private accessor _importErrorDialog!: HTMLDialogElement;
-  @query('#share-dialog') private accessor _shareDialog!: HTMLDialogElement;
   @query('#save-board-dialog') private accessor _saveBoardDialog!: HTMLDialogElement;
   @query('#new-board-dialog') private accessor _newBoardDialog!: HTMLDialogElement;
   @query('#my-boards-dialog') private accessor _myBoardsDialog!: HTMLDialogElement;
@@ -647,15 +616,6 @@ export class CbDialogs extends LitElement {
   showAbout() { requestAnimationFrame(() => this._aboutDialog?.showModal()); }
   showImportConfirm() { requestAnimationFrame(() => this._importConfirmDialog?.showModal()); }
   showImportError() { requestAnimationFrame(() => this._importErrorDialog?.showModal()); }
-
-  showShare() {
-    if (!this._shareDialog?.open) {
-      requestAnimationFrame(() => this._shareDialog?.showModal());
-    }
-  }
-
-  isShareOpen() { return this._shareDialog?.open ?? false; }
-  closeShare() { this._shareDialog?.close(); }
 
   showSaveBoard() {
     requestAnimationFrame(() => {
@@ -730,38 +690,6 @@ export class CbDialogs extends LitElement {
         </div>
       </dialog>
 
-      <dialog id="share-dialog">
-        <div class="dialog-header">
-          <h2>Share</h2>
-          <button class="dialog-close" aria-label="Close" title="Close"
-                  @click="${() => this._shareDialog?.close()}">
-            ${this.#closeIcon()}
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>${this.shareMessage}</p>
-          ${this.shareUrl ? html`
-            <code class="share-url">${this.shareUrl}</code>
-            <label class="share-editable-label">
-              <input type="checkbox" .checked="${this.shareEditable}"
-                     @change="${this.#onShareEditableChange}" />
-              Keep editable
-            </label>
-          ` : nothing}
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._shareDialog?.close()}">Close</button>
-            ${this.shareUrl ? html`
-              <button class="confirm-success" @click="${this.#onCopyAndClose}">
-                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="flex-shrink:0">
-                  <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
-                  <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                </svg>
-                Copy link
-              </button>
-            ` : nothing}
-          </div>
-        </div>
-      </dialog>
 
       <dialog id="reset-dialog">
         <div class="dialog-header">
@@ -1145,13 +1073,6 @@ export class CbDialogs extends LitElement {
     this.#emit('cb-confirm-clear-all');
   }
 
-  #onShareEditableChange(e: Event) {
-    this.#emit('cb-share-editable-change', { checked: (e.target as HTMLInputElement).checked });
-  }
-
-  #onCopyAndClose() {
-    this.#emit('cb-copy-and-close');
-  }
 
   #onSaveBoardClosed() {
     this.#emit('cb-save-board-closed');

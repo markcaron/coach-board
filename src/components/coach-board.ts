@@ -21,8 +21,10 @@ import './cb-timeline.js';
 import './cb-dialogs.js';
 import type { CbDialogs, BoardSummary } from './cb-dialogs.js';
 import './cb-field.js';
-import type { CbField, GhostCursor, DrawState, ShapeDrawState } from './cb-field.js';import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
-
+import type { CbField, GhostCursor, DrawState, ShapeDrawState } from './cb-field.js';
+import './cb-share.js';
+import type { CbShare } from './cb-share.js';
+import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
 
 type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side' | 'trail-cp1' | 'trail-cp2';
 
@@ -563,9 +565,10 @@ export class CoachBoard extends LitElement {
   @state() private accessor _playbackSpeed: number = 1;
   @state() private accessor _playbackLoop: boolean = true;
 
-  @query('cb-field') private accessor _field!: CbField;  @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
-  @query('cb-dialogs') private accessor _dialogs!: CbDialogs;
-  @state() private accessor _boardName: string = 'Untitled Board';
+  @query('cb-field') private accessor _field!: CbField;
+  @query('cb-share') private accessor _share!: CbShare;
+  @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
+  @query('cb-dialogs') private accessor _dialogs!: CbDialogs;  @state() private accessor _boardName: string = 'Untitled Board';
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _saveBoardName: string = '';
   @state() private accessor _newBoardPitchType: PitchType = 'full';
@@ -577,21 +580,14 @@ export class CoachBoard extends LitElement {
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _updateAvailable: boolean = false;
   #updateSW: ((reloadPage?: boolean) => Promise<void>) | null = null;
-  @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
   @state() private accessor _pauseFlash: boolean = false;
   @state() private accessor _playBtnAnim: '' | 'press-out' | 'press-in' = '';
-  @state() private accessor _shareMessage: string = '';
-  @state() private accessor _shareUrl: string = '';
   #currentBoard: SavedBoard | null = null;
   @state() private accessor _pendingBoardAction: 'new' | 'open' | 'save-as' | null = null;
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
-  #shareCompressed: string = '';
-  #shareShortId: string = '';
-  #lastSharedData: string = '';
-
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
   #rotateDrag: RotateDragState | null = null;
@@ -950,53 +946,6 @@ export class CoachBoard extends LitElement {
       }, 'image/png');
     };
     img.src = svgUrl;
-  }
-
-  #renderThumbnail(): Promise<Blob | null> {
-    return new Promise(resolve => {
-      try {
-        const svgClone = this._field.svgEl.cloneNode(true) as SVGSVGElement;
-        svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
-        svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
-        svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
-        svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
-        svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
-
-        const vb = this._field.svgEl.viewBox.baseVal;
-        const scale = 3;
-        const w = vb.width * scale;
-        const h = vb.height * scale;
-        svgClone.setAttribute('width', String(w));
-        svgClone.setAttribute('height', String(h));
-
-        const svgString = new XMLSerializer().serializeToString(svgClone);
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const svgUrl = URL.createObjectURL(svgBlob);
-
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, w, h);
-          URL.revokeObjectURL(svgUrl);
-          canvas.toBlob(blob => resolve(blob), 'image/png');
-        };
-        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null); };
-        img.src = svgUrl;
-      } catch { resolve(null); }
-    });
-  }
-
-  async #uploadThumbnail(shareId: string) {
-    const blob = await this.#renderThumbnail();
-    if (!blob) return;
-    await fetch(`/api/share/${shareId}/image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'image/png' },
-      body: blob,
-    });
   }
 
   async #saveGif() {
@@ -1427,7 +1376,7 @@ export class CoachBoard extends LitElement {
 
                 <div class="menu-divider"></div>
                 <button role="menuitem" tabindex="-1"
-                        @click="${this.#shareLink}">
+                        @click="${() => this._share.triggerShare()}">
                   <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
                     <path d="m300 837.5c36.375-0.11328 72.234-8.625 104.79-24.867 32.547-16.242 60.906-39.781 82.863-68.781l233.15 125.6 0.003906-0.003906c-5.2422 18.062-8.0352 36.746-8.3008 55.551-0.25 51.039 17.758 100.48 50.77 139.41 33.012 38.922 78.852 64.762 129.25 72.844 50.395 8.0859 102.02-2.1172 145.55-28.762s76.102-67.973 91.828-116.53c15.727-48.555 13.57-101.13-6.0703-148.24-19.645-47.105-55.484-85.637-101.05-108.63-45.562-22.992-97.848-28.938-147.41-16.762-49.566 12.18-93.141 41.68-122.86 83.172l-229.45-123.6c18.93-50.207 18.93-105.59 0-155.8l229.7-123.6c29.523 40.945 72.699 70 121.75 81.93 49.047 11.93 100.75 5.9492 145.77-16.867 45.031-22.816 80.43-60.961 99.824-107.57 19.391-46.605 21.5-98.605 5.9453-146.63-15.551-48.023-47.746-88.91-90.781-115.3-43.031-26.387-94.074-36.539-143.93-28.621s-95.242 33.379-127.98 71.801c-32.742 38.418-50.688 87.27-50.598 137.75 0.26562 18.805 3.0586 37.488 8.3008 55.551l-233.4 125.6c-32.859-42.824-79.348-73.152-131.79-85.969-52.438-12.816-107.68-7.3516-156.59 15.488-48.91 22.84-88.559 61.688-112.39 110.12-23.832 48.434-30.422 103.55-18.676 156.24 11.742 52.688 41.117 99.785 83.266 133.51 42.148 33.727 94.543 52.055 148.52 51.961zm625-50c36.469 0 71.441 14.488 97.227 40.273 25.785 25.785 40.273 60.758 40.273 97.227s-14.488 71.441-40.273 97.227c-25.785 25.785-60.758 40.273-97.227 40.273s-71.441-14.488-97.227-40.273c-25.785-25.785-40.273-60.758-40.273-97.227 0.027344-36.461 14.523-71.418 40.301-97.199 25.781-25.777 60.738-40.273 97.199-40.301zm0-650c36.469 0 71.441 14.488 97.227 40.273 25.785 25.785 40.273 60.758 40.273 97.227s-14.488 71.441-40.273 97.227c-25.785 25.785-60.758 40.273-97.227 40.273s-71.441-14.488-97.227-40.273c-25.785-25.785-40.273-60.758-40.273-97.227 0.027344-36.461 14.523-71.418 40.301-97.199 25.781-25.777 60.738-40.273 97.199-40.301zm-625 300c43.098 0 84.43 17.121 114.91 47.594 30.473 30.477 47.594 71.809 47.594 114.91s-17.121 84.43-47.594 114.91c-30.477 30.473-71.809 47.594-114.91 47.594s-84.43-17.121-114.91-47.594c-30.473-30.477-47.594-71.809-47.594-114.91 0.054688-43.082 17.191-84.383 47.652-114.85 30.465-30.461 71.766-47.598 114.85-47.652z"/>
                   </svg>
@@ -1472,9 +1421,6 @@ export class CoachBoard extends LitElement {
              @change="${this.#onFileSelected}" />
 
       <cb-dialogs
-        .shareMessage="${this._shareMessage}"
-        .shareUrl="${this._shareUrl}"
-        .shareEditable="${this._shareEditable}"
         .saveBoardName="${this._saveBoardName}"
         .pendingBoardAction="${this._pendingBoardAction}"
         .newBoardPitchType="${this._newBoardPitchType}"
@@ -1490,8 +1436,6 @@ export class CoachBoard extends LitElement {
         @cb-import-confirm="${this.#confirmImport}"
         @cb-cancel-clear-all="${this.#cancelClearAll}"
         @cb-confirm-clear-all="${this.#confirmClearAll}"
-        @cb-share-editable-change="${this.#onShareEditableChange}"
-        @cb-copy-and-close="${this.#onCopyAndClose}"
         @cb-save-board-name-input="${this.#onSaveBoardNameInput}"
         @cb-save-board-confirm="${this.#confirmSaveBoard}"
         @cb-save-board-skip="${this.#skipSaveBoard}"
@@ -1514,7 +1458,20 @@ export class CoachBoard extends LitElement {
         @cb-print-white-bg-change="${this.#onPrintWhiteBgChange}"
         @cb-print-confirm="${this.#handlePrint}"
       ></cb-dialogs>
-
+      <cb-share
+        .players="${this.players}"
+        .lines="${this.lines}"
+        .equipment="${this.equipment}"
+        .shapes="${this.shapes}"
+        .textItems="${this.textItems}"
+        .animationFrames="${this.animationFrames}"
+        .fieldTheme="${this.fieldTheme}"
+        .fieldOrientation="${this.fieldOrientation}"
+        .pitchType="${this.pitchType}"
+        .boardName="${this._boardName}"
+        .playbackLoop="${this._playbackLoop}"
+        .svgEl="${this._field?.svgEl ?? null}"
+      ></cb-share>
       <div class="rotate-overlay">
         <svg viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
           <path d="M880.71 163.3V163.32L740.23 163.16L738.09 127.98L882.89 128L880.71 163.3ZM106.9 438.69H106.88L105.81 458.31L105.78 459.55L105.99 479.2C106.11 489.65 114.67 498.03 125.12 497.92C135.5 497.81 143.84 489.35 143.84 479L143.63 459.77L144.64 441.37L146.85 423.11L150.26 405.01L154.85 387.19L160.6 369.72L167.5 352.63L175.49 336.07L184.57 320.03L194.67 304.65L205.76 289.97L217.8 276.04L230.73 262.93L244.27 250.89L258.55 239.75L273.53 229.55L289.13 220.35L305.29 212.18L321.96 205.07L339.06 199.05L356.5 194.15L374.21 190.39L392.15 187.78L409.75 186.38L388.69 203.43C384.01 207.22 381.58 212.76 381.58 218.35C381.58 222.59 382.98 226.86 385.86 230.41C392.52 238.64 404.61 239.91 412.84 233.25L475.4 182.59C479.9 178.95 482.51 173.47 482.53 167.68V167.59C482.53 161.81 479.9 156.42 475.4 152.77L413.16 102.35C404.93 95.68 392.85 96.95 386.18 105.18C383.3 108.73 381.9 113 381.9 117.25C381.9 122.84 384.33 128.38 389.01 132.17L409.17 148.5H409.04L407.82 148.56L388.53 150.1L387.31 150.24L368.17 153.02L366.96 153.24L348.04 157.26L346.85 157.55L328.23 162.78L327.06 163.15L308.81 169.58L307.67 170.03L289.88 177.62L288.77 178.14L271.51 186.87L270.44 187.46L253.78 197.29L252.74 197.95L236.75 208.83L235.76 209.55L220.51 221.45L219.57 222.23L205.11 235.09L204.22 235.94L190.42 249.93L189.58 250.84L176.73 265.71L175.95 266.68L164.1 282.36L163.39 283.38L152.6 299.81L151.95 300.87L142.27 317.97L141.69 319.07L133.15 336.77L132.64 337.91L125.28 356.13L124.85 357.3L118.71 375.97L118.36 377.17L113.45 396.2L113.18 397.41L109.54 416.72L109.35 417.95L106.98 437.46L106.93 438.7H106.88H106.9V438.69ZM1034.12 127.99H1035.01C1048.17 128.42 1058.72 139.24 1058.72 152.52V850.85L562.25 850.87V152.52C562.25 139.24 572.79 128.42 585.96 127.99L699.84 128.01L703.25 183.42C703.87 193.49 712.21 201.33 722.3 201.33L898.64 201.38C908.72 201.36 917.06 193.52 917.69 183.46L921.13 127.99H1034.12ZM165.32 878.25V878.27L130.31 880.29L130.22 735.5L165.38 737.71V737.73L165.32 878.26V878.25ZM810.51 955.19H810.54C821.5 955.19 830.33 964.07 830.33 975.02C830.33 985.97 821.45 994.85 810.5 994.85C799.55 994.85 790.67 985.97 790.67 975.02C790.67 964.07 799.52 955.19 810.47 955.19H810.52H810.51ZM810.5 916.95H810.46C778.39 916.95 752.43 942.95 752.43 975.02C752.43 1007.09 778.42 1033.08 810.49 1033.08C842.56 1033.08 868.56 1007.08 868.56 975.02C868.56 942.96 842.59 916.95 810.52 916.95H810.5ZM1058.75 1031.75V1031.8C1058.75 1045.02 1048.2 1056.26 1035.04 1056.28L585.98 1056.3C572.82 1055.87 562.26 1045.04 562.26 1031.76V889.07L1058.74 889.11V1031.75H1058.75ZM153.36 521.44V521.46C153.47 521.44 153.36 521.44 153.36 521.44C121.46 522.14 95.39 546.56 92.24 577.77V577.84C92.01 580 91.87 1031.59 91.87 1031.59C91.87 1055.47 105.03 1076.19 124.65 1086.81L124.74 1086.86C133.33 1091.56 143.14 1094.56 153.58 1094.56L481.57 1094.36C492.12 1094.36 500.68 1085.81 500.68 1075.26C500.68 1064.71 492.23 1056.26 481.77 1056.16C481.51 1056.16 154.65 1056.16 154.65 1056.16C150.38 1056.16 146.37 1055.07 142.87 1053.15L142.82 1053.12C135.64 1049 130.71 1041.43 130.42 1032.66L130.35 918.55L185.58 915.17C195.64 914.55 203.48 906.22 203.5 896.15C203.5 896.06 203.57 719.78 203.57 719.78C203.57 709.7 195.73 701.35 185.67 700.73L130.22 697.28L130.29 581.75C131.64 569.45 142.04 559.9 154.67 559.89L481.58 559.71C492.13 559.69 500.69 551.14 500.69 540.59C500.69 530.04 492.14 521.48 481.58 521.48H153.36V521.5V521.47V521.44ZM586.84 89.74H586.79C552.59 89.74 524.79 117.08 524.04 151.11V1033.18C524.81 1067.22 552.62 1094.56 586.81 1094.56H1034.2C1068.39 1094.54 1096.21 1067.2 1096.96 1033.17V151.11C1096.19 117.07 1068.38 89.73 1034.19 89.73H586.84V89.74Z" fill="white"/>
@@ -2053,88 +2010,6 @@ export class CoachBoard extends LitElement {
   }
 
   #pendingImportData: Record<string, unknown> | null = null;
-
-  #buildShareUrl() {
-    const mode = this._shareEditable ? 'edit' : 'view';
-    if (this.#shareShortId) {
-      return `${window.location.origin}/s/${this.#shareShortId}?mode=${mode}`;
-    }
-    return `${window.location.origin}${window.location.pathname}#board=${this.#shareCompressed}&mode=${mode}`;
-  }
-
-  async #shareLink() {
-    this._menuOpen = false;
-
-    const data = JSON.stringify({
-      name: this._boardName || 'Untitled Board',
-      players: this.players,
-      lines: this.lines,
-      equipment: this.equipment,
-      shapes: this.shapes,
-      textItems: this.textItems,
-      animationFrames: this.animationFrames,
-      fieldTheme: this.fieldTheme,
-      fieldOrientation: this.fieldOrientation,
-      pitchType: this.pitchType,
-      playbackLoop: this._playbackLoop,
-    });
-
-    const boardChanged = data !== this.#lastSharedData;
-    if (boardChanged) {
-      this.#shareShortId = '';
-      this.#shareCompressed = '';
-    }
-
-    if (!this.#shareShortId) {
-      this._shareMessage = 'Generating link\u2026';
-      this._shareUrl = '';
-      this._dialogs?.showShare();
-
-      try {
-        const res = await fetch('/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: data,
-        });
-        if (res.ok) {
-          const { id } = await res.json() as { id: string };
-          this.#shareShortId = id;
-          this.#lastSharedData = data;
-          this.#uploadThumbnail(id).catch(() => {});
-        }
-      } catch { /* API unavailable, fall back to hash */ }
-    }
-
-    if (!this.#shareShortId) {
-      const { compressToEncodedURIComponent } = await import('lz-string');
-      this.#shareCompressed = compressToEncodedURIComponent(data);
-      this.#lastSharedData = data;
-      const url = this.#buildShareUrl();
-      if (url.length > 8000) {
-        this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
-        this._shareUrl = '';
-        return;
-      }
-    }
-
-    this._shareUrl = this.#buildShareUrl();
-    this._shareMessage = 'Copy the link to share with players, other coaches, etc.';
-    if (!this._dialogs?.isShareOpen()) {
-      this._dialogs?.showShare();
-    }
-  }
-
-  #onShareEditableChange(e: CustomEvent<{ checked: boolean }>) {
-    this._shareEditable = e.detail.checked;
-    this._shareUrl = this.#buildShareUrl();
-  }
-
-  async #onCopyAndClose() {
-    try {
-      await navigator.clipboard.writeText(this._shareUrl);
-      this._dialogs?.closeShare();
-    } catch { /* leave dialog open so URL remains visible for manual copy */ }
-  }
 
   #onSaveBoardNameInput(e: CustomEvent<{ value: string }>) {
     this._saveBoardName = e.detail.value;
