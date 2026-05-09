@@ -596,7 +596,6 @@ export class CbDialogs extends LitElement {
   @state() private accessor _printSummary: boolean = true;
   @state() private accessor _printWhiteBg: boolean = true;
 
-  @query('#reset-dialog') private accessor _resetDialog!: HTMLDialogElement;
   @query('#about-dialog') private accessor _aboutDialog!: HTMLDialogElement;
   @query('#import-confirm-dialog') private accessor _importConfirmDialog!: HTMLDialogElement;
   @query('#import-error-dialog') private accessor _importErrorDialog!: HTMLDialogElement;
@@ -615,7 +614,6 @@ export class CbDialogs extends LitElement {
 
   // ─── Public show/close API ────────────────────────────────────────────────
 
-  showReset() { requestAnimationFrame(() => this._resetDialog?.showModal()); }
   showAbout() { requestAnimationFrame(() => this._aboutDialog?.showModal()); }
   showImportConfirm() { requestAnimationFrame(() => this._importConfirmDialog?.showModal()); }
   showImportError() { requestAnimationFrame(() => this._importErrorDialog?.showModal()); }
@@ -669,7 +667,6 @@ export class CbDialogs extends LitElement {
   closePrint() { this._printDialog?.close(); }
 
   closeImportConfirm() { this._importConfirmDialog?.close(); }
-  closeReset() { this._resetDialog?.close(); }
 
   // ─── Close SVG icon helper ────────────────────────────────────────────────
 
@@ -715,22 +712,6 @@ export class CbDialogs extends LitElement {
       </dialog>
 
 
-      <dialog id="reset-dialog">
-        <div class="dialog-header">
-          <h2>Reset all</h2>
-          <button class="dialog-close" aria-label="Close" title="Close"
-                  @click="${this.#onCancelClearAll}">
-            ${this.#closeIcon()}
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>Are you sure you want to reset all items on the board?</p>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${this.#onCancelClearAll}">Cancel</button>
-            <button class="confirm-danger" @click="${this.#onConfirmClearAll}">Yes, reset all</button>
-          </div>
-        </div>
-      </dialog>
 
       <dialog id="about-dialog">
         <div class="about-close-row">
@@ -1087,15 +1068,6 @@ export class CbDialogs extends LitElement {
     this.#emit('cb-import-confirm');
   }
 
-  #onCancelClearAll() {
-    this._resetDialog?.close();
-    this.#emit('cb-cancel-clear-all');
-  }
-
-  #onConfirmClearAll() {
-    this._resetDialog?.close();
-    this.#emit('cb-confirm-clear-all');
-  }
 
 
   #onSaveBoardClosed() {
