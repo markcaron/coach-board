@@ -19,7 +19,7 @@ import './cb-toolbar.js';
 import './cb-board-bar.js';
 import './cb-timeline.js';
 import './cb-dialogs.js';
-import type { CbDialogs, BoardSummary } from './cb-dialogs.js';
+import type { CbDialogs, BoardSummary, PendingBoardAction } from './cb-dialogs.js';
 import './cb-field.js';
 import type { CbField, GhostCursor, DrawState, ShapeDrawState } from './cb-field.js';
 import './cb-share.js';
@@ -564,13 +564,6 @@ export class CoachBoard extends LitElement {
   @query('cb-share') private accessor _share!: CbShare;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('cb-dialogs') private accessor _dialogs!: CbDialogs;  @state() private accessor _boardName: string = 'Untitled Board';
-  @state() private accessor _myBoards: SavedBoard[] = [];
-  @state() private accessor _saveBoardName: string = '';
-  @state() private accessor _newBoardPitchType: PitchType = 'full';
-  @state() private accessor _newBoardTemplate: string = '';
-  @state() private accessor _deleteBoardName: string = '';
-  @state() private accessor _printSummary: boolean = true;
-  @state() private accessor _printWhiteBg: boolean = true;
   @state() private accessor _boardNotes: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _updateAvailable: boolean = false;
@@ -579,7 +572,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _pauseFlash: boolean = false;
   @state() private accessor _playBtnAnim: '' | 'press-out' | 'press-in' = '';
   #currentBoard: SavedBoard | null = null;
-  @state() private accessor _pendingBoardAction: 'new' | 'open' | 'save-as' | null = null;
+
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1416,27 +1409,15 @@ export class CoachBoard extends LitElement {
              @change="${this.#onFileSelected}" />
 
       <cb-dialogs
-        .saveBoardName="${this._saveBoardName}"
-        .pendingBoardAction="${this._pendingBoardAction}"
-        .newBoardPitchType="${this._newBoardPitchType}"
-        .newBoardTemplate="${this._newBoardTemplate}"
-        .myBoards="${this._myBoards}"
-        .deleteBoardName="${this._deleteBoardName}"
         .viewMode="${this._viewMode}"
         .animationFrameCount="${this.animationFrames.length}"
-        .cachedSummary="${this.#cachedSummary}"
         .boardNotes="${this._boardNotes}"
-        .printSummary="${this._printSummary}"
-        .printWhiteBg="${this._printWhiteBg}"
         @cb-import-confirm="${this.#confirmImport}"
         @cb-cancel-clear-all="${this.#cancelClearAll}"
         @cb-confirm-clear-all="${this.#confirmClearAll}"
-        @cb-save-board-name-input="${this.#onSaveBoardNameInput}"
         @cb-save-board-confirm="${this.#confirmSaveBoard}"
         @cb-save-board-skip="${this.#skipSaveBoard}"
         @cb-save-board-closed="${this.#onSaveBoardClosed}"
-        @cb-new-board-pitch-type="${this.#onNewBoardPitchType}"
-        @cb-new-board-template="${this.#onNewBoardTemplate}"
         @cb-new-board-confirm="${this.#confirmNewBoard}"
         @cb-open-board="${this.#onOpenBoard}"
         @cb-duplicate-board="${this.#onDuplicateBoard}"
@@ -1449,8 +1430,6 @@ export class CoachBoard extends LitElement {
         @cb-export-gif="${this.#exportGif}"
         @cb-board-notes-input="${this.#onBoardNotesInput}"
         @cb-board-summary-closed="${() => this.#saveToStorage()}"
-        @cb-print-summary-change="${this.#onPrintSummaryChange}"
-        @cb-print-white-bg-change="${this.#onPrintWhiteBgChange}"
         @cb-print-confirm="${this.#handlePrint}"
       ></cb-dialogs>
       <cb-share
@@ -1623,39 +1602,32 @@ export class CoachBoard extends LitElement {
 
   #showSaveBoard() {
     this._menuOpen = false;
-    this._pendingBoardAction = null;
     this.#pendingOpenBoardId = null;
-    this._saveBoardName = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
-    this.#openSaveBoardDialog();
-  }
-
-  #openSaveBoardDialog() {
-    this._dialogs?.showSaveBoard();
+    const name = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
+    this._dialogs?.openSaveBoard(name, null);
   }
 
   #handleSaveAs() {
     this._menuOpen = false;
-    this._pendingBoardAction = 'save-as';
     this.#pendingOpenBoardId = null;
-    this._saveBoardName = `Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`;
-    this.#openSaveBoardDialog();
+    this._dialogs?.openSaveBoard(`Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`, 'save-as');
   }
 
-  #skipSaveBoard() {
-    const pendingAction = this._pendingBoardAction;
+  #skipSaveBoard(e: CustomEvent<{ pendingAction: PendingBoardAction }>) {
+    const pendingAction = e.detail.pendingAction;
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
     if (pendingAction === 'new') {
-      this._dialogs?.showNewBoard();
+      this._dialogs?.openNewBoard();
     } else if (pendingAction === 'open') {
       this.#doOpenBoard(pendingId!);
     }
   }
 
-  async #confirmSaveBoard() {
-    const name = this._saveBoardName.trim();
+  async #confirmSaveBoard(e: CustomEvent<{ name: string; pendingAction: PendingBoardAction }>) {
+    const name = e.detail.name.trim();
     if (!name || !this.#currentBoard) return;
-    const pendingAction = this._pendingBoardAction;
+    const pendingAction = e.detail.pendingAction;
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
 
@@ -1683,7 +1655,7 @@ export class CoachBoard extends LitElement {
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
       if (pendingAction === 'new') {
-        this._dialogs?.showNewBoard();
+        this._dialogs?.openNewBoard();
       } else if (pendingAction === 'open') {
         this.#doOpenBoard(pendingId!);
       }
@@ -1754,8 +1726,7 @@ export class CoachBoard extends LitElement {
 
   #showBoardSummary() {
     this._menuOpen = false;
-    this.#cachedSummary = this.#getBoardSummary();
-    this._dialogs?.showBoardSummary();
+    this._dialogs?.openBoardSummary(this.#getBoardSummary());
   }
 
   #showPrintDialog() {
@@ -1763,14 +1734,15 @@ export class CoachBoard extends LitElement {
     this._dialogs?.showPrint();
   }
 
-  #handlePrint() {
+  #handlePrint(e: CustomEvent<{ printSummary: boolean; printWhiteBg: boolean }>) {
     this._dialogs?.closePrint();
+    const { printSummary, printWhiteBg } = e.detail;
     this.#isPrinting = true;
     this.#cachedSummary = this.#getBoardSummary();
     const host = this as unknown as HTMLElement;
     const savedTheme = this.fieldTheme;
-    if (this._printSummary) host.classList.add('print-summary');
-    if (this._printWhiteBg) {
+    if (printSummary) host.classList.add('print-summary');
+    if (printWhiteBg) {
       host.classList.add('print-white-bg');
       this.fieldTheme = 'white';
     }
@@ -1780,7 +1752,7 @@ export class CoachBoard extends LitElement {
       if (cleaned) return;
       cleaned = true;
       host.classList.remove('print-summary', 'print-white-bg');
-      if (this._printWhiteBg) this.fieldTheme = savedTheme;
+      if (printWhiteBg) this.fieldTheme = savedTheme;
       this.#isPrinting = false;
     };
     window.addEventListener('afterprint', cleanup, { once: true });
@@ -1801,29 +1773,26 @@ export class CoachBoard extends LitElement {
 
   #handleNewBoard() {
     this._menuOpen = false;
-    this._newBoardPitchType = 'full';
-    this._newBoardTemplate = '';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this._pendingBoardAction = 'new';
-      this._saveBoardName = '';
-      this.#openSaveBoardDialog();
+      this._dialogs?.openSaveBoard('', 'new');
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
       deleteBoard(this.#currentBoard.id).catch(() => {});
     }
-    this._dialogs?.showNewBoard();
+    this._dialogs?.openNewBoard();
   }
 
-  async #confirmNewBoard() {
+  async #confirmNewBoard(e: CustomEvent<{ pitchType: PitchType; template: string }>) {
     this._dialogs?.closeNewBoard();
-    const board = createEmptyBoard('Untitled Board', this._newBoardPitchType);
+    const { pitchType, template: templateId } = e.detail;
+    const board = createEmptyBoard('Untitled Board', pitchType);
     await saveBoard(board);
     this.#currentBoard = board;
     this._boardName = board.name;
     setActiveBoardId(board.id);
-    const template = this._newBoardTemplate
-      ? getTemplatesForPitch(this._newBoardPitchType).find(t => t.id === this._newBoardTemplate)
+    const template = templateId
+      ? getTemplatesForPitch(pitchType).find(t => t.id === templateId)
       : null;
     const angleOrient = (this._isMobile && template) ? 'horizontal' : (this._isMobile ? 'vertical' : 'horizontal');
     const playerAngle = (team: string) => team === 'b'
@@ -1847,7 +1816,6 @@ export class CoachBoard extends LitElement {
     this.fieldTheme = 'green';
     this.pitchType = board.pitchType;
     this._boardNotes = '';
-    this._newBoardTemplate = '';
     this.fieldOrientation = 'horizontal';
     if (this._isMobile && template) {
       this.#rotateLoadedData('vertical');
@@ -1857,8 +1825,7 @@ export class CoachBoard extends LitElement {
 
   async #showMyBoards() {
     this._menuOpen = false;
-    this._myBoards = await listBoards();
-    this._dialogs?.showMyBoards();
+    this._dialogs?.openMyBoards(await listBoards());
   }
 
   #handleOpenBoard(id: string) {
@@ -1867,11 +1834,9 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this._pendingBoardAction = 'open';
       this.#pendingOpenBoardId = id;
       this._dialogs?.closeMyBoards();
-      this._saveBoardName = '';
-      this.#openSaveBoardDialog();
+      this._dialogs?.openSaveBoard('', 'open');
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
@@ -1935,13 +1900,12 @@ export class CoachBoard extends LitElement {
       animationFrames: structuredClone(board.animationFrames),
     };
     await saveBoard(dup);
-    this._myBoards = await listBoards();
+    this._dialogs?.setMyBoards(await listBoards());
   }
 
   #handleDeleteBoard(board: SavedBoard) {
     this.#pendingDeleteBoard = board;
-    this._deleteBoardName = board.name;
-    this._dialogs?.showDeleteBoard();
+    this._dialogs?.openDeleteConfirm(board.name);
   }
 
   async #confirmDeleteBoard() {
@@ -1950,9 +1914,9 @@ export class CoachBoard extends LitElement {
     this.#pendingDeleteBoard = null;
     this._dialogs?.closeDeleteBoard();
     await deleteBoard(id);
-    this._myBoards = await listBoards();
+    this._dialogs?.setMyBoards(await listBoards());
     if (id === this.#currentBoard?.id) {
-      await this.#confirmNewBoard();
+      await this.#confirmNewBoard(new CustomEvent('', { detail: { pitchType: 'full' as PitchType, template: '' } }));
     }
   }
 
@@ -1962,7 +1926,7 @@ export class CoachBoard extends LitElement {
   }
 
   async #exportAllBoards() {
-    const boards = this._myBoards.filter(b => b.name !== 'Untitled Board');
+    const boards = (await listBoards()).filter(b => b.name !== 'Untitled Board');
     if (!boards.length) return;
 
     try {
@@ -2006,22 +1970,8 @@ export class CoachBoard extends LitElement {
 
   #pendingImportData: Record<string, unknown> | null = null;
 
-  #onSaveBoardNameInput(e: CustomEvent<{ value: string }>) {
-    this._saveBoardName = e.detail.value;
-  }
-
   #onSaveBoardClosed() {
-    this._pendingBoardAction = null;
     this.#pendingOpenBoardId = null;
-  }
-
-  #onNewBoardPitchType(e: CustomEvent<{ value: PitchType }>) {
-    this._newBoardPitchType = e.detail.value;
-    this._newBoardTemplate = '';
-  }
-
-  #onNewBoardTemplate(e: CustomEvent<{ value: string }>) {
-    this._newBoardTemplate = e.detail.value;
   }
 
   #onOpenBoard(e: CustomEvent<{ id: string }>) {
@@ -2038,14 +1988,6 @@ export class CoachBoard extends LitElement {
 
   #onBoardNotesInput(e: CustomEvent<{ value: string }>) {
     this._boardNotes = e.detail.value;
-  }
-
-  #onPrintSummaryChange(e: CustomEvent<{ checked: boolean }>) {
-    this._printSummary = e.detail.checked;
-  }
-
-  #onPrintWhiteBgChange(e: CustomEvent<{ checked: boolean }>) {
-    this._printWhiteBg = e.detail.checked;
   }
 
   #importSvg() {

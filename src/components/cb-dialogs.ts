@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { PitchType } from '../lib/types.js';
 import { getTemplatesForPitch } from '../lib/templates.js';
@@ -580,18 +580,21 @@ export class CbDialogs extends LitElement {
     }
   `;
 
-  @property() accessor saveBoardName: string = '';
-  @property({ attribute: false }) accessor pendingBoardAction: PendingBoardAction = null;
-  @property({ attribute: false }) accessor newBoardPitchType: PitchType = 'full';
-  @property() accessor newBoardTemplate: string = '';
-  @property({ attribute: false }) accessor myBoards: SavedBoard[] = [];
-  @property() accessor deleteBoardName: string = '';
+  // Passed from parent — these drive both dialog and field/layout rendering
   @property() accessor viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @property({ type: Number }) accessor animationFrameCount: number = 0;
-  @property({ attribute: false }) accessor cachedSummary: BoardSummary | null = null;
   @property() accessor boardNotes: string = '';
-  @property({ type: Boolean }) accessor printSummary: boolean = true;
-  @property({ type: Boolean }) accessor printWhiteBg: boolean = true;
+
+  // Internal dialog state — mutations only trigger cb-dialogs re-renders
+  @state() private accessor _saveBoardName: string = '';
+  @state() private accessor _pendingBoardAction: PendingBoardAction = null;
+  @state() private accessor _newBoardPitchType: PitchType = 'full';
+  @state() private accessor _newBoardTemplate: string = '';
+  @state() private accessor _myBoards: SavedBoard[] = [];
+  @state() private accessor _deleteBoardName: string = '';
+  @state() private accessor _cachedSummary: BoardSummary | null = null;
+  @state() private accessor _printSummary: boolean = true;
+  @state() private accessor _printWhiteBg: boolean = true;
 
   @query('#reset-dialog') private accessor _resetDialog!: HTMLDialogElement;
   @query('#about-dialog') private accessor _aboutDialog!: HTMLDialogElement;
@@ -617,7 +620,9 @@ export class CbDialogs extends LitElement {
   showImportConfirm() { requestAnimationFrame(() => this._importConfirmDialog?.showModal()); }
   showImportError() { requestAnimationFrame(() => this._importErrorDialog?.showModal()); }
 
-  showSaveBoard() {
+  openSaveBoard(name: string, action: PendingBoardAction) {
+    this._saveBoardName = name;
+    this._pendingBoardAction = action;
     requestAnimationFrame(() => {
       this._saveBoardDialog?.showModal();
       this.updateComplete.then(() => this._saveBoardInput?.focus());
@@ -626,19 +631,38 @@ export class CbDialogs extends LitElement {
 
   closeSaveBoard() { this._saveBoardDialog?.close(); }
 
-  showNewBoard() { requestAnimationFrame(() => this._newBoardDialog?.showModal()); }
+  openNewBoard() {
+    this._newBoardPitchType = 'full';
+    this._newBoardTemplate = '';
+    requestAnimationFrame(() => this._newBoardDialog?.showModal());
+  }
+
   closeNewBoard() { this._newBoardDialog?.close(); }
 
-  showMyBoards() { requestAnimationFrame(() => this._myBoardsDialog?.showModal()); }
+  openMyBoards(boards: SavedBoard[]) {
+    this._myBoards = boards;
+    requestAnimationFrame(() => this._myBoardsDialog?.showModal());
+  }
+
+  setMyBoards(boards: SavedBoard[]) { this._myBoards = boards; }
+
   closeMyBoards() { this._myBoardsDialog?.close(); }
 
-  showDeleteBoard() { requestAnimationFrame(() => this._deleteBoardDialog?.showModal()); }
+  openDeleteConfirm(name: string) {
+    this._deleteBoardName = name;
+    requestAnimationFrame(() => this._deleteBoardDialog?.showModal());
+  }
+
   closeDeleteBoard() { this._deleteBoardDialog?.close(); }
 
   showExport() { requestAnimationFrame(() => this._exportDialog?.showModal()); }
   closeExport() { this._exportDialog?.close(); }
 
-  showBoardSummary() { requestAnimationFrame(() => this._boardSummaryDialog?.showModal()); }
+  openBoardSummary(summary: BoardSummary) {
+    this._cachedSummary = summary;
+    requestAnimationFrame(() => this._boardSummaryDialog?.showModal());
+  }
+
   closeBoardSummary() { this._boardSummaryDialog?.close(); }
 
   showPrint() { requestAnimationFrame(() => this._printDialog?.showModal()); }
@@ -730,28 +754,28 @@ export class CbDialogs extends LitElement {
       <dialog id="save-board-dialog"
               @close="${this.#onSaveBoardClosed}">
         <div class="dialog-header">
-          <h2>${this.pendingBoardAction === 'save-as' ? 'Save As' : this.pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
+          <h2>${this._pendingBoardAction === 'save-as' ? 'Save As' : this._pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
           <button class="dialog-close" aria-label="Close" title="Close"
                   @click="${() => this._saveBoardDialog?.close()}">
             ${this.#closeIcon()}
           </button>
         </div>
         <div class="dialog-body">
-          <p>${this.pendingBoardAction === 'save-as' ? 'Save a copy of this board with a new name.' : this.pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
+          <p>${this._pendingBoardAction === 'save-as' ? 'Save a copy of this board with a new name.' : this._pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
           <label class="save-board-label" for="save-board-input">Board name</label>
           <input class="save-board-input" id="save-board-input" type="text" placeholder="Board name"
-                 .value="${this.saveBoardName}"
-                 @input="${(e: Event) => this.#emit('cb-save-board-name-input', { value: (e.target as HTMLInputElement).value })}"
-                 @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this.saveBoardName.trim()) this.#emit('cb-save-board-confirm'); }}" />
+                 .value="${this._saveBoardName}"
+                 @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}"
+                 @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#emit('cb-save-board-confirm', { name: this._saveBoardName, pendingAction: this._pendingBoardAction }); }}" />
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
             <div style="display: flex; gap: 8px;">
-              ${this.pendingBoardAction === 'new' || this.pendingBoardAction === 'open' ? html`
-                <button class="confirm-danger" @click="${() => this.#emit('cb-save-board-skip')}">Don't Save</button>
+              ${this._pendingBoardAction === 'new' || this._pendingBoardAction === 'open' ? html`
+                <button class="confirm-danger" @click="${() => this.#emit('cb-save-board-skip', { pendingAction: this._pendingBoardAction })}">Don't Save</button>
               ` : nothing}
               <button class="confirm-success"
-                      ?disabled="${!this.saveBoardName.trim()}"
-                      @click="${() => this.#emit('cb-save-board-confirm')}">Save</button>
+                      ?disabled="${!this._saveBoardName.trim()}"
+                      @click="${() => this.#emit('cb-save-board-confirm', { name: this._saveBoardName, pendingAction: this._pendingBoardAction })}">Save</button>
             </div>
           </div>
         </div>
@@ -771,22 +795,22 @@ export class CbDialogs extends LitElement {
             <div style="flex: 1;">
               <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
               <select class="theme-select" id="new-board-pitch-type" style="width: 100%;"
-                      @change="${(e: Event) => this.#onNewBoardPitchTypeChange(e)}">
-                <option value="full" ?selected="${this.newBoardPitchType === 'full'}">Full Pitch</option>
-                <option value="half" ?selected="${this.newBoardPitchType === 'half'}">Half Pitch (Def.)</option>
-                <option value="half-attack" ?selected="${this.newBoardPitchType === 'half-attack'}">Half Pitch (Att.)</option>
-                <option value="open" ?selected="${this.newBoardPitchType === 'open'}">Open Grass</option>
+                      @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; this._newBoardTemplate = ''; }}">
+                <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
+                <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Def.)</option>
+                <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Att.)</option>
+                <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
               </select>
             </div>
             ${(() => {
-              const templates = getTemplatesForPitch(this.newBoardPitchType);
+              const templates = getTemplatesForPitch(this._newBoardPitchType);
               return templates.length > 0 ? html`
                 <div style="flex: 1;">
                   <label class="save-board-label" for="new-board-template">Template</label>
                   <select class="theme-select" id="new-board-template" style="width: 100%;"
-                          @change="${(e: Event) => this.#emit('cb-new-board-template', { value: (e.target as HTMLSelectElement).value })}">
-                    <option value="" ?selected="${!this.newBoardTemplate}">Blank</option>
-                    ${templates.map(t => html`<option value="${t.id}" ?selected="${this.newBoardTemplate === t.id}">${t.name}</option>`)}
+                          @change="${(e: Event) => { this._newBoardTemplate = (e.target as HTMLSelectElement).value; }}">
+                    <option value="" ?selected="${!this._newBoardTemplate}">Blank</option>
+                    ${templates.map(t => html`<option value="${t.id}" ?selected="${this._newBoardTemplate === t.id}">${t.name}</option>`)}
                   </select>
                 </div>
               ` : nothing;
@@ -794,7 +818,7 @@ export class CbDialogs extends LitElement {
           </div>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
-            <button class="confirm-success" @click="${() => this.#emit('cb-new-board-confirm')}">Create New Board</button>
+            <button class="confirm-success" @click="${() => this.#emit('cb-new-board-confirm', { pitchType: this._newBoardPitchType, template: this._newBoardTemplate })}">Create New Board</button>
           </div>
         </div>
       </dialog>
@@ -808,10 +832,10 @@ export class CbDialogs extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          ${this.myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
+          ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
             <h3 style="font-size: 0.8rem; color: var(--pt-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Saved Boards</h3>
             <ul class="boards-list">
-              ${this.myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
+              ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
                 <li>
                   <button class="board-open-btn" aria-label="Open ${b.name}"
                           @click="${() => this.#emit('cb-open-board', { id: b.id })}">
@@ -868,7 +892,7 @@ export class CbDialogs extends LitElement {
               </svg>
               Import from SVG
             </button>
-            ${this.myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
+            ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
               <button class="import-svg-btn" @click="${() => this.#emit('cb-export-all-boards')}">
                 <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
                   <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
@@ -893,7 +917,7 @@ export class CbDialogs extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          <p>Are you sure you want to delete "${this.deleteBoardName}"? This cannot be undone.</p>
+          <p>Are you sure you want to delete "${this._deleteBoardName}"? This cannot be undone.</p>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._deleteBoardDialog?.close()}">Cancel</button>
             <button class="confirm-danger" @click="${() => this.#emit('cb-confirm-delete-board')}">Delete</button>
@@ -962,56 +986,56 @@ export class CbDialogs extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          ${this.cachedSummary ? html`
-            <div class="summary-board-name">${this.cachedSummary.name}</div>
+          ${this._cachedSummary ? html`
+            <div class="summary-board-name">${this._cachedSummary.name}</div>
             <div class="summary-section">
               <h3>Pitch</h3>
-              <p>${this.cachedSummary.pitchLabel} · ${this.cachedSummary.orientation}</p>
+              <p>${this._cachedSummary.pitchLabel} · ${this._cachedSummary.orientation}</p>
             </div>
-            ${this.cachedSummary.playersByColor.size > 0 || this.cachedSummary.coachCount > 0 ? html`
+            ${this._cachedSummary.playersByColor.size > 0 || this._cachedSummary.coachCount > 0 ? html`
               <div class="summary-section">
                 <h3>Players</h3>
                 <ul>
-                  ${[...this.cachedSummary.playersByColor.entries()].map(([color, count]) => html`<li>${count} ${color}</li>`)}
-                  ${this.cachedSummary.coachCount > 0 ? html`<li>${this.cachedSummary.coachCount} Coach${this.cachedSummary.coachCount > 1 ? 'es' : ''}</li>` : nothing}
+                  ${[...this._cachedSummary.playersByColor.entries()].map(([color, count]) => html`<li>${count} ${color}</li>`)}
+                  ${this._cachedSummary.coachCount > 0 ? html`<li>${this._cachedSummary.coachCount} Coach${this._cachedSummary.coachCount > 1 ? 'es' : ''}</li>` : nothing}
                 </ul>
               </div>
             ` : nothing}
-            ${this.cachedSummary.equipByKind.size > 0 || this.cachedSummary.conesByColor.size > 0 || this.cachedSummary.dummiesByColor.size > 0 || this.cachedSummary.polesByColor.size > 0 ? html`
+            ${this._cachedSummary.equipByKind.size > 0 || this._cachedSummary.conesByColor.size > 0 || this._cachedSummary.dummiesByColor.size > 0 || this._cachedSummary.polesByColor.size > 0 ? html`
               <div class="summary-section">
                 <h3>Equipment</h3>
                 <ul>
-                  ${[...this.cachedSummary.equipByKind.entries()].map(([kind, count]) => html`<li>${count} ${kind}${count > 1 ? 's' : ''}</li>`)}
-                  ${this.cachedSummary.conesByColor.size > 0 ? html`<li>${[...this.cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.cachedSummary.conesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
-                  ${this.cachedSummary.dummiesByColor.size > 0 ? html`<li>${[...this.cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'} (${[...this.cachedSummary.dummiesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
-                  ${this.cachedSummary.polesByColor.size > 0 ? html`<li>${[...this.cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.cachedSummary.polesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                  ${[...this._cachedSummary.equipByKind.entries()].map(([kind, count]) => html`<li>${count} ${kind}${count > 1 ? 's' : ''}</li>`)}
+                  ${this._cachedSummary.conesByColor.size > 0 ? html`<li>${[...this._cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this._cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this._cachedSummary.conesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                  ${this._cachedSummary.dummiesByColor.size > 0 ? html`<li>${[...this._cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this._cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'} (${[...this._cachedSummary.dummiesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
+                  ${this._cachedSummary.polesByColor.size > 0 ? html`<li>${[...this._cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this._cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this._cachedSummary.polesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
                 </ul>
               </div>
             ` : nothing}
-            ${this.cachedSummary.linesByStyle.size > 0 ? html`
+            ${this._cachedSummary.linesByStyle.size > 0 ? html`
               <div class="summary-section">
                 <h3>Lines</h3>
                 <ul>
-                  ${[...this.cachedSummary.linesByStyle.entries()].map(([style, count]) => html`<li>${count} ${style}${count > 1 ? 's' : ''}</li>`)}
+                  ${[...this._cachedSummary.linesByStyle.entries()].map(([style, count]) => html`<li>${count} ${style}${count > 1 ? 's' : ''}</li>`)}
                 </ul>
               </div>
             ` : nothing}
-            ${this.cachedSummary.shapeCount > 0 ? html`
+            ${this._cachedSummary.shapeCount > 0 ? html`
               <div class="summary-section">
                 <h3>Shapes</h3>
-                <p>${this.cachedSummary.shapeCount} shape${this.cachedSummary.shapeCount > 1 ? 's' : ''}</p>
+                <p>${this._cachedSummary.shapeCount} shape${this._cachedSummary.shapeCount > 1 ? 's' : ''}</p>
               </div>
             ` : nothing}
-            ${this.cachedSummary.textCount > 0 ? html`
+            ${this._cachedSummary.textCount > 0 ? html`
               <div class="summary-section">
                 <h3>Text</h3>
-                <p>${this.cachedSummary.textCount} text item${this.cachedSummary.textCount > 1 ? 's' : ''}</p>
+                <p>${this._cachedSummary.textCount} text item${this._cachedSummary.textCount > 1 ? 's' : ''}</p>
               </div>
             ` : nothing}
-            ${this.cachedSummary.frameCount > 0 ? html`
+            ${this._cachedSummary.frameCount > 0 ? html`
               <div class="summary-section">
                 <h3>Animation</h3>
-                <p>${this.cachedSummary.frameCount} frame${this.cachedSummary.frameCount > 1 ? 's' : ''}</p>
+                <p>${this._cachedSummary.frameCount} frame${this._cachedSummary.frameCount > 1 ? 's' : ''}</p>
               </div>
             ` : nothing}
           ` : nothing}
@@ -1038,18 +1062,18 @@ export class CbDialogs extends LitElement {
         </div>
         <div class="dialog-body">
           <label class="checkbox-label">
-            <input type="checkbox" .checked="${this.printSummary}"
-                   @change="${(e: Event) => this.#emit('cb-print-summary-change', { checked: (e.target as HTMLInputElement).checked })}">
+            <input type="checkbox" .checked="${this._printSummary}"
+                   @change="${(e: Event) => { this._printSummary = (e.target as HTMLInputElement).checked; }}">
             Include board summary
           </label>
           <label class="checkbox-label">
-            <input type="checkbox" .checked="${this.printWhiteBg}"
-                   @change="${(e: Event) => this.#emit('cb-print-white-bg-change', { checked: (e.target as HTMLInputElement).checked })}">
+            <input type="checkbox" .checked="${this._printWhiteBg}"
+                   @change="${(e: Event) => { this._printWhiteBg = (e.target as HTMLInputElement).checked; }}">
             Use white background for printing
           </label>
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._printDialog?.close()}">Cancel</button>
-            <button class="confirm-success" @click="${() => this.#emit('cb-print-confirm')}">Print</button>
+            <button class="confirm-success" @click="${() => this.#emit('cb-print-confirm', { printSummary: this._printSummary, printWhiteBg: this._printWhiteBg })}">Print</button>
           </div>
         </div>
       </dialog>
@@ -1075,11 +1099,8 @@ export class CbDialogs extends LitElement {
 
 
   #onSaveBoardClosed() {
+    this._pendingBoardAction = null;
     this.#emit('cb-save-board-closed');
-  }
-
-  #onNewBoardPitchTypeChange(e: Event) {
-    this.#emit('cb-new-board-pitch-type', { value: (e.target as HTMLSelectElement).value as PitchType });
   }
 
   #onBoardNotesSave() {
