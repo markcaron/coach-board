@@ -248,8 +248,6 @@ export class CoachBoard extends LitElement {
       color: var(--pt-text);
     }
 
-    }
-
     .bottom-bar {
       flex-shrink: 0;
       display: grid;
