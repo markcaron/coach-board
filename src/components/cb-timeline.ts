@@ -203,12 +203,26 @@ export class CbTimeline extends LitElement {
       font-weight: bold;
       font-size: 0.9rem;
       flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
     }
 
     .frame-btn.active {
       background: var(--pt-accent);
       color: var(--pt-text-white);
       border-color: var(--pt-accent);
+    }
+
+    .frame-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      width: calc(var(--playback-progress, 0) * 100%);
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 0 2px 0 0;
+      transition: width 0.05s linear;
     }
 
     .add-btn {
@@ -307,6 +321,7 @@ export class CbTimeline extends LitElement {
   @property({ type: Number }) accessor frameCount: number = 0;
   @property({ type: Number }) accessor activeFrame: number = 0;
   @property({ type: Boolean }) accessor isPlaying: boolean = false;
+  @property({ type: Number }) accessor playbackProgress: number = 0;
   @property({ type: Number }) accessor speed: number = 1;
   @property({ type: Boolean }) accessor loop: boolean = true;
 
@@ -325,7 +340,11 @@ export class CbTimeline extends LitElement {
   protected override updated(changedProperties: Map<PropertyKey, unknown>) {
     super.updated(changedProperties);
     if (changedProperties.has('frameCount') || changedProperties.has('activeFrame')) {
-      requestAnimationFrame(() => this.#checkScrollShadows());
+      requestAnimationFrame(() => {
+        this.#checkScrollShadows();
+        this.shadowRoot?.querySelector('.frame-btn.active')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      });
     }
   }
 
@@ -348,6 +367,7 @@ export class CbTimeline extends LitElement {
                       title="Frame ${i}"
                       aria-label="Frame ${i}"
                       aria-pressed="${i === this.activeFrame}"
+                      style="${i === this.activeFrame && this.isPlaying ? `--playback-progress: ${this.playbackProgress}` : ''}"
                       @click="${() => this.dispatchEvent(new FrameSelectEvent(i))}">
                 ${i}
               </button>

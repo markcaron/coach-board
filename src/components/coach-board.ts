@@ -76,6 +76,7 @@ interface Snapshot {
   equipment: Equipment[];
   shapes: Shape[];
   textItems: TextItem[];
+  animationFrames: AnimationFrame[];
 }
 
 const MAX_HISTORY = 50;
@@ -629,6 +630,7 @@ export class CoachBoard extends LitElement {
       equipment: structuredClone(this.equipment),
       shapes: structuredClone(this.shapes),
       textItems: structuredClone(this.textItems),
+      animationFrames: structuredClone(this.animationFrames),
     };
   }
 
@@ -841,6 +843,7 @@ export class CoachBoard extends LitElement {
     this.equipment = prev.equipment;
     this.shapes = prev.shapes;
     this.textItems = prev.textItems;
+    this.animationFrames = prev.animationFrames;
     this.selectedIds = new Set();
   }
 
@@ -853,6 +856,7 @@ export class CoachBoard extends LitElement {
     this.equipment = next.equipment;
     this.shapes = next.shapes;
     this.textItems = next.textItems;
+    this.animationFrames = next.animationFrames;
     this.selectedIds = new Set();
   }
 
@@ -1183,6 +1187,7 @@ export class CoachBoard extends LitElement {
           .frameCount="${this.animationFrames.length}"
           .activeFrame="${this.activeFrameIndex}"
           .isPlaying="${this.isPlaying}"
+          .playbackProgress="${this._playbackProgress}"
           .speed="${this._playbackSpeed}"
           @frame-select="${this.#onFrameSelect}"
           @frame-add="${this.#onFrameAdd}"
@@ -3144,8 +3149,35 @@ export class CoachBoard extends LitElement {
         e.preventDefault();
         if (!e.repeat) this.#pushUndo();
         const ids = this.selectedIds;
-        this.players = this.players.map(p => ids.has(p.id) ? { ...p, x: p.x + dx, y: p.y + dy } : p);
-        this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, x: eq.x + dx, y: eq.y + dy } : eq);
+        if (this._animationMode && this.activeFrameIndex > 0) {
+          // In animation mode write nudge to frame positions, not base arrays
+          const frame = this.animationFrames[this.activeFrameIndex];
+          if (frame) {
+            const newPositions = { ...frame.positions };
+            for (const id of ids) {
+              const p = this.players.find(pl => pl.id === id);
+              if (p) {
+                const pos = this.#getItemPosition(p.id, p.x, p.y);
+                const existing = frame.positions[id];
+                newPositions[id] = { x: pos.x + dx, y: pos.y + dy, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
+                continue;
+              }
+              const eq = this.equipment.find(e => e.id === id);
+              if (eq) {
+                const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+                const existing = frame.positions[id];
+                newPositions[id] = { x: pos.x + dx, y: pos.y + dy, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
+              }
+            }
+            this.animationFrames = this.animationFrames.map((f, i) =>
+              i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
+            );
+          }
+        } else {
+          this.players = this.players.map(p => ids.has(p.id) ? { ...p, x: p.x + dx, y: p.y + dy } : p);
+          this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, x: eq.x + dx, y: eq.y + dy } : eq);
+        }
+        // Lines, shapes and text always write to base arrays (not frame-specific)
         this.shapes = this.shapes.map(s => ids.has(s.id) ? { ...s, cx: s.cx + dx, cy: s.cy + dy } : s);
         this.textItems = this.textItems.map(t => ids.has(t.id) ? { ...t, x: t.x + dx, y: t.y + dy } : t);
         this.lines = this.lines.map(l => ids.has(l.id) ? { ...l, x1: l.x1 + dx, y1: l.y1 + dy, x2: l.x2 + dx, y2: l.y2 + dy, cx: l.cx + dx, cy: l.cy + dy } : l);
