@@ -311,6 +311,7 @@ export interface AnimationFrame {
   positions: Record<string, FramePosition>;
   trails: Record<string, TrailControlPoints>;
   visibleLineIds: string[];
+  visibleShapeIds?: string[];
 }
 
 export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text';
