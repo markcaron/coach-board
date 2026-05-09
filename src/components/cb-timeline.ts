@@ -70,7 +70,7 @@ export class CbTimeline extends LitElement {
       align-items: center;
       gap: 6px;
       min-width: 0;
-      overflow: hidden;
+      /* overflow: hidden removed — it clips focus rings on child buttons */
     }
 
     .frames-scroll {
@@ -78,10 +78,14 @@ export class CbTimeline extends LitElement {
       align-items: center;
       gap: 6px;
       overflow-x: auto;
-      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       min-width: 0;
-      padding: 0 2px;
+      /* Padding + negative margin trick: gives focus rings (outline 2px +
+         offset 2px = 4px) room to render without being clipped by the
+         overflow-x container, while keeping the layout unchanged. */
+      padding: 4px;
+      margin-block: -4px;
+      margin-inline: -4px;
     }
 
     .frames-scroll-wrap {
@@ -203,12 +207,26 @@ export class CbTimeline extends LitElement {
       font-weight: bold;
       font-size: 0.9rem;
       flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
     }
 
     .frame-btn.active {
       background: var(--pt-accent);
       color: var(--pt-text-white);
       border-color: var(--pt-accent);
+    }
+
+    .frame-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      width: calc(var(--playback-progress, 0) * 100%);
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 0 2px 0 0;
+      transition: width 0.05s linear;
     }
 
     .add-btn {
@@ -307,6 +325,7 @@ export class CbTimeline extends LitElement {
   @property({ type: Number }) accessor frameCount: number = 0;
   @property({ type: Number }) accessor activeFrame: number = 0;
   @property({ type: Boolean }) accessor isPlaying: boolean = false;
+  @property({ type: Number }) accessor playbackProgress: number = 0;
   @property({ type: Number }) accessor speed: number = 1;
   @property({ type: Boolean }) accessor loop: boolean = true;
 
@@ -325,7 +344,18 @@ export class CbTimeline extends LitElement {
   protected override updated(changedProperties: Map<PropertyKey, unknown>) {
     super.updated(changedProperties);
     if (changedProperties.has('frameCount') || changedProperties.has('activeFrame')) {
-      requestAnimationFrame(() => this.#checkScrollShadows());
+      requestAnimationFrame(() => {
+        this.#checkScrollShadows();
+        // When a frame was added (frameCount grew), scroll the add button into
+        // view — focus stays there so this keeps the focused element visible.
+        // Otherwise scroll the newly active frame button into view (e.g. scrubbing).
+        const frameAdded = changedProperties.has('frameCount')
+          && (changedProperties.get('frameCount') as number) < this.frameCount;
+        const target = frameAdded
+          ? this.shadowRoot?.querySelector<HTMLElement>('.add-btn')
+          : this.shadowRoot?.querySelector<HTMLElement>('.frame-btn.active');
+        target?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      });
     }
   }
 
@@ -348,6 +378,7 @@ export class CbTimeline extends LitElement {
                       title="Frame ${i}"
                       aria-label="Frame ${i}"
                       aria-pressed="${i === this.activeFrame}"
+                      style="${i === this.activeFrame && this.isPlaying ? `--playback-progress: ${this.playbackProgress}` : ''}"
                       @click="${() => this.dispatchEvent(new FrameSelectEvent(i))}">
                 ${i}
               </button>

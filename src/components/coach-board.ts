@@ -1,65 +1,30 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
+import { guard } from 'lit/directives/guard.js';
 
-import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
-import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
-import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfField, renderHalfFieldAttacking, renderVerticalHalfFieldAttacking, getFieldDimensions, FIELD } from '../lib/field.js';
+import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
+import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
+import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
-import { screenToSVG, uid, ensureMinId } from '../lib/svg-utils.js';
+import { uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
+import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
+import './cb-board-bar.js';
 import './cb-timeline.js';
+import './cb-dialogs.js';
+import type { CbDialogs, BoardSummary, PendingBoardAction } from './cb-dialogs.js';
+import './cb-field.js';
+import type { CbField, GhostCursor, DrawState, ShapeDrawState } from './cb-field.js';
+import './cb-share.js';
+import type { CbShare } from './cb-share.js';
 import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
-
-const PLAYER_RADIUS = 2.16;
-const TEXT_FONT_SIZE = 2;
-
-const WHITE_THEME = {
-  fieldBg: COLORS.fieldBgWhite,
-  fieldArea: COLORS.fieldAreaWhite,
-  fieldLine: COLORS.fieldLineWhite,
-  fieldNet: COLORS.fieldNetWhite,
-  text: COLORS.fieldTextWhite,
-  selection: COLORS.fieldSelWhite,
-} as const;
-
-function triPoints(cx: number, cy: number, r: number): string {
-  const h = r * 1.32;
-  return `${cx},${cy - h} ${cx - h * 0.866},${cy + h * 0.5} ${cx + h * 0.866},${cy + h * 0.5}`;
-}
-
-const BALL_RADIUS = 1.4175;
-const CONE_OUTER_R = 1.0;
-const CONE_OUTER_STROKE = 0.7;
-const CONE_INNER_R = 0.35;
-const DUMMY_OUTER_HW = 0.9;
-const DUMMY_OUTER_HH = 1.65;
-const DUMMY_OUTER_RX = 0.9;
-const DUMMY_OUTER_STROKE = 0.35;
-const DUMMY_INNER_HW = 0.5;
-const DUMMY_INNER_HH = 1.25;
-const DUMMY_INNER_RX = 0.5;
-const POLE_RADIUS = 0.55;
-const POLE_BASE_RADIUS = 0.85;
-const SILVER_CENTER = '#d0d0d0';
-const GOAL_W = 7.32;
-const GOAL_D = 2;
-const MINI_GOAL_W = 3.66;
-const MINI_GOAL_D = 1.5;
-const POPUP_GOAL_W = 3;
-const POPUP_GOAL_D = 1.5;
-const POPUP_GOAL_COLOR = COLORS.popupGoal;
-const GOAL_LINE_W = 0.18;
-const CONTROL_HANDLE_R = 1.6;
-const ROTATE_HANDLE_R = 0.875;
-const HIT_SLOP = 1.8;
-const HIT_SLOP_MOBILE = 3.0;
-const PADDING = 4;
 
 type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side' | 'trail-cp1' | 'trail-cp2';
 
@@ -83,21 +48,6 @@ interface RotateDragState {
   origRotation: number;
 }
 
-interface DrawState {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}
-
-interface ShapeDrawState {
-  kind: ShapeKind;
-  startX: number;
-  startY: number;
-  curX: number;
-  curY: number;
-}
-
 interface ShapeResizeDragState {
   id: string;
   handle: string;
@@ -107,11 +57,6 @@ interface ShapeResizeDragState {
   origHh: number;
   startX: number;
   startY: number;
-}
-
-interface GhostCursor {
-  x: number;
-  y: number;
 }
 
 function resolveHit(target: EventTarget | null): { kind: DragKind; id: string } | null {
@@ -131,125 +76,38 @@ interface Snapshot {
   equipment: Equipment[];
   shapes: Shape[];
   textItems: TextItem[];
+  animationFrames: AnimationFrame[];
+  fieldOrientation: FieldOrientation;
+  fieldTheme: FieldTheme;
+  pitchType: PitchType;
 }
 
 const MAX_HISTORY = 50;
-
-function wavyPath(x1: number, y1: number, cx: number, cy: number, x2: number, y2: number, amp = 0.48): string {
-  const sampleCount = 64;
-  const arcLengths: number[] = [0];
-  let prevX = x1, prevY = y1;
-  for (let i = 1; i <= sampleCount; i++) {
-    const t = i / sampleCount;
-    const bx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
-    const by = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
-    arcLengths.push(arcLengths[i - 1] + Math.hypot(bx - prevX, by - prevY));
-    prevX = bx;
-    prevY = by;
-  }
-  const totalLen = arcLengths[sampleCount];
-  const waveLen = 3.5;
-  const waves = Math.max(Math.round(totalLen / waveLen), 1);
-  const tailFrac = 0.06;
-  const waveFrac = 1 - tailFrac;
-  const steps = Math.max(waves * 8, 32);
-
-  const pts: { x: number; y: number }[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const bx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
-    const by = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
-    const dx = 2 * (1 - t) * (cx - x1) + 2 * t * (x2 - cx);
-    const dy = 2 * (1 - t) * (cy - y1) + 2 * t * (y2 - cy);
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len;
-    const ny = dx / len;
-    const waveProg = t < waveFrac ? t / waveFrac : 1;
-    const fade = t < waveFrac ? 1 : 1 - ((t - waveFrac) / tailFrac);
-    const wave = Math.sin(waveProg * waves * 2 * Math.PI) * amp * fade;
-    pts.push({ x: bx + nx * wave, y: by + ny * wave });
-  }
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 1; i < pts.length; i++) {
-    d += ` L ${pts[i].x} ${pts[i].y}`;
-  }
-  return d;
-}
-
-function cubicBezier(t: number, p0: number, p1: number, p2: number, p3: number): number {
-  const mt = 1 - t;
-  return mt * mt * mt * p0 + 3 * mt * mt * t * p1 + 3 * mt * t * t * p2 + t * t * t * p3;
-}
 
 function isModifier(e: PointerEvent | MouseEvent): boolean {
   return e.shiftKey || e.metaKey || e.ctrlKey;
 }
 
+/**
+ * Constrains a (dx, dy) displacement to the nearest axis when Shift is held:
+ * horizontal (dy=0), vertical (dx=0), or 45° diagonal (|dx|===|dy|).
+ * Axis is chosen within ±22.5° of each direction.
+ * Returns the original values unchanged when Shift is not held or the
+ * displacement is below the 1.5-unit threshold needed to determine direction.
+ */
+function axisConstrain(dx: number, dy: number, shiftKey: boolean): { dx: number; dy: number } {
+  if (!shiftKey) return { dx, dy };
+  const absDx = Math.abs(dx), absDy = Math.abs(dy);
+  if (absDx < 1.5 && absDy < 1.5) return { dx: 0, dy: 0 };
+  const angle = Math.atan2(absDy, absDx) * 180 / Math.PI; // 0°=horizontal, 90°=vertical
+  if (angle < 22.5) return { dx, dy: 0 };
+  if (angle > 67.5) return { dx: 0, dy };
+  // 45° diagonal: lock both components to the larger magnitude
+  const d = Math.max(absDx, absDy);
+  return { dx: dx < 0 ? -d : d, dy: dy < 0 ? -d : d };
+}
+
 function rad2deg(r: number): number { return r * 180 / Math.PI; }
-
-function lightenHex(hex: string, amount = 0.55): string {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  const lr = Math.round(r + (255 - r) * amount);
-  const lg = Math.round(g + (255 - g) * amount);
-  const lb = Math.round(b + (255 - b) * amount);
-  return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
-}
-
-function isRotatable(item: Player | Equipment): boolean {
-  if ('team' in item) return true;
-  return item.kind === 'goal' || item.kind === 'mini-goal' || item.kind === 'popup-goal' || item.kind === 'dummy';
-}
-
-function circleHeadPath(r: number): string {
-  const cutFrac = 0.22;
-  const cutY = -r + r * cutFrac * 2;
-  const dx = Math.sqrt(r * r - cutY * cutY);
-  return `M ${-dx},${cutY} A ${r},${r} 0 0 1 ${dx},${cutY} Z`;
-}
-
-const DIAMOND_HH = PLAYER_RADIUS * 1.1;
-const DIAMOND_HW = PLAYER_RADIUS * 1.1;
-
-function diamondHeadPath(): string {
-  const cutFrac = 0.25;
-  const cutY = -DIAMOND_HH + DIAMOND_HH * 2 * cutFrac;
-  const cutHW = DIAMOND_HW * (cutY + DIAMOND_HH) / DIAMOND_HH;
-  return `M 0,${-DIAMOND_HH} L ${-cutHW},${cutY} L ${cutHW},${cutY} Z`;
-}
-
-function triHeadPath(r: number): string {
-  const h = r * 1.32;
-  const apex = -h;
-  const baseY = h * 0.5;
-  const hw = h * 0.866;
-  const cutFrac = 0.3;
-  const cutY = apex + (baseY - apex) * cutFrac;
-  const slope = hw / (baseY - apex);
-  const cutHW = slope * (cutY - apex);
-  return `M 0,${apex} L ${-cutHW},${cutY} L ${cutHW},${cutY} Z`;
-}
-
-function renderRotateHandle(hx: number, hy: number, id: string, color = 'white') {
-  const r = 0.875;
-  return svg`
-    <g transform="translate(${hx}, ${hy})"
-       data-kind="rotate" data-id="${id}"
-       style="cursor: grab">
-      <circle r="${r + 0.6}" fill="transparent" />
-      <path d="M ${-r * 0.5},${-r * 0.866} A ${r},${r} 0 0 1 ${r * 0.866},${r * 0.5}"
-            fill="none" stroke="${color}" stroke-width="0.275" stroke-opacity="0.85" />
-      <g transform="translate(${-r * 0.5},${-r * 0.866}) rotate(150)">
-        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="${color}" fill-opacity="0.85" />
-      </g>
-      <g transform="translate(${r * 0.866},${r * 0.5}) rotate(-30)">
-        <polygon points="0,-0.44 -0.375,0.25 0.375,0.25" fill="${color}" fill-opacity="0.85" />
-      </g>
-    </g>
-  `;
-}
 
 @customElement('coach-board')
 export class CoachBoard extends LitElement {
@@ -303,6 +161,10 @@ export class CoachBoard extends LitElement {
       z-index: 10;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
       padding-top: env(safe-area-inset-top);
+    }
+
+    cb-board-bar {
+      flex-shrink: 0;
     }
 
     .update-toast {
@@ -407,360 +269,6 @@ export class CoachBoard extends LitElement {
       font-size: 1rem;
       font-weight: bold;
       color: var(--pt-text);
-    }
-
-    .board-name-bar {
-      text-align: center;
-      padding: 12px 12px 0;
-      font-size: 0.75rem;
-      color: var(--pt-text);
-      background: var(--pt-bg-body);
-      user-select: none;
-    }
-
-    .board-name-bar .board-label {
-      color: var(--pt-text-muted);
-    }
-
-    .board-name-bar.theme-white {
-      background: var(--pt-field-area-white);
-      color: var(--pt-color-gray-600);
-    }
-
-    .board-name-bar.theme-white .unsaved {
-      color: var(--pt-color-gray-500);
-    }
-
-    .board-name-bar .unsaved {
-      opacity: 0.6;
-      font-style: italic;
-    }
-
-    .boards-list {
-      list-style: none;
-      margin: 0;
-      padding: 0 0 32px;
-      border-bottom: 1px solid var(--pt-border);
-      max-height: 300px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .boards-list li {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .boards-list .board-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .boards-list .board-open-btn {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      background: var(--pt-bg-surface);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      color: inherit;
-      cursor: pointer;
-      text-align: left;
-      min-width: 0;
-      transition: background 0.15s;
-    }
-
-    .boards-list .board-open-btn:hover {
-      background: var(--pt-border);
-    }
-
-    .boards-list .board-open-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .boards-list .board-icon {
-      flex-shrink: 0;
-      color: white;
-    }
-
-    .boards-list .board-title {
-      font-size: 0.85rem;
-      color: var(--pt-text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .boards-list .board-date {
-      font-size: 0.7rem;
-      color: var(--pt-text-muted);
-      margin-top: 4px;
-    }
-
-    .item-description {
-      font-size: 0.7rem;
-      color: var(--pt-text-muted);
-      margin-top: 4px;
-    }
-
-    .alert-warning {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 12px 16px;
-      background: rgba(180, 130, 20, 0.15);
-      border: 1px solid rgba(255, 200, 60, 0.5);
-      border-radius: 8px;
-      color: #fdd835;
-      font-size: 0.85rem;
-      line-height: 1.4;
-    }
-
-    .alert-warning svg {
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-
-    .alert-info {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 12px 16px;
-      background: rgba(126, 87, 194, 0.12);
-      border: 1px solid rgba(179, 157, 219, 0.45);
-      border-radius: 8px;
-      color: #b39ddb;
-      font-size: 0.85rem;
-      line-height: 1.4;
-      margin-top: 32px;
-    }
-
-    .alert-info svg {
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-
-    .boards-list .action-btn {
-      flex-shrink: 0;
-      background: transparent;
-      border: none;
-      color: var(--pt-text-muted);
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      min-width: 32px;
-      min-height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .boards-list .action-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .boards-list .action-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .boards-list .delete-btn {
-      flex-shrink: 0;
-      background: transparent;
-      border: none;
-      color: var(--pt-danger-lightest);
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      min-width: 32px;
-      min-height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .boards-list .delete-btn:hover {
-      background: rgba(248, 113, 113, 0.15);
-    }
-
-    .export-options {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .export-options button {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 12px 16px;
-      background: var(--pt-bg-surface);
-      border: 1px solid var(--pt-border);
-      border-radius: 6px;
-      color: var(--pt-text);
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: background 0.15s;
-      text-align: left;
-    }
-
-    .export-options button:hover {
-      background: var(--pt-border);
-    }
-
-    .export-options button:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .boards-list .delete-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .import-svg-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .save-board-label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--pt-text-muted);
-      margin-top: 16px;
-      margin-bottom: 6px;
-    }
-
-    .save-board-input {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--pt-bg-primary);
-      border: 1.5px solid var(--pt-border-ui);
-      border-radius: 6px;
-      color: var(--pt-text);
-      font-size: 0.85rem;
-      font-family: system-ui, -apple-system, sans-serif;
-      box-sizing: border-box;
-    }
-
-    .save-board-input:focus {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .boards-action-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 16px;
-    }
-
-    .boards-action-row .import-svg-btn {
-      margin-top: 0;
-    }
-
-    .import-svg-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 20px;
-      min-height: 44px;
-      margin-top: 16px;
-      background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      color: var(--pt-text-white);
-      font-size: 0.85rem;
-      cursor: pointer;
-      width: 100%;
-      justify-content: center;
-    }
-
-    .import-svg-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .field-area {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      touch-action: none;
-      min-height: 0;
-      padding: 12px;
-      background: var(--pt-bg-body);
-      transition: background 0.2s;
-      position: relative;
-    }
-
-    .play-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 5;
-      cursor: pointer;
-    }
-
-    .play-overlay-btn {
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .play-overlay-btn.press-out {
-      animation: pressOut 0.3s ease-in forwards;
-    }
-
-    .play-overlay-btn.press-in {
-      animation: pressIn 0.3s ease-out forwards;
-    }
-
-    @keyframes pressOut {
-      0% { transform: scale(1); opacity: 1; }
-      40% { transform: scale(0.85); opacity: 1; }
-      100% { transform: scale(0.85); opacity: 0; }
-    }
-
-    @keyframes pressIn {
-      0% { transform: scale(0.7); opacity: 0; }
-      60% { transform: scale(1.05); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    .field-area.theme-white {
-      background: var(--pt-field-area-white);
-    }
-
-    .svg-wrap {
-      position: relative;
-      width: 100%;
-      max-width: 1100px;
-      height: 100%;
-    }
-
-    .svg-wrap.vertical {
-      max-width: 768px;
-    }
-
-    .svg-wrap > svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-      cursor: default;
-      user-select: none;
-      touch-action: none;
     }
 
     .bottom-bar {
@@ -899,17 +407,6 @@ export class CoachBoard extends LitElement {
       }
     }
 
-    .svg-wrap > svg.tool-add-player,
-    .svg-wrap > svg.tool-add-equipment,
-    .svg-wrap > svg.tool-add-text {
-      cursor: none;
-    }
-
-    .svg-wrap > svg.tool-draw-line,
-    .svg-wrap > svg.tool-draw-shape {
-      cursor: crosshair;
-    }
-
     .bottom-bar .dropdown-wrap {
       position: relative;
     }
@@ -963,242 +460,8 @@ export class CoachBoard extends LitElement {
       letter-spacing: 0.5px;
     }
 
-    .share-url-wrap {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .share-editable-label {
-      display: flex;
-      align-items: center;
-      margin-top: 12px;
-      gap: 8px;
-      font-size: 0.85rem;
-      color: var(--pt-text);
-      cursor: pointer;
-      margin-right: auto;
-    }
-
-    .copied-label {
-      font-size: 0.75rem;
-      color: var(--pt-success-light);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .copied-label.visible {
-      opacity: 1;
-    }
-
-    .copy-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      padding: 0;
-      background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      color: var(--pt-text-muted);
-      cursor: pointer;
-      transition: color 0.15s, background 0.15s;
-    }
-
-    .copy-btn:hover {
-      color: var(--pt-text-white);
-      background: var(--pt-border);
-    }
-
-    .copy-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .share-url {
-      display: block;
-      margin-top: 24px;
-      padding: 10px 12px;
-      background: var(--pt-bg-primary);
-      border: 1px solid var(--pt-border);
-      border-radius: 6px;
-      font-family: monospace;
-      font-size: 0.7rem;
-      color: var(--pt-text-muted);
-      word-break: break-all;
-      max-height: 80px;
-      overflow-y: auto;
-      user-select: all;
-    }
-
     .bottom-bar [role="menuitem"].menu-indent {
       padding-left: 40px;
-    }
-
-    dialog:not([open]) {
-      display: none;
-    }
-
-    dialog {
-      background: var(--pt-bg-surface);
-      border: 1px solid var(--pt-border);
-      border-radius: 10px;
-      padding: 0;
-      max-width: 480px;
-      width: calc(100% - 32px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-      color: var(--pt-text);
-      display: flex;
-      flex-direction: column;
-    }
-
-    dialog::backdrop {
-      background: rgba(0, 0, 0, 0.6);
-    }
-
-    .dialog-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      flex-shrink: 0;
-    }
-
-    .dialog-header h2 {
-      margin: 0;
-      font-size: 0.95rem;
-      font-weight: bold;
-      color: var(--pt-text);
-    }
-
-    .dialog-close {
-      background: transparent;
-      border: none;
-      color: var(--pt-text-muted);
-      cursor: pointer;
-      min-width: 44px;
-      min-height: 44px;
-      padding: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      transition: color 0.15s;
-      font: inherit;
-    }
-
-    .dialog-close:hover { color: var(--pt-text-white); }
-
-    .dialog-close svg {
-      width: 14px;
-      height: 14px;
-    }
-
-    .dialog-body {
-      padding: 20px 16px;
-    }
-
-    .dialog-body p {
-      margin: 0;
-      font-size: 0.85rem;
-      color: var(--pt-text);
-      line-height: 1.4;
-    }
-
-    .confirm-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: space-between;
-      margin-top: 32px;
-    }
-
-    .confirm-actions.centered {
-      justify-content: center;
-      margin-top: 0;
-    }
-
-    .confirm-actions.end {
-      justify-content: flex-end;
-    }
-
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 0;
-      font-size: 0.85rem;
-      color: var(--pt-text);
-      cursor: pointer;
-    }
-
-    .checkbox-label input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      accent-color: var(--pt-accent);
-      cursor: pointer;
-    }
-
-    .confirm-actions-right {
-      display: flex;
-      gap: 8px;
-    }
-
-    .about-close-row {
-      display: flex;
-      justify-content: flex-end;
-      padding: 8px 8px 0;
-    }
-
-    .about-body {
-      text-align: center;
-      padding: 0 16px 32px;
-    }
-
-    .about-icon {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 12px;
-      border: 2px solid #fff;
-      border-radius: 50%;
-    }
-
-    .about-title {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: var(--pt-text);
-      margin-bottom: 12px;
-    }
-
-    .about-meta {
-      font-size: 0.8rem;
-      color: var(--pt-text-muted);
-      margin-bottom: 2px;
-    }
-
-    .about-meta.last {
-      margin-bottom: 24px;
-    }
-
-    .about-feedback {
-      margin-top: 12px;
-    }
-
-    .about-link {
-      color: var(--pt-accent);
-      text-decoration: underline;
-    }
-
-    .about-link:hover {
-      color: var(--pt-accent-hover);
-    }
-
-    .about-link:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
     }
 
     [role="menu"].menu-right {
@@ -1206,67 +469,6 @@ export class CoachBoard extends LitElement {
       left: auto;
       transform: none;
       min-width: 240px;
-    }
-
-    .confirm-actions button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 8px 20px;
-      min-height: 44px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      background: var(--pt-bg-surface);
-      color: var(--pt-text);
-      font: inherit;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    .confirm-actions button:hover {
-      background: var(--pt-border);
-    }
-
-    .confirm-actions button:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .dialog-close:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
-    .confirm-actions .cancel-btn {
-      border: 1px solid var(--pt-accent);
-      color: var(--pt-text-white);
-      background: transparent;
-    }
-
-    .confirm-actions .cancel-btn:hover {
-      background: rgba(78, 168, 222, 0.15);
-    }
-
-    .confirm-actions .confirm-success {
-      background: var(--pt-success-hover);
-      border-color: var(--pt-success-hover);
-      color: var(--pt-text-white);
-    }
-
-    .confirm-actions .confirm-success:hover {
-      background: var(--pt-success-btn-hover);
-    }
-
-    .confirm-actions .confirm-danger {
-      background: var(--pt-danger-hover);
-      border-color: var(--pt-danger-hover);
-      color: var(--pt-text-white);
-    }
-
-    .confirm-actions .confirm-danger:hover {
-      background: var(--pt-danger);
     }
 
     .rotate-overlay {
@@ -1319,24 +521,6 @@ export class CoachBoard extends LitElement {
       padding: 2px 0;
     }
 
-    .notes-textarea {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 8px;
-      font-size: 0.85rem;
-      font-family: inherit;
-      border: 1.5px solid var(--pt-border-ui);
-      border-radius: 6px;
-      background: var(--pt-surface);
-      color: var(--pt-text);
-      resize: vertical;
-      min-height: 60px;
-    }
-
-    .notes-textarea::placeholder {
-      color: var(--pt-text-muted);
-    }
-
     .summary-board-name {
       font-size: 1.1rem;
       font-weight: bold;
@@ -1350,15 +534,12 @@ export class CoachBoard extends LitElement {
         overflow: visible !important;
         background: white !important;
       }
-      .toolbar-area, .bottom-bar, .board-name-bar,
-      .play-overlay, .rotate-overlay, dialog {
+      .toolbar-area, .bottom-bar, cb-board-bar,
+      .rotate-overlay, cb-dialogs {
         display: none !important;
       }
-      .field-area {
+      cb-field {
         flex: none !important;
-      }
-      .svg-wrap.vertical {
-        max-width: 50% !important;
       }
       :host(.print-summary) .print-summary-block {
         display: block;
@@ -1367,12 +548,6 @@ export class CoachBoard extends LitElement {
         color: #333;
         background: white !important;
         page-break-inside: avoid;
-      }
-      :host(.print-white-bg) .field-area {
-        background: white !important;
-      }
-      :host(.print-white-bg) #grass-stripes rect {
-        fill: white !important;
       }
     }
 
@@ -1408,54 +583,29 @@ export class CoachBoard extends LitElement {
   @state() private accessor _playbackSpeed: number = 1;
   @state() private accessor _playbackLoop: boolean = true;
 
-  @query('svg') accessor svgEl!: SVGSVGElement;
-  @query('#reset-dialog') accessor _resetDialog!: HTMLDialogElement;
-  @query('#about-dialog') accessor _aboutDialog!: HTMLDialogElement;
-  @query('#import-confirm-dialog') accessor _importConfirmDialog!: HTMLDialogElement;
-  @query('#import-error-dialog') accessor _importErrorDialog!: HTMLDialogElement;
+  @query('cb-field') private accessor _field!: CbField;
+  @query('cb-share') private accessor _share!: CbShare;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
-  @query('#share-dialog') accessor _shareDialog!: HTMLDialogElement;
-  @query('#save-board-dialog') accessor _saveBoardDialog!: HTMLDialogElement;
-  @query('#new-board-dialog') accessor _newBoardDialog!: HTMLDialogElement;
-  @query('#my-boards-dialog') accessor _myBoardsDialog!: HTMLDialogElement;
-  @query('#delete-board-dialog') accessor _deleteBoardDialog!: HTMLDialogElement;
-  @query('#export-dialog') accessor _exportDialog!: HTMLDialogElement;
-  @query('#board-summary-dialog') accessor _boardSummaryDialog!: HTMLDialogElement;
-  @query('#print-dialog') accessor _printDialog!: HTMLDialogElement;
-  @state() private accessor _boardName: string = 'Untitled Board';
-  @state() private accessor _myBoards: SavedBoard[] = [];
-  @state() private accessor _saveBoardName: string = '';
-  @state() private accessor _newBoardPitchType: PitchType = 'full';
-  @state() private accessor _newBoardTemplate: string = '';
-  @state() private accessor _deleteBoardName: string = '';
-  @state() private accessor _printSummary: boolean = true;
-  @state() private accessor _printWhiteBg: boolean = true;
+  @query('cb-dialogs') private accessor _dialogs!: CbDialogs;  @state() private accessor _boardName: string = 'Untitled Board';
   @state() private accessor _boardNotes: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _updateAvailable: boolean = false;
   #updateSW: ((reloadPage?: boolean) => Promise<void>) | null = null;
-  @state() private accessor _shareEditable: boolean = false;
   @state() private accessor _showPlayOverlay: boolean = true;
   @state() private accessor _pauseFlash: boolean = false;
   @state() private accessor _playBtnAnim: '' | 'press-out' | 'press-in' = '';
-  @state() private accessor _shareMessage: string = '';
-  @state() private accessor _shareUrl: string = '';
   #currentBoard: SavedBoard | null = null;
-  #pendingBoardAction: 'new' | 'open' | 'save-as' | null = null;
+
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
-  #shareCompressed: string = '';
-  #shareShortId: string = '';
-  #lastSharedData: string = '';
-
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
   #rotateDrag: RotateDragState | null = null;
   #shapeResizeDrag: ShapeResizeDragState | null = null;
-  #draw: DrawState | null = null;
-  #shapeDraw: ShapeDrawState | null = null;
-  #marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
+  @state() accessor _draw: DrawState | null = null;
+  @state() accessor _shapeDraw: ShapeDrawState | null = null;
+  @state() accessor _marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #onDocClickForMenu = (e: PointerEvent) => {
     const path = e.composedPath();
@@ -1490,15 +640,10 @@ export class CoachBoard extends LitElement {
   #playbackLastTime: number | null = null;
   #trailDrag: { id: string; cp: 'cp1' | 'cp2' } | null = null;
   #lastPlacedId: string | null = null;
+  #saveTimer: ReturnType<typeof setTimeout> | null = null;
+  #clipboard: { players: Player[]; equipment: Equipment[]; lines: Line[]; shapes: Shape[]; textItems: TextItem[] } | null = null;
   #isPrinting = false;
-  #cachedSummary: {
-    name: string; pitchLabel: string; orientation: string;
-    playersByColor: Map<string, number>; coachCount: number;
-    equipByKind: Map<string, number>; conesByColor: Map<string, number>;
-    dummiesByColor: Map<string, number>; polesByColor: Map<string, number>;
-    linesByStyle: Map<string, number>;
-    shapeCount: number; textCount: number; frameCount: number;
-  } | null = null;
+  #cachedSummary: BoardSummary | null = null;
 
   #snapshot(): Snapshot {
     return {
@@ -1507,6 +652,10 @@ export class CoachBoard extends LitElement {
       equipment: structuredClone(this.equipment),
       shapes: structuredClone(this.shapes),
       textItems: structuredClone(this.textItems),
+      animationFrames: structuredClone(this.animationFrames),
+      fieldOrientation: this.fieldOrientation,
+      fieldTheme: this.fieldTheme,
+      pitchType: this.pitchType,
     };
   }
 
@@ -1536,7 +685,11 @@ export class CoachBoard extends LitElement {
       animationFrames: this.animationFrames,
       notes: this._boardNotes || undefined,
     };
-    saveBoard(this.#currentBoard).catch(() => { /* storage error */ });
+    if (this.#saveTimer) clearTimeout(this.#saveTimer);
+    this.#saveTimer = setTimeout(() => {
+      saveBoard(this.#currentBoard!).catch(() => {});
+      this.#saveTimer = null;
+    }, 500);
   }
 
   async #migrateFromLocalStorage(): Promise<SavedBoard | undefined> {
@@ -1715,6 +868,10 @@ export class CoachBoard extends LitElement {
     this.equipment = prev.equipment;
     this.shapes = prev.shapes;
     this.textItems = prev.textItems;
+    this.animationFrames = prev.animationFrames;
+    this.fieldOrientation = prev.fieldOrientation;
+    this.fieldTheme = prev.fieldTheme;
+    this.pitchType = prev.pitchType;
     this.selectedIds = new Set();
   }
 
@@ -1727,12 +884,16 @@ export class CoachBoard extends LitElement {
     this.equipment = next.equipment;
     this.shapes = next.shapes;
     this.textItems = next.textItems;
+    this.animationFrames = next.animationFrames;
+    this.fieldOrientation = next.fieldOrientation;
+    this.fieldTheme = next.fieldTheme;
+    this.pitchType = next.pitchType;
     this.selectedIds = new Set();
   }
 
   #saveSvg() {
     this._menuOpen = false;
-    const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+    const svgClone = this._field.svgEl.cloneNode(true) as SVGSVGElement;
     svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
     svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
     svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
@@ -1769,14 +930,14 @@ export class CoachBoard extends LitElement {
 
   #savePng() {
     this._menuOpen = false;
-    const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+    const svgClone = this._field.svgEl.cloneNode(true) as SVGSVGElement;
     svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
     svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
     svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
     svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
     svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
 
-    const vb = this.svgEl.viewBox.baseVal;
+    const vb = this._field.svgEl.viewBox.baseVal;
     const scale = 10;
     const w = vb.width * scale;
     const h = vb.height * scale;
@@ -1810,60 +971,13 @@ export class CoachBoard extends LitElement {
     img.src = svgUrl;
   }
 
-  #renderThumbnail(): Promise<Blob | null> {
-    return new Promise(resolve => {
-      try {
-        const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
-        svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
-        svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
-        svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
-        svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
-        svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
-
-        const vb = this.svgEl.viewBox.baseVal;
-        const scale = 3;
-        const w = vb.width * scale;
-        const h = vb.height * scale;
-        svgClone.setAttribute('width', String(w));
-        svgClone.setAttribute('height', String(h));
-
-        const svgString = new XMLSerializer().serializeToString(svgClone);
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const svgUrl = URL.createObjectURL(svgBlob);
-
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, w, h);
-          URL.revokeObjectURL(svgUrl);
-          canvas.toBlob(blob => resolve(blob), 'image/png');
-        };
-        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null); };
-        img.src = svgUrl;
-      } catch { resolve(null); }
-    });
-  }
-
-  async #uploadThumbnail(shareId: string) {
-    const blob = await this.#renderThumbnail();
-    if (!blob) return;
-    await fetch(`/api/share/${shareId}/image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'image/png' },
-      body: blob,
-    });
-  }
-
   async #saveGif() {
     this._menuOpen = false;
     if (this.animationFrames.length < 2) return;
 
     const { encode } = await import('modern-gif');
 
-    const vb = this.svgEl.viewBox.baseVal;
+    const vb = this._field.svgEl.viewBox.baseVal;
     const scale = 10;
     const w = Math.round(vb.width * scale);
     const h = Math.round(vb.height * scale);
@@ -1883,7 +997,7 @@ export class CoachBoard extends LitElement {
 
     const captureFrame = async (): Promise<ImageData> => {
       await this.updateComplete;
-      const svgClone = this.svgEl.cloneNode(true) as SVGSVGElement;
+      const svgClone = this._field.svgEl.cloneNode(true) as SVGSVGElement;
       svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
       svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
       svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
@@ -1952,9 +1066,6 @@ export class CoachBoard extends LitElement {
     URL.revokeObjectURL(url);
   }
 
-  get #selColor(): string {
-    return this.fieldTheme === 'white' ? WHITE_THEME.selection : 'white';
-  }
 
   get #selectedItems(): Array<Player | Equipment | Line | Shape | TextItem> {
     const ids = this.selectedIds;
@@ -2010,12 +1121,6 @@ export class CoachBoard extends LitElement {
   }
 
   render() {
-    const fd = getFieldDimensions(this.fieldOrientation, this.pitchType);
-    const vbX = -PADDING;
-    const vbY = -PADDING;
-    const vbW = fd.w + PADDING * 2;
-    const vbH = fd.h + PADDING * 2;
-
     return html`
       ${this._updateAvailable ? html`
         <div class="update-toast">
@@ -2025,7 +1130,7 @@ export class CoachBoard extends LitElement {
           </svg>
           <span>A new version of CoachingBoard is available.</span>
           <button class="dismiss-btn" @click="${() => { this._updateAvailable = false; }}">Dismiss</button>
-          <button class="refresh-btn" @click="${async () => { await this.#updateSW?.(true); window.location.reload(); }}">Refresh</button>
+          <button class="refresh-btn" @click="${() => this.#updateSW?.(true)}">Refresh</button>
         </div>
       ` : nothing}
       ${this._viewMode === 'readonly' ? html`
@@ -2064,161 +1169,56 @@ export class CoachBoard extends LitElement {
       `}
 
       ${this._viewMode !== 'readonly' ? html`
-        <div class="board-name-bar ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
-          <span class="board-label">Board:</span> ${this.#isBoardSaved
-            ? html`<span class="board-name">${this._boardName}</span>`
-            : html`<span class="unsaved">${this._boardName} (unsaved)</span>`}
-        </div>
+        <cb-board-bar
+          .boardName="${this._boardName}"
+          .isSaved="${this.#isBoardSaved}"
+          .isWhiteTheme="${this.fieldTheme === 'white'}"
+        ></cb-board-bar>
       ` : nothing}
 
-      <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
-        <div class="svg-wrap ${this.fieldOrientation === 'vertical' ? 'vertical' : ''}">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="${vbX} ${vbY} ${vbW} ${vbH}"
-          preserveAspectRatio="xMidYMid meet"
-          class="tool-${this.activeTool}"
-          @pointerdown="${this.#onPointerDown}"
-          @pointermove="${this.#onPointerMove}"
-          @pointerup="${this.#onPointerUp}"
-          @pointerleave="${this.#onPointerLeave}">
-
-          ${this.#renderDefs()}
-
-          <rect x="${-PADDING}" y="${-PADDING}"
-                width="${fd.w + PADDING * 2}"
-                height="${fd.h + PADDING * 2}"
-                fill="${this.fieldTheme === 'white' ? 'white' : 'var(--pt-bg-body)'}" />
-
-          <rect x="0" y="0"
-                width="${fd.w}" height="${fd.h}"
-                fill="${this.fieldTheme === 'white' ? 'white' : 'url(#grass-stripes)'}" rx="0.5" />
-
-          ${(() => {
-            const lc = this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white';
-            const v = this.fieldOrientation === 'vertical';
-            switch (this.pitchType) {
-              case 'open': return nothing;
-              case 'half': return v ? renderVerticalHalfField(lc) : renderHalfField(lc);
-              case 'half-attack': return v ? renderVerticalHalfFieldAttacking(lc) : renderHalfFieldAttacking(lc);
-              default: return v ? renderVerticalField(lc) : renderField(lc);
-            }
-          })()}
-
-          <g class="shapes-layer">
-            ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
-            ${this.#shapeDraw ? this.#renderShapeDrawPreview() : nothing}
-          </g>
-
-          ${this.#marquee ? svg`
-            <rect
-              x="${Math.min(this.#marquee.x1, this.#marquee.x2)}"
-              y="${Math.min(this.#marquee.y1, this.#marquee.y2)}"
-              width="${Math.abs(this.#marquee.x2 - this.#marquee.x1)}"
-              height="${Math.abs(this.#marquee.y2 - this.#marquee.y1)}"
-              fill="rgba(59, 130, 246, 0.15)"
-              stroke="rgba(59, 130, 246, 0.6)"
-              stroke-width="0.15"
-              stroke-dasharray="0.5,0.3"
-              style="pointer-events: none" />
-          ` : nothing}
-
-          <g class="lines-layer">
-            ${this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
-            ${this.#draw ? this.#renderDrawPreview() : nothing}
-          </g>
-
-          ${this._animationMode && this.activeFrameIndex > 0 && !this.isPlaying && this._viewMode !== 'readonly' ? this.#renderGhostsAndTrails() : nothing}
-
-          <g class="players-layer">
-            ${this.#getFramePlayers().filter(p => !this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
-          </g>
-
-          <g class="equipment-layer">
-            ${this.#getFrameEquipment().filter(eq => !this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
-          </g>
-
-          <g class="text-layer">
-            ${this.textItems.filter(t => !this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
-          </g>
-
-          <g class="selected-layer">
-            ${this.shapes.filter(s => this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
-            ${this.lines.filter(l => this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
-            ${this.#getFramePlayers().filter(p => this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
-            ${this.#getFrameEquipment().filter(eq => this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
-            ${this.textItems.filter(t => this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
-          </g>
-
-          ${this.activeTool === 'add-player' && this.ghost
-            ? (() => {
-                const ga = this.playerTeam === 'b'
-                  ? (this.fieldOrientation === 'horizontal' ? 270 : 180)
-                  : (this.fieldOrientation === 'horizontal' ? 90 : 0);
-                return this.playerTeam === 'a'
-                  ? svg`
-                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
-                      <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
-                               fill="${this.playerColor}" fill-opacity="0.5"
-                               stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
-                               stroke-dasharray="0.4,0.3" />
-                    </g>`
-                  : this.playerTeam === 'neutral'
-                  ? svg`
-                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
-                      <polygon points="0,${-DIAMOND_HH} ${DIAMOND_HW},0 0,${DIAMOND_HH} ${-DIAMOND_HW},0"
-                               fill="${this.playerColor}" fill-opacity="0.5"
-                               stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
-                               stroke-dasharray="0.4,0.3" />
-                    </g>`
-                  : svg`
-                    <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
-                      <circle cx="0" cy="0" r="${PLAYER_RADIUS}"
-                              fill="${this.playerColor}" fill-opacity="0.5"
-                              stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3" />
-                    </g>`;
-              })()
-            : nothing}
-          ${this.activeTool === 'add-equipment' && this.ghost
-            ? this.#renderGhostEquipment()
-            : nothing}
-          ${this.activeTool === 'add-text' && this.ghost
-            ? svg`
-              <text x="${this.ghost.x}" y="${this.ghost.y}"
-                    text-anchor="middle" dominant-baseline="central"
-                    fill="${this.fieldTheme === 'white' ? WHITE_THEME.text : 'white'}" fill-opacity="0.5" font-size="${TEXT_FONT_SIZE}"
-                    font-family="system-ui, sans-serif"
-                    style="pointer-events: none">
-                T
-              </text>`
-            : nothing}
-        </svg>
-        </div>
-        ${this._viewMode === 'readonly' && this.animationFrames.length > 1 ? html`
-          <div class="play-overlay" @click="${this.#toggleReadonlyPlayback}">
-            ${this._showPlayOverlay ? html`
-              <div class="play-overlay-btn ${this._playBtnAnim}">
-                ${this._pauseFlash ? html`
-                  <svg viewBox="0 0 16 16" width="42" height="42">
-                    <rect x="4" y="3" width="3" height="10" rx="0.5" fill="white"/>
-                    <rect x="9" y="3" width="3" height="10" rx="0.5" fill="white"/>
-                  </svg>
-                ` : html`
-                  <svg viewBox="0 0 16 16" width="42" height="42">
-                    <path d="M4.5 2l9 6-9 6z" fill="white"/>
-                  </svg>
-                `}
-              </div>
-            ` : nothing}
-          </div>
-        ` : nothing}
-      </div>
-
+      <cb-field
+        .players="${this.players}"
+        .lines="${this.lines}"
+        .equipment="${this.equipment}"
+        .shapes="${this.shapes}"
+        .textItems="${this.textItems}"
+        .selectedIds="${this.selectedIds}"
+        .ghost="${this.ghost}"
+        .draw="${this._draw}"
+        .shapeDraw="${this._shapeDraw}"
+        .marquee="${this._marquee}"
+        .activeTool="${this.activeTool}"
+        .playerColor="${this.playerColor}"
+        .playerTeam="${this.playerTeam}"
+        .lineStyle="${this.lineStyle}"
+        .equipmentKind="${this.equipmentKind}"
+        .shapeKind="${this.shapeKind}"
+        .fieldOrientation="${this.fieldOrientation}"
+        .fieldTheme="${this.fieldTheme}"
+        .pitchType="${this.pitchType}"
+        .viewMode="${this._viewMode}"
+        .isMobile="${this._isMobile}"
+        .rotateHandleId="${this._rotateHandleId}"
+        .animationMode="${this._animationMode}"
+        .animationFrames="${this.animationFrames}"
+        .activeFrameIndex="${this.activeFrameIndex}"
+        .isPlaying="${this.isPlaying}"
+        .playbackProgress="${this._playbackProgress}"
+        .showPlayOverlay="${this._showPlayOverlay}"
+        .pauseFlash="${this._pauseFlash}"
+        .playBtnAnim="${this._playBtnAnim}"
+        @pointerdown="${this.#onPointerDown}"
+        @pointermove="${this.#onPointerMove}"
+        @pointerup="${this.#onPointerUp}"
+        @pointerleave="${this.#onPointerLeave}"
+        @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
+      ></cb-field>
       ${this._animationMode && !this._isMobile && this._viewMode !== 'readonly' ? html`
         <cb-timeline
           .frameCount="${this.animationFrames.length}"
           .activeFrame="${this.activeFrameIndex}"
           .isPlaying="${this.isPlaying}"
+          .playbackProgress="${this._playbackProgress}"
           .speed="${this._playbackSpeed}"
           @frame-select="${this.#onFrameSelect}"
           @frame-add="${this.#onFrameAdd}"
@@ -2400,7 +1400,7 @@ export class CoachBoard extends LitElement {
 
                 <div class="menu-divider"></div>
                 <button role="menuitem" tabindex="-1"
-                        @click="${this.#shareLink}">
+                        @click="${() => this._share.triggerShare()}">
                   <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
                     <path d="m300 837.5c36.375-0.11328 72.234-8.625 104.79-24.867 32.547-16.242 60.906-39.781 82.863-68.781l233.15 125.6 0.003906-0.003906c-5.2422 18.062-8.0352 36.746-8.3008 55.551-0.25 51.039 17.758 100.48 50.77 139.41 33.012 38.922 78.852 64.762 129.25 72.844 50.395 8.0859 102.02-2.1172 145.55-28.762s76.102-67.973 91.828-116.53c15.727-48.555 13.57-101.13-6.0703-148.24-19.645-47.105-55.484-85.637-101.05-108.63-45.562-22.992-97.848-28.938-147.41-16.762-49.566 12.18-93.141 41.68-122.86 83.172l-229.45-123.6c18.93-50.207 18.93-105.59 0-155.8l229.7-123.6c29.523 40.945 72.699 70 121.75 81.93 49.047 11.93 100.75 5.9492 145.77-16.867 45.031-22.816 80.43-60.961 99.824-107.57 19.391-46.605 21.5-98.605 5.9453-146.63-15.551-48.023-47.746-88.91-90.781-115.3-43.031-26.387-94.074-36.539-143.93-28.621s-95.242 33.379-127.98 71.801c-32.742 38.418-50.688 87.27-50.598 137.75 0.26562 18.805 3.0586 37.488 8.3008 55.551l-233.4 125.6c-32.859-42.824-79.348-73.152-131.79-85.969-52.438-12.816-107.68-7.3516-156.59 15.488-48.91 22.84-88.559 61.688-112.39 110.12-23.832 48.434-30.422 103.55-18.676 156.24 11.742 52.688 41.117 99.785 83.266 133.51 42.148 33.727 94.543 52.055 148.52 51.961zm625-50c36.469 0 71.441 14.488 97.227 40.273 25.785 25.785 40.273 60.758 40.273 97.227s-14.488 71.441-40.273 97.227c-25.785 25.785-60.758 40.273-97.227 40.273s-71.441-14.488-97.227-40.273c-25.785-25.785-40.273-60.758-40.273-97.227 0.027344-36.461 14.523-71.418 40.301-97.199 25.781-25.777 60.738-40.273 97.199-40.301zm0-650c36.469 0 71.441 14.488 97.227 40.273 25.785 25.785 40.273 60.758 40.273 97.227s-14.488 71.441-40.273 97.227c-25.785 25.785-60.758 40.273-97.227 40.273s-71.441-14.488-97.227-40.273c-25.785-25.785-40.273-60.758-40.273-97.227 0.027344-36.461 14.523-71.418 40.301-97.199 25.781-25.777 60.738-40.273 97.199-40.301zm-625 300c43.098 0 84.43 17.121 114.91 47.594 30.473 30.477 47.594 71.809 47.594 114.91s-17.121 84.43-47.594 114.91c-30.477 30.473-71.809 47.594-114.91 47.594s-84.43-17.121-114.91-47.594c-30.473-30.477-47.594-71.809-47.594-114.91 0.054688-43.082 17.191-84.383 47.652-114.85 30.465-30.461 71.766-47.598 114.85-47.652z"/>
                   </svg>
@@ -2444,1084 +1444,49 @@ export class CoachBoard extends LitElement {
              tabindex="-1" aria-label="Import SVG file"
              @change="${this.#onFileSelected}" />
 
-      <dialog id="import-confirm-dialog">
-        <div class="dialog-header">
-          <h2>Import SVG</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._importConfirmDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>Import this SVG as a new board?</p>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._importConfirmDialog?.close()}">Cancel</button>
-            <button class="confirm-success" @click="${this.#confirmImport}">Import</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="import-error-dialog">
-        <div class="dialog-header">
-          <h2>Import Error</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._importErrorDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>This SVG was not exported from CoachingBoard and cannot be imported.</p>
-          <div class="confirm-actions end">
-            <button class="cancel-btn" @click="${() => this._importErrorDialog?.close()}">OK</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="share-dialog">
-        <div class="dialog-header">
-          <h2>Share</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._shareDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>${this._shareMessage}</p>
-          ${this._shareUrl ? html`
-            <code class="share-url">${this._shareUrl}</code>
-            <label class="share-editable-label">
-              <input type="checkbox" .checked="${this._shareEditable}" @change="${this.#onShareEditableChange}" />
-              Keep editable
-            </label>
-          ` : nothing}
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._shareDialog?.close()}">Close</button>
-            ${this._shareUrl ? html`
-              <button class="confirm-success" @click="${this.#copyAndClose}">
-                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="flex-shrink:0">
-                  <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
-                  <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                </svg>
-                Copy link
-              </button>
-            ` : nothing}
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="reset-dialog">
-        <div class="dialog-header">
-          <h2>Reset all</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${this.#cancelClearAll}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>Are you sure you want to reset all items on the board?</p>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${this.#cancelClearAll}">Cancel</button>
-            <button class="confirm-danger" @click="${this.#confirmClearAll}">Yes, reset all</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="about-dialog">
-        <div class="about-close-row">
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._aboutDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body about-body">
-          <svg class="about-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/><path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/><path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/><path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/></svg>
-          <div class="about-title">CoachingBoard</div>
-          <div class="about-meta">Version ${__APP_VERSION__}</div>
-          <div class="about-meta">by Mark Caron</div>
-          <div class="about-meta last about-feedback"><a href="https://github.com/markcaron/coach-board/issues/new" target="_blank" rel="noopener" class="about-link">Feedback</a></div>
-          <div class="confirm-actions centered">
-            <button class="cancel-btn" @click="${() => this._aboutDialog?.close()}">OK</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="save-board-dialog" @close="${() => { this.#pendingBoardAction = null; this.#pendingOpenBoardId = null; }}">
-        <div class="dialog-header">
-          <h2>${this.#pendingBoardAction === 'save-as' ? 'Save As' : this.#pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._saveBoardDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>${this.#pendingBoardAction === 'save-as' ? 'Save a copy of this board with a new name.' : this.#pendingBoardAction ? 'Give your current board a name to save it, first.' : 'Give your board a name to save it.'}</p>
-          <label class="save-board-label" for="save-board-input">Board name</label>
-          <input class="save-board-input" id="save-board-input" type="text" placeholder="Board name"
-                 .value="${this._saveBoardName}"
-                 @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}"
-                 @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#confirmSaveBoard(); }}" />
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
-            <div style="display: flex; gap: 8px;">
-              ${this.#pendingBoardAction === 'new' || this.#pendingBoardAction === 'open' ? html`
-                <button class="confirm-danger" @click="${this.#skipSaveBoard}">Don't Save</button>
-              ` : nothing}
-              <button class="confirm-success" ?disabled="${!this._saveBoardName.trim()}" @click="${this.#confirmSaveBoard}">Save</button>
-            </div>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="new-board-dialog">
-        <div class="dialog-header">
-          <h2>New Board</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._newBoardDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>Create a new board.</p>
-          <div style="display: flex; gap: 12px;">
-            <div style="flex: 1;">
-              <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
-              <select class="theme-select" id="new-board-pitch-type" style="width: 100%;"
-                      @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; this._newBoardTemplate = ''; }}">
-                <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
-                <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Def.)</option>
-                <option value="half-attack" ?selected="${this._newBoardPitchType === 'half-attack'}">Half Pitch (Att.)</option>
-                <option value="open" ?selected="${this._newBoardPitchType === 'open'}">Open Grass</option>
-              </select>
-            </div>
-            ${(() => {
-              const templates = getTemplatesForPitch(this._newBoardPitchType);
-              return templates.length > 0 ? html`
-                <div style="flex: 1;">
-                  <label class="save-board-label" for="new-board-template">Template</label>
-                  <select class="theme-select" id="new-board-template" style="width: 100%;"
-                          @change="${(e: Event) => { this._newBoardTemplate = (e.target as HTMLSelectElement).value; }}">
-                    <option value="" ?selected="${!this._newBoardTemplate}">Blank</option>
-                    ${templates.map(t => html`<option value="${t.id}" ?selected="${this._newBoardTemplate === t.id}">${t.name}</option>`)}
-                  </select>
-                </div>
-              ` : nothing;
-            })()}
-          </div>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._newBoardDialog?.close()}">Cancel</button>
-            <button class="confirm-success" @click="${this.#confirmNewBoard}">Create New Board</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="my-boards-dialog">
-        <div class="dialog-header">
-          <h2>My Boards</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._myBoardsDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
-            <h3 style="font-size: 0.8rem; color: var(--pt-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Saved Boards</h3>
-            <ul class="boards-list">
-              ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
-                <li>
-                  <button class="board-open-btn" aria-label="Open ${b.name}" @click="${() => this.#handleOpenBoard(b.id)}">
-                    <svg class="board-icon" viewBox="0 0 1200 1200" width="28" height="28" aria-hidden="true" fill="currentColor" style="transform: rotate(90deg)">
-                      <path d="m1050.2 206.34h-900.37c-50.016 0-90.703 40.688-90.703 90.703v605.86c0 50.016 40.688 90.703 90.703 90.703h900.42c50.016 0 90.703-40.688 90.703-90.703v-605.81c0-50.062-40.734-90.75-90.75-90.75zm58.875 696.56c0 32.484-26.391 58.875-58.875 58.875h-900.37c-32.484 0-58.875-26.391-58.875-58.875v-605.81c0-32.484 26.391-58.875 58.875-58.875h900.42c32.484 0 58.875 26.391 58.875 58.875v605.81z"/>
-                      <path d="m1031.3 300.1h-862.5c-8.8125 0-15.938 7.125-15.938 15.938v568.03c0 8.8125 7.125 15.938 15.938 15.938h862.5c8.8125 0 15.938-7.125 15.938-15.938v-568.03c0-8.8125-7.125-15.938-15.938-15.938zm-447.19 410.48c-54.281-7.8281-96.281-54.188-96.281-110.58s42-102.75 96.281-110.58zm31.875-221.16c54.281 7.8281 96.281 54.188 96.281 110.58s-42 102.75-96.281 110.58zm-431.26 20.719h53.062c11.719 0 21.328 9.5625 21.328 21.328v137.02c0 11.719-9.5625 21.328-21.328 21.328l-53.062 0.046875zm0 211.6h53.062c29.344 0 53.156-23.859 53.156-53.156v-137.02c0-29.344-23.859-53.156-53.156-53.156l-53.062-0.046875v-146.39h399.37v125.63c-71.859 8.0625-128.16 68.484-128.16 142.4 0 73.969 56.25 134.39 128.16 142.4v125.63h-399.37zm431.26 146.29v-125.63c71.859-8.0625 128.16-68.484 128.16-142.4 0-73.969-56.25-134.39-128.16-142.4v-125.63h399.37v146.34l-53.062-0.046875c-29.344 0-53.156 23.859-53.156 53.156v137.02c0 29.344 23.859 53.156 53.156 53.156h53.062v146.34l-399.37 0.046874zm399.37-178.18h-53.062c-11.719 0-21.328-9.5625-21.328-21.328v-137.02c0-11.719 9.5625-21.328 21.328-21.328h53.062z"/>
-                    </svg>
-                    <div class="board-info">
-                      <div class="board-title">${b.name}</div>
-                      <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${b.pitchType === 'half' ? 'Half (Def.)' : b.pitchType === 'half-attack' ? 'Half (Att.)' : b.pitchType === 'open' ? 'Open Grass' : 'Full Pitch'}</div>
-                    </div>
-                  </button>
-                  <button class="action-btn" title="Duplicate ${b.name}" aria-label="Duplicate ${b.name}"
-                          @click="${() => this.#duplicateBoard(b)}">
-                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                      <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
-                      <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                    </svg>
-                  </button>
-                  <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
-                          @click="${() => this.#handleDeleteBoard(b)}">
-                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                      <path d="M4 4h8l-1 10H5L4 4z" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                      <path d="M3 4h10M6 2h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                    </svg>
-                  </button>
-                </li>
-              `)}
-            </ul>
-          ` : html`
-            <div class="alert-warning">
-              <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#fdd835">
-                <path d="m600 431.77c-18.637 0-33.75 15.113-33.75 33.75v233.36c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-233.36c0-18.637-15.113-33.75-33.75-33.75z"/>
-                <path d="m600 789.56c-18.637 0-33.75 15.113-33.75 33.75v20.625c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-20.625c0-18.637-15.113-33.75-33.75-33.75z"/>
-                <path d="m1102.7 847.57-401.81-624.9c-22.164-34.426-59.887-55.012-100.88-55.012s-78.711 20.586-100.88 55.051v0.039062l-401.81 624.82c-24.113 37.461-25.762 83.211-4.3867 122.36 21.336 39.113 60.711 62.477 105.3 62.477h803.62c44.551 0 83.926-23.363 105.3-62.477 21.297-39.188 19.648-84.898-4.4648-122.36zm-54.863 89.965c-9.3359 17.137-26.551 27.336-46.051 27.336h-803.59c-19.5 0-36.711-10.164-46.051-27.336-9.3359-17.102-8.625-37.086 1.9141-53.512l401.81-624.83c19.688-30.523 68.551-30.523 88.273 0l401.81 624.82c10.539 16.426 11.215 36.414 1.875 53.516z"/>
-              </svg>
-              <span>No saved boards yet.</span>
-            </div>
-          `}
-          <div class="alert-info">
-            <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#b39ddb">
-              <path d="m600 112.5c-129.29 0-253.29 51.363-344.71 142.79-91.422 91.426-142.79 215.42-142.79 344.71s51.363 253.29 142.79 344.71c91.426 91.422 215.42 142.79 344.71 142.79s253.29-51.363 344.71-142.79c91.422-91.426 142.79-215.42 142.79-344.71-0.14453-129.25-51.555-253.16-142.95-344.55-91.395-91.391-215.3-142.8-344.55-142.95zm0 900c-109.4 0-214.32-43.461-291.68-120.82-77.359-77.355-120.82-182.28-120.82-291.68s43.461-214.32 120.82-291.68c77.355-77.359 182.28-120.82 291.68-120.82s214.32 43.461 291.68 120.82c77.359 77.355 120.82 182.28 120.82 291.68-0.11719 109.37-43.617 214.22-120.95 291.55s-182.18 120.83-291.55 120.95z"/>
-              <path d="m675 812.5h-37.5v-312.5c0-9.9453-3.9492-19.484-10.984-26.516-7.0312-7.0352-16.57-10.984-26.516-10.984h-25c-11.887 0.003906-23.066 5.6445-30.137 15.203-7.0664 9.5586-9.1836 21.898-5.707 33.266s12.137 20.414 23.344 24.383v277.15h-37.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h150c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
-              <path d="m650 350c0 27.613-22.387 50-50 50s-50-22.387-50-50 22.387-50 50-50 50 22.387 50 50z"/>
-            </svg>
-            <span>All board data is saved to your browser's local storage. Exporting boards as backup SVGs is the best way to keep backups.</span>
-          </div>
-          <div class="boards-action-row">
-            <button class="import-svg-btn" style="max-width: 50%;" @click="${this.#importSvgFromMyBoards}">
-              <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
-                <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
-                <path d="m600 862.5c16.566-0.027344 32.449-6.6211 44.164-18.336 11.715-11.715 18.309-27.598 18.336-44.164v-566.55l197.5 164.55c12.738 10.59 29.156 15.695 45.656 14.199 16.496-1.5 31.727-9.4844 42.344-22.199 10.59-12.738 15.695-29.156 14.199-45.656-1.5-16.496-9.4844-31.727-22.199-42.344l-300-250c-3.1562-2.2227-6.5039-4.1641-10-5.8008-2.2656-1.4922-4.6172-2.8477-7.0508-4.0508-14.562-6.1289-30.984-6.1289-45.551 0-2.5508 1.1875-5.0234 2.5391-7.3984 4.0508-3.5 1.6328-6.8438 3.5742-10 5.8008l-300 250c-13.23 11.031-21.32 27.035-22.359 44.23-1.0391 17.195 5.0664 34.055 16.871 46.602 11.805 12.543 28.262 19.66 45.488 19.668 14.613-0.035156 28.758-5.1641 40-14.5l197.5-164.55v566.55c0.027344 16.566 6.6211 32.449 18.336 44.164 11.715 11.715 27.598 18.309 44.164 18.336z"/>
-              </svg>
-              Import from SVG
-            </button>
-            ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
-            <button class="import-svg-btn" @click="${this.#exportAllBoards}">
-              <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
-                <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
-                <path d="m600 37.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v566.55l-197.5-164.55c-12.738-10.59-29.156-15.695-45.656-14.199-16.496 1.5-31.727 9.4844-42.344 22.199-10.59 12.738-15.695 29.156-14.199 45.656 1.5 16.496 9.4844 31.727 22.199 42.344l300 250c3.1484 2.2344 6.4961 4.1758 10 5.8008 2.2852 1.5312 4.6758 2.9023 7.1484 4.0977 14.566 6.1328 30.988 6.1328 45.551 0 2.4141-1.2031 4.7539-2.5547 7-4.0469 3.5039-1.6289 6.8477-3.5703 10-5.8008l300-250c13.23-11.004 21.336-26.977 22.41-44.148 1.0742-17.176-4.9766-34.031-16.73-46.598-11.758-12.566-28.172-19.73-45.379-19.805-14.613 0.027344-28.762 5.1562-40 14.5l-197.5 164.55v-566.55c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
-              </svg>
-              Export All Boards
-            </button>
-            ` : nothing}
-          </div>
-          <div class="confirm-actions end">
-            <button class="cancel-btn" @click="${() => this._myBoardsDialog?.close()}">Close</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="delete-board-dialog">
-        <div class="dialog-header">
-          <h2>Delete Board</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._deleteBoardDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <p>Are you sure you want to delete "${this._deleteBoardName}"? This cannot be undone.</p>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._deleteBoardDialog?.close()}">Cancel</button>
-            <button class="confirm-danger" @click="${this.#confirmDeleteBoard}">Delete</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="export-dialog">
-        <div class="dialog-header">
-          <h2>Export Board</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._exportDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <div class="export-options">
-            ${this._viewMode !== 'readonly' ? html`
-              <button @click="${this.#exportSvg}">
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
-                  <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                  <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">SVG</text>
-                </svg>
-                <div>
-                  <div>Export as SVG</div>
-                  <div class="item-description">Vector format with full board data. Can be reimported later.</div>
-                </div>
-              </button>
-            ` : nothing}
-            <button @click="${this.#exportPng}">
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
-                <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">PNG</text>
-              </svg>
-              <div>
-                <div>Save as PNG</div>
-                <div class="item-description">High-resolution image for sharing or printing.</div>
-              </div>
-            </button>
-            ${this.animationFrames.length > 1 ? html`
-              <button @click="${this.#exportGif}">
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
-                  <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                  <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">GIF</text>
-                </svg>
-                <div>
-                  <div>Save as GIF</div>
-                  <div class="item-description">Animated image of the playback sequence.</div>
-                </div>
-              </button>
-            ` : nothing}
-          </div>
-          <div class="confirm-actions end">
-            <button class="cancel-btn" @click="${() => this._exportDialog?.close()}">Close</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="board-summary-dialog" @close="${() => this.#saveToStorage()}">
-        <div class="dialog-header">
-          <h2>Board Summary</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._boardSummaryDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          ${this.#cachedSummary ? html`
-            <div class="summary-board-name">${this.#cachedSummary.name}</div>
-            <div class="summary-section">
-              <h3>Pitch</h3>
-              <p>${this.#cachedSummary.pitchLabel} · ${this.#cachedSummary.orientation}</p>
-            </div>
-            ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
-              <div class="summary-section">
-                <h3>Players</h3>
-                <ul>
-                  ${[...this.#cachedSummary.playersByColor.entries()].map(([color, count]) => html`<li>${count} ${color}</li>`)}
-                  ${this.#cachedSummary.coachCount > 0 ? html`<li>${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}</li>` : nothing}
-                </ul>
-              </div>
-            ` : nothing}
-            ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 || this.#cachedSummary.dummiesByColor.size > 0 || this.#cachedSummary.polesByColor.size > 0 ? html`
-              <div class="summary-section">
-                <h3>Equipment</h3>
-                <ul>
-                  ${[...this.#cachedSummary.equipByKind.entries()].map(([kind, count]) => html`<li>${count} ${kind}${count > 1 ? 's' : ''}</li>`)}
-                  ${this.#cachedSummary.conesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.#cachedSummary.conesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
-                  ${this.#cachedSummary.dummiesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'} (${[...this.#cachedSummary.dummiesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
-                  ${this.#cachedSummary.polesByColor.size > 0 ? html`<li>${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''} (${[...this.#cachedSummary.polesByColor.entries()].map(([color, count]) => `${count} ${color}`).join(', ')})</li>` : nothing}
-                </ul>
-              </div>
-            ` : nothing}
-            ${this.#cachedSummary.linesByStyle.size > 0 ? html`
-              <div class="summary-section">
-                <h3>Lines</h3>
-                <ul>
-                  ${[...this.#cachedSummary.linesByStyle.entries()].map(([style, count]) => html`<li>${count} ${style}${count > 1 ? 's' : ''}</li>`)}
-                </ul>
-              </div>
-            ` : nothing}
-            ${this.#cachedSummary.shapeCount > 0 ? html`
-              <div class="summary-section">
-                <h3>Shapes</h3>
-                <p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p>
-              </div>
-            ` : nothing}
-            ${this.#cachedSummary.textCount > 0 ? html`
-              <div class="summary-section">
-                <h3>Text</h3>
-                <p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p>
-              </div>
-            ` : nothing}
-            ${this.#cachedSummary.frameCount > 0 ? html`
-              <div class="summary-section">
-                <h3>Animation</h3>
-                <p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p>
-              </div>
-            ` : nothing}
-          ` : nothing}
-          <div class="summary-section">
-            <h3>Notes &amp; Instructions</h3>
-            <textarea class="notes-textarea" rows="4" placeholder="Add notes, drills, instructions…"
-                      .value="${this._boardNotes}"
-                      @input="${(e: Event) => { this._boardNotes = (e.target as HTMLTextAreaElement).value; }}"></textarea>
-          </div>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._boardSummaryDialog?.close()}">Close</button>
-            <button class="confirm-success" @click="${this.#saveBoardNotes}">Save</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="print-dialog">
-        <div class="dialog-header">
-          <h2>Print Board</h2>
-          <button class="dialog-close" aria-label="Close" title="Close" @click="${() => this._printDialog?.close()}">
-            <svg viewBox="0 0 16 16"><path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-          </button>
-        </div>
-        <div class="dialog-body">
-          <label class="checkbox-label">
-            <input type="checkbox" .checked="${this._printSummary}" @change="${(e: Event) => { this._printSummary = (e.target as HTMLInputElement).checked; }}">
-            Include board summary
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" .checked="${this._printWhiteBg}" @change="${(e: Event) => { this._printWhiteBg = (e.target as HTMLInputElement).checked; }}">
-            Use white background for printing
-          </label>
-          <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._printDialog?.close()}">Cancel</button>
-            <button class="confirm-success" @click="${this.#handlePrint}">Print</button>
-          </div>
-        </div>
-      </dialog>
-
+      <cb-dialogs
+        .viewMode="${this._viewMode}"
+        .animationFrameCount="${this.animationFrames.length}"
+        .boardNotes="${this._boardNotes}"
+        @cb-import-confirm="${this.#confirmImport}"
+        @cb-cancel-clear-all="${this.#cancelClearAll}"
+        @cb-confirm-clear-all="${this.#confirmClearAll}"
+        @cb-save-board-confirm="${this.#confirmSaveBoard}"
+        @cb-save-board-skip="${this.#skipSaveBoard}"
+        @cb-save-board-closed="${this.#onSaveBoardClosed}"
+        @cb-new-board-confirm="${this.#confirmNewBoard}"
+        @cb-open-board="${this.#onOpenBoard}"
+        @cb-duplicate-board="${this.#onDuplicateBoard}"
+        @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
+        @cb-import-svg="${this.#importSvgFromMyBoards}"
+        @cb-export-all-boards="${this.#exportAllBoards}"
+        @cb-confirm-delete-board="${this.#confirmDeleteBoard}"
+        @cb-export-svg="${this.#exportSvg}"
+        @cb-export-png="${this.#exportPng}"
+        @cb-export-gif="${this.#exportGif}"
+        @cb-board-notes-input="${this.#onBoardNotesInput}"
+        @cb-board-summary-closed="${() => this.#saveToStorage()}"
+        @cb-print-confirm="${this.#handlePrint}"
+      ></cb-dialogs>
+      <cb-share
+        .players="${this.players}"
+        .lines="${this.lines}"
+        .equipment="${this.equipment}"
+        .shapes="${this.shapes}"
+        .textItems="${this.textItems}"
+        .animationFrames="${this.animationFrames}"
+        .fieldTheme="${this.fieldTheme}"
+        .fieldOrientation="${this.fieldOrientation}"
+        .pitchType="${this.pitchType}"
+        .boardName="${this._boardName}"
+        .playbackLoop="${this._playbackLoop}"
+        .svgEl="${this._field?.svgEl ?? null}"
+      ></cb-share>
       <div class="rotate-overlay">
         <svg viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
           <path d="M880.71 163.3V163.32L740.23 163.16L738.09 127.98L882.89 128L880.71 163.3ZM106.9 438.69H106.88L105.81 458.31L105.78 459.55L105.99 479.2C106.11 489.65 114.67 498.03 125.12 497.92C135.5 497.81 143.84 489.35 143.84 479L143.63 459.77L144.64 441.37L146.85 423.11L150.26 405.01L154.85 387.19L160.6 369.72L167.5 352.63L175.49 336.07L184.57 320.03L194.67 304.65L205.76 289.97L217.8 276.04L230.73 262.93L244.27 250.89L258.55 239.75L273.53 229.55L289.13 220.35L305.29 212.18L321.96 205.07L339.06 199.05L356.5 194.15L374.21 190.39L392.15 187.78L409.75 186.38L388.69 203.43C384.01 207.22 381.58 212.76 381.58 218.35C381.58 222.59 382.98 226.86 385.86 230.41C392.52 238.64 404.61 239.91 412.84 233.25L475.4 182.59C479.9 178.95 482.51 173.47 482.53 167.68V167.59C482.53 161.81 479.9 156.42 475.4 152.77L413.16 102.35C404.93 95.68 392.85 96.95 386.18 105.18C383.3 108.73 381.9 113 381.9 117.25C381.9 122.84 384.33 128.38 389.01 132.17L409.17 148.5H409.04L407.82 148.56L388.53 150.1L387.31 150.24L368.17 153.02L366.96 153.24L348.04 157.26L346.85 157.55L328.23 162.78L327.06 163.15L308.81 169.58L307.67 170.03L289.88 177.62L288.77 178.14L271.51 186.87L270.44 187.46L253.78 197.29L252.74 197.95L236.75 208.83L235.76 209.55L220.51 221.45L219.57 222.23L205.11 235.09L204.22 235.94L190.42 249.93L189.58 250.84L176.73 265.71L175.95 266.68L164.1 282.36L163.39 283.38L152.6 299.81L151.95 300.87L142.27 317.97L141.69 319.07L133.15 336.77L132.64 337.91L125.28 356.13L124.85 357.3L118.71 375.97L118.36 377.17L113.45 396.2L113.18 397.41L109.54 416.72L109.35 417.95L106.98 437.46L106.93 438.7H106.88H106.9V438.69ZM1034.12 127.99H1035.01C1048.17 128.42 1058.72 139.24 1058.72 152.52V850.85L562.25 850.87V152.52C562.25 139.24 572.79 128.42 585.96 127.99L699.84 128.01L703.25 183.42C703.87 193.49 712.21 201.33 722.3 201.33L898.64 201.38C908.72 201.36 917.06 193.52 917.69 183.46L921.13 127.99H1034.12ZM165.32 878.25V878.27L130.31 880.29L130.22 735.5L165.38 737.71V737.73L165.32 878.26V878.25ZM810.51 955.19H810.54C821.5 955.19 830.33 964.07 830.33 975.02C830.33 985.97 821.45 994.85 810.5 994.85C799.55 994.85 790.67 985.97 790.67 975.02C790.67 964.07 799.52 955.19 810.47 955.19H810.52H810.51ZM810.5 916.95H810.46C778.39 916.95 752.43 942.95 752.43 975.02C752.43 1007.09 778.42 1033.08 810.49 1033.08C842.56 1033.08 868.56 1007.08 868.56 975.02C868.56 942.96 842.59 916.95 810.52 916.95H810.5ZM1058.75 1031.75V1031.8C1058.75 1045.02 1048.2 1056.26 1035.04 1056.28L585.98 1056.3C572.82 1055.87 562.26 1045.04 562.26 1031.76V889.07L1058.74 889.11V1031.75H1058.75ZM153.36 521.44V521.46C153.47 521.44 153.36 521.44 153.36 521.44C121.46 522.14 95.39 546.56 92.24 577.77V577.84C92.01 580 91.87 1031.59 91.87 1031.59C91.87 1055.47 105.03 1076.19 124.65 1086.81L124.74 1086.86C133.33 1091.56 143.14 1094.56 153.58 1094.56L481.57 1094.36C492.12 1094.36 500.68 1085.81 500.68 1075.26C500.68 1064.71 492.23 1056.26 481.77 1056.16C481.51 1056.16 154.65 1056.16 154.65 1056.16C150.38 1056.16 146.37 1055.07 142.87 1053.15L142.82 1053.12C135.64 1049 130.71 1041.43 130.42 1032.66L130.35 918.55L185.58 915.17C195.64 914.55 203.48 906.22 203.5 896.15C203.5 896.06 203.57 719.78 203.57 719.78C203.57 709.7 195.73 701.35 185.67 700.73L130.22 697.28L130.29 581.75C131.64 569.45 142.04 559.9 154.67 559.89L481.58 559.71C492.13 559.69 500.69 551.14 500.69 540.59C500.69 530.04 492.14 521.48 481.58 521.48H153.36V521.5V521.47V521.44ZM586.84 89.74H586.79C552.59 89.74 524.79 117.08 524.04 151.11V1033.18C524.81 1067.22 552.62 1094.56 586.81 1094.56H1034.2C1068.39 1094.54 1096.21 1067.2 1096.96 1033.17V151.11C1096.19 117.07 1068.38 89.73 1034.19 89.73H586.84V89.74Z" fill="white"/>
         </svg>
       </div>
-    `;
-  }
-
-  #renderDefs() {
-    const vertical = this.fieldOrientation === 'vertical';
-    return svg`
-      <defs>
-        ${vertical ? svg`
-          <pattern id="grass-stripes" width="68" height="13.125"
-                   patternUnits="userSpaceOnUse">
-            <rect width="68" height="6.6125" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
-            <rect y="6.5125" width="68" height="6.6125" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
-          </pattern>
-        ` : svg`
-          <pattern id="grass-stripes" width="13.125" height="68"
-                   patternUnits="userSpaceOnUse">
-            <rect width="6.6125" height="68" fill="var(--field-stripe-light, ${COLORS.fieldStripeLight})" />
-            <rect x="6.5125" width="6.6125" height="68" fill="var(--field-stripe-dark, ${COLORS.fieldStripeDark})" />
-          </pattern>
-        `}
-
-        <filter id="player-shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="${this.fieldTheme === 'white' ? '0.15' : '0.3'}" stdDeviation="${this.fieldTheme === 'white' ? '0.2' : '0.4'}"
-                        flood-color="#000" flood-opacity="${this.fieldTheme === 'white' ? '0.15' : '0.5'}" />
-        </filter>
-
-        <filter id="text-shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="${this.fieldTheme === 'white' ? '0.08' : '0.15'}" stdDeviation="${this.fieldTheme === 'white' ? '0.12' : '0.25'}"
-                        flood-color="#000" flood-opacity="${this.fieldTheme === 'white' ? '0.1' : '0.35'}" />
-        </filter>
-
-        <pattern id="goal-net" width="0.5" height="0.5"
-                 patternUnits="userSpaceOnUse">
-          <rect width="0.5" height="0.5" fill="${this.fieldTheme === 'white' ? COLORS.previewStroke : COLORS.fieldLineWhite}" fill-opacity="${this.fieldTheme === 'white' ? '0.6' : '0.15'}" />
-          <line x1="0" y1="0" x2="0.5" y2="0.5"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldNet : 'white'}" stroke-width="0.04" opacity="${this.fieldTheme === 'white' ? '0.5' : '0.3'}" />
-          <line x1="0.5" y1="0" x2="0" y2="0.5"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldNet : 'white'}" stroke-width="0.04" opacity="${this.fieldTheme === 'white' ? '0.5' : '0.3'}" />
-        </pattern>
-
-        ${[...new Set([
-          COLORS.lineWhite, COLORS.playerRed, COLORS.playerBlue,
-          COLORS.lineBlue, COLORS.lineRed, COLORS.lineYellow, COLORS.linePurple, COLORS.lineGray,
-          COLORS.lineBlack, COLORS.lineBlueW, COLORS.lineRedW, COLORS.lineYellowW, COLORS.linePurpleW, COLORS.playerYellowW,
-        ])].map(c => {
-          const safeId = c.replace('#', '');
-          return svg`
-            <marker id="arrow-end-${safeId}" markerWidth="6" markerHeight="8"
-                    refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-              <path d="M 0 1.45 L 6 4 L 0 6.55 Z" fill="${c}" />
-            </marker>
-            <marker id="arrow-start-${safeId}" markerWidth="6" markerHeight="8"
-                    refX="3" refY="4" orient="auto" markerUnits="strokeWidth">
-              <path d="M 6 1.45 L 0 4 L 6 6.55 Z" fill="${c}" />
-            </marker>
-          `;
-        })}
-      </defs>
-    `;
-  }
-
-  #renderPlayer(p: Player) {
-    const selected = this.selectedIds.has(p.id);
-    const singleSelected = selected && this.selectedIds.size === 1;
-    const isTriangle = p.team === 'a';
-    const textColor = getTextColor(p.color);
-    const angle = p.angle ?? 0;
-
-    if (isTriangle) {
-      const textOff = -PLAYER_RADIUS * 0.03;
-      const selR = PLAYER_RADIUS + 0.6;
-      return svg`
-        <g data-id="${p.id}" data-kind="player"
-           transform="translate(${p.x}, ${p.y}) rotate(${angle})">
-          ${selected ? svg`
-            <polygon points="${triPoints(0, 0, selR)}"
-                     fill="none" stroke="${this.#selColor}" stroke-width="0.2"
-                     stroke-linejoin="round" stroke-dasharray="0.5,0.3" />
-          ` : nothing}
-          <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
-                   fill="${p.color}" stroke="white" stroke-width="0.15"
-                   stroke-linejoin="round"
-                   filter="url(#player-shadow)"
-                   style="cursor: pointer" />
-          <path d="${triHeadPath(PLAYER_RADIUS)}"
-                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
-          ${p.label ? svg`
-            <text x="0" y="${textOff}"
-                  text-anchor="middle" dominant-baseline="central"
-                  fill="${textColor}" font-size="${(p.label?.length ?? 0) > 2 ? '1.4' : '1.9'}" font-weight="bold"
-                  font-family="system-ui, sans-serif"
-                  transform="rotate(${-angle}, 0, ${textOff})"
-                  style="pointer-events: none">
-              ${p.label}
-            </text>
-          ` : nothing}
-          ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, selR + 0.3) : nothing}
-        </g>
-      `;
-    }
-
-    if (p.team === 'neutral') {
-      const hh = DIAMOND_HH;
-      const hw = DIAMOND_HW;
-      const selHH = hh + 0.4;
-      const selHW = hw + 0.4;
-      const dPts = `0,${-hh} ${hw},0 0,${hh} ${-hw},0`;
-      const selPts = `0,${-selHH} ${selHW},0 0,${selHH} ${-selHW},0`;
-      const fontSize = (p.label?.length ?? 0) > 2 ? '1.4' : '1.9';
-      return svg`
-        <g data-id="${p.id}" data-kind="player"
-           transform="translate(${p.x}, ${p.y}) rotate(${angle})">
-          ${selected ? svg`
-            <polygon points="${selPts}"
-                     fill="none" stroke="${this.#selColor}" stroke-width="0.2"
-                     stroke-linejoin="round" stroke-dasharray="0.5,0.3" />
-          ` : nothing}
-          <polygon points="${dPts}"
-                   fill="${p.color}" stroke="white" stroke-width="0.15"
-                   stroke-linejoin="round"
-                   filter="url(#player-shadow)"
-                   style="cursor: pointer" />
-          <path d="${diamondHeadPath()}"
-                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
-          ${p.label ? svg`
-            <text x="0" y="0"
-                  text-anchor="middle" dominant-baseline="central"
-                  fill="${textColor}" font-size="${fontSize}" font-weight="bold"
-                  font-family="system-ui, sans-serif"
-                  transform="rotate(${-angle})"
-                  style="pointer-events: none">
-              ${p.label}
-            </text>
-          ` : nothing}
-          ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS + 0.7) : nothing}
-        </g>
-      `;
-    }
-
-    const fontSize = (p.label?.length ?? 0) > 2 ? '1.4' : '1.9';
-    return svg`
-      <g class="player"
-         data-id="${p.id}"
-         data-kind="player"
-         transform="translate(${p.x}, ${p.y}) rotate(${angle})">
-        ${selected ? svg`
-          <circle cx="0" cy="0" r="${PLAYER_RADIUS + 0.4}"
-                   fill="none" stroke="${this.#selColor}" stroke-width="0.2"
-                   stroke-dasharray="0.5,0.3" />
-        ` : nothing}
-        <circle cx="0" cy="0" r="${PLAYER_RADIUS}"
-                fill="${p.color}" stroke="white" stroke-width="0.15"
-                filter="url(#player-shadow)"
-                style="cursor: pointer" />
-        <path d="${circleHeadPath(PLAYER_RADIUS)}"
-              fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
-        ${p.label ? svg`
-          <text x="0" y="0"
-                text-anchor="middle" dominant-baseline="central"
-                fill="${textColor}" font-size="${fontSize}" font-weight="bold"
-                font-family="system-ui, sans-serif"
-                transform="rotate(${-angle})"
-                style="pointer-events: none">
-            ${p.label}
-          </text>
-        ` : nothing}
-        ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS + 0.7) : nothing}
-      </g>
-    `;
-  }
-
-  #shouldShowRotate(id: string, singleSelected: boolean): boolean {
-    if (!singleSelected) return false;
-    if (this._isMobile) return this._rotateHandleId === id;
-    return true;
-  }
-
-  #renderCircleRotateHandles(id: string, r: number) {
-    return renderRotateHandle(r, -r, id, this.#selColor);
-  }
-
-  #renderRectRotateHandles(id: string, x1: number, y1: number, x2: number, y2: number) {
-    return renderRotateHandle(x2, y1, id, this.#selColor);
-  }
-
-  #renderLine(l: Line) {
-    const selected = this.selectedIds.has(l.id);
-    const singleSelected = selected && this.selectedIds.size === 1;
-    const curveD = `M ${l.x1} ${l.y1} Q ${l.cx} ${l.cy} ${l.x2} ${l.y2}`;
-    const visibleD = l.style === 'wavy'
-      ? wavyPath(l.x1, l.y1, l.cx, l.cy, l.x2, l.y2)
-      : curveD;
-    const markerColor = (l.color === 'white' ? COLORS.lineWhite : l.color).replace('#', '');
-
-    return svg`
-      <g class="line" data-id="${l.id}">
-        <path d="${curveD}"
-              fill="none" stroke="transparent" stroke-width="${(this._isMobile ? HIT_SLOP_MOBILE : HIT_SLOP) * 2}"
-              data-id="${l.id}" data-kind="line-body"
-              style="cursor: pointer;${singleSelected ? ' pointer-events: none' : ''}" />
-
-        <path d="${visibleD}"
-              fill="none" stroke="${l.color}" stroke-width="${selected ? '0.45' : '0.3'}"
-              stroke-dasharray="${l.style === 'dashed' ? '1,0.6' : 'none'}"
-              marker-start="${l.arrowStart ? `url(#arrow-start-${markerColor})` : ''}"
-              marker-end="${l.arrowEnd ? `url(#arrow-end-${markerColor})` : ''}"
-              style="pointer-events: none" />
-
-        ${singleSelected ? svg`
-          <circle cx="${l.x1}" cy="${l.y1}" r="${CONTROL_HANDLE_R + 1}"
-                  fill="transparent"
-                  data-id="${l.id}" data-kind="line-start"
-                  style="cursor: grab" />
-          <circle cx="${l.x1}" cy="${l.y1}" r="${CONTROL_HANDLE_R}"
-                  fill="${this.#selColor}" fill-opacity="0.5" stroke="${this.#selColor}" stroke-width="0.1"
-                  style="pointer-events: none" />
-          <circle cx="${l.x2}" cy="${l.y2}" r="${CONTROL_HANDLE_R + 1}"
-                  fill="transparent"
-                  data-id="${l.id}" data-kind="line-end"
-                  style="cursor: grab" />
-          <circle cx="${l.x2}" cy="${l.y2}" r="${CONTROL_HANDLE_R}"
-                  fill="${this.#selColor}" fill-opacity="0.5" stroke="${this.#selColor}" stroke-width="0.1"
-                  style="pointer-events: none" />
-          <circle cx="${l.cx}" cy="${l.cy}" r="${CONTROL_HANDLE_R + 1}"
-                  fill="transparent"
-                  data-id="${l.id}" data-kind="line-control"
-                  style="cursor: grab" />
-          <circle cx="${l.cx}" cy="${l.cy}" r="${CONTROL_HANDLE_R}"
-                  fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
-                  style="pointer-events: none" />
-          <line x1="${l.x1}" y1="${l.y1}" x2="${l.cx}" y2="${l.cy}"
-                stroke="${COLORS.annotation}" stroke-width="0.1" stroke-dasharray="0.4,0.3"
-                style="pointer-events: none" />
-          <line x1="${l.x2}" y1="${l.y2}" x2="${l.cx}" y2="${l.cy}"
-                stroke="${COLORS.annotation}" stroke-width="0.1" stroke-dasharray="0.4,0.3"
-                style="pointer-events: none" />
-        ` : nothing}
-      </g>
-    `;
-  }
-
-  #renderDrawPreview() {
-    const d = this.#draw!;
-    const previewColor = this.fieldTheme === 'white' ? WHITE_THEME.text : COLORS.lineWhite;
-    const previewMarkerId = previewColor.replace('#', '');
-    const mx = (d.x1 + d.x2) / 2;
-    const my = (d.y1 + d.y2) / 2;
-    if (this.lineStyle === 'wavy') {
-      const pathD = wavyPath(d.x1, d.y1, mx, my, d.x2, d.y2);
-      return svg`
-        <path d="${pathD}"
-              fill="none" stroke="${previewColor}" stroke-width="0.25"
-              marker-end="url(#arrow-end-${previewMarkerId})"
-              style="pointer-events: none" />
-      `;
-    }
-    const dashAttr = this.lineStyle === 'dashed' ? '0.8,0.4' : 'none';
-    return svg`
-      <line x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}"
-            stroke="${previewColor}" stroke-width="0.25" stroke-dasharray="${dashAttr}"
-            marker-end="url(#arrow-end-${previewMarkerId})"
-            style="pointer-events: none" />
-    `;
-  }
-
-  #renderEquipment(eq: Equipment) {
-    const selected = this.selectedIds.has(eq.id);
-    const singleSelected = selected && this.selectedIds.size === 1;
-
-    if (eq.kind === 'ball') {
-      const s = BALL_RADIUS / 480;
-      return svg`
-        <g data-id="${eq.id}" data-kind="equipment"
-           transform="translate(${eq.x}, ${eq.y})">
-          ${selected ? svg`
-            <circle r="${BALL_RADIUS + 0.4}" fill="none" stroke="${this.#selColor}" stroke-width="0.15"
-                    stroke-dasharray="0.4,0.25" />
-          ` : nothing}
-          <circle r="${BALL_RADIUS}" fill="white"
-                  stroke="white" stroke-width="0.225"
-                  filter="url(#player-shadow)"
-                  style="cursor: pointer" />
-          <g transform="scale(${s}) translate(-600, -600)" style="pointer-events: none">
-            <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
-          </g>
-        </g>
-      `;
-    }
-    if (eq.kind === 'cone') {
-      const coneColor = eq.color ?? COLORS.coneNeonOrange;
-      return svg`
-        <g data-id="${eq.id}" data-kind="equipment">
-          ${selected ? svg`
-            <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_OUTER_R + CONE_OUTER_STROKE / 2 + 0.2}"
-                    fill="none" stroke="${this.#selColor}" stroke-width="0.15"
-                    stroke-dasharray="0.4,0.25" />
-          ` : nothing}
-          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_OUTER_R}"
-                  fill="none" stroke="${coneColor}" stroke-width="${CONE_OUTER_STROKE}"
-                  style="cursor: pointer" />
-          <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_INNER_R}"
-                  fill="${SILVER_CENTER}" style="cursor: pointer" />
-        </g>
-      `;
-    }
-    if (eq.kind === 'dummy') {
-      const dummyColor = eq.color ?? COLORS.coneChartreuse;
-      const angle = eq.angle ?? 0;
-      const pad = 0.5;
-      const rx1 = -DUMMY_OUTER_HW - pad;
-      const ry1 = -DUMMY_OUTER_HH - pad;
-      const rx2 = DUMMY_OUTER_HW + pad;
-      const ry2 = DUMMY_OUTER_HH + pad;
-      return svg`
-        <g data-id="${eq.id}" data-kind="equipment"
-           transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
-          ${selected ? svg`
-            <rect x="${-DUMMY_OUTER_HW - DUMMY_OUTER_STROKE / 2 - 0.25}" y="${-DUMMY_OUTER_HH - DUMMY_OUTER_STROKE / 2 - 0.25}"
-                  width="${(DUMMY_OUTER_HW + DUMMY_OUTER_STROKE / 2 + 0.25) * 2}" height="${(DUMMY_OUTER_HH + DUMMY_OUTER_STROKE / 2 + 0.25) * 2}"
-                  rx="${DUMMY_OUTER_RX + 0.4}" fill="none" stroke="${this.#selColor}"
-                  stroke-width="0.15" stroke-dasharray="0.4,0.25" />
-          ` : nothing}
-          <rect x="${-DUMMY_OUTER_HW}" y="${-DUMMY_OUTER_HH}"
-                width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
-                rx="${DUMMY_OUTER_RX}" fill="none"
-                stroke="${dummyColor}" stroke-width="${DUMMY_OUTER_STROKE}"
-                style="cursor: pointer" />
-          <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
-                width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
-                rx="${DUMMY_INNER_RX}" fill="${lightenHex(dummyColor)}"
-                style="cursor: pointer" />
-          ${this.#shouldShowRotate(eq.id, singleSelected)
-            ? this.#renderRectRotateHandles(eq.id, rx1, ry1, rx2, ry2)
-            : nothing}
-        </g>
-      `;
-    }
-    if (eq.kind === 'pole') {
-      const poleColor = eq.color ?? COLORS.coneChartreuse;
-      return svg`
-        <g data-id="${eq.id}" data-kind="equipment">
-          ${selected ? svg`
-            <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS + 0.3}"
-                    fill="none" stroke="${this.#selColor}" stroke-width="0.15"
-                    stroke-dasharray="0.4,0.25" />
-          ` : nothing}
-          <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS}"
-                  fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3"
-                  style="cursor: pointer" />
-          <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_RADIUS}"
-                  fill="${poleColor}" style="cursor: pointer" />
-        </g>
-      `;
-    }
-    if (eq.kind === 'popup-goal') {
-      const hw = POPUP_GOAL_W / 2;
-      const d = POPUP_GOAL_D;
-      const pad = 0.5;
-      const angle = eq.angle ?? 0;
-      const rx1 = -pad;
-      const ry1 = -hw - pad;
-      const rx2 = d + pad;
-      const ry2 = hw + pad;
-      return svg`
-        <g data-id="${eq.id}" data-kind="equipment"
-           transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
-          ${selected ? svg`
-            <rect x="${rx1}" y="${ry1}" width="${rx2 - rx1}" height="${ry2 - ry1}"
-                  fill="none" stroke="${this.#selColor}" stroke-width="0.15"
-                  stroke-dasharray="0.5,0.3" rx="0.2" />
-          ` : nothing}
-          <rect x="${-1}" y="${-hw - 1}" width="${d + 2}" height="${POPUP_GOAL_W + 2}"
-                fill="transparent" style="cursor: pointer" />
-          <path d="M 0,${-hw} A ${hw},${hw} 0 0 1 0,${hw}"
-                fill="url(#goal-net)" stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25"
-                style="pointer-events: none" />
-          <line x1="0" y1="${-hw}" x2="0" y2="${hw}"
-                stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" style="pointer-events: none" />
-          ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
-        </g>
-      `;
-    }
-    if (eq.kind === 'goal' || eq.kind === 'mini-goal') {
-      const w = eq.kind === 'goal' ? GOAL_W : MINI_GOAL_W;
-      const d = eq.kind === 'goal' ? GOAL_D : MINI_GOAL_D;
-      const hw = w / 2;
-      const post = 0.4;
-      const pad = 0.5;
-      const angle = eq.angle ?? 0;
-      const rx1 = -post - pad;
-      const ry1 = -hw - pad;
-      const rx2 = d + pad;
-      const ry2 = hw + pad;
-      return svg`
-        <g data-id="${eq.id}" data-kind="equipment"
-           transform="translate(${eq.x}, ${eq.y}) rotate(${angle})">
-          ${selected ? svg`
-            <rect x="${rx1}" y="${ry1}" width="${rx2 - rx1}" height="${ry2 - ry1}"
-                  fill="none" stroke="${this.#selColor}" stroke-width="0.15"
-                  stroke-dasharray="0.5,0.3" rx="0.2" />
-          ` : nothing}
-          <rect x="${-1}" y="${-hw - 1}" width="${d + 2}" height="${w + 2}"
-                fill="transparent" style="cursor: pointer" />
-          <rect x="0" y="${-hw}" width="${d}" height="${w}"
-                fill="url(#goal-net)" stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}"
-                style="pointer-events: none" />
-          <line x1="0" y1="${-hw}" x2="0" y2="${-hw - post}"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
-          <line x1="0" y1="${hw}" x2="0" y2="${hw + post}"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
-          ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
-        </g>
-      `;
-    }
-    return svg`
-      <g data-id="${eq.id}" data-kind="equipment">
-        ${selected ? svg`
-          <circle cx="${eq.x}" cy="${eq.y}" r="${PLAYER_RADIUS + 0.4}"
-                  fill="none" stroke="${this.#selColor}" stroke-width="0.2"
-                  stroke-dasharray="0.5,0.3" />
-        ` : nothing}
-        <circle cx="${eq.x}" cy="${eq.y}" r="${PLAYER_RADIUS}"
-                fill="${COLORS.coachBg}" stroke="white" stroke-width="0.15"
-                filter="url(#player-shadow)"
-                style="cursor: pointer" />
-        <text x="${eq.x}" y="${eq.y}"
-              text-anchor="middle" dominant-baseline="central"
-              fill="white" font-size="1.9" font-weight="bold"
-              font-family="system-ui, sans-serif"
-              style="pointer-events: none">C</text>
-      </g>
-    `;
-  }
-
-  #renderGhostEquipment() {
-    if (!this.ghost) return nothing;
-    const { x, y } = this.ghost;
-    if (this.equipmentKind === 'ball') {
-      const s = BALL_RADIUS / 480;
-      return svg`
-        <g transform="translate(${x}, ${y})" opacity="0.5"
-           style="pointer-events: none">
-          <circle r="${BALL_RADIUS}" fill="white"
-                  stroke="white" stroke-width="0.225" />
-          <g transform="scale(${s}) translate(-600, -600)">
-            <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
-          </g>
-        </g>
-      `;
-    }
-    if (this.equipmentKind === 'cone') {
-      return svg`
-        <g opacity="0.5" style="pointer-events: none">
-          <circle cx="${x}" cy="${y}" r="${CONE_OUTER_R}"
-                  fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="${CONE_OUTER_STROKE}"
-                  stroke-dasharray="0.3,0.2" />
-          <circle cx="${x}" cy="${y}" r="${CONE_INNER_R}"
-                  fill="${SILVER_CENTER}" />
-        </g>
-      `;
-    }
-    if (this.equipmentKind === 'dummy') {
-      return svg`
-        <g transform="translate(${x}, ${y})" opacity="0.5"
-           style="pointer-events: none">
-          <rect x="${-DUMMY_OUTER_HW}" y="${-DUMMY_OUTER_HH}"
-                width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
-                rx="${DUMMY_OUTER_RX}" fill="none"
-                stroke="${COLORS.coneChartreuse}" stroke-width="${DUMMY_OUTER_STROKE}"
-                stroke-dasharray="0.3,0.2" />
-          <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
-                width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
-                rx="${DUMMY_INNER_RX}" fill="${lightenHex(COLORS.coneChartreuse)}" />
-        </g>
-      `;
-    }
-    if (this.equipmentKind === 'pole') {
-      return svg`
-        <g opacity="0.5" style="pointer-events: none">
-          <circle cx="${x}" cy="${y}" r="${POLE_BASE_RADIUS}"
-                  fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3" />
-          <circle cx="${x}" cy="${y}" r="${POLE_RADIUS}"
-                  fill="${COLORS.coneChartreuse}" />
-        </g>
-      `;
-    }
-    if (this.equipmentKind === 'goal' || this.equipmentKind === 'mini-goal') {
-      const w = this.equipmentKind === 'goal' ? GOAL_W : MINI_GOAL_W;
-      const d = this.equipmentKind === 'goal' ? GOAL_D : MINI_GOAL_D;
-      const hw = w / 2;
-      const post = 0.4;
-      return svg`
-        <g transform="translate(${x}, ${y})" opacity="0.5"
-           style="pointer-events: none">
-          <rect x="0" y="${-hw}" width="${d}" height="${w}"
-                fill="url(#goal-net)" stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" />
-          <line x1="0" y1="${-hw}" x2="0" y2="${-hw - post}"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" />
-          <line x1="0" y1="${hw}" x2="0" y2="${hw + post}"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" />
-        </g>
-      `;
-    }
-    if (this.equipmentKind === 'popup-goal') {
-      const hw = POPUP_GOAL_W / 2;
-      return svg`
-        <g transform="translate(${x}, ${y})" opacity="0.5"
-           style="pointer-events: none">
-          <path d="M 0,${-hw} A ${hw},${hw} 0 0 1 0,${hw}"
-                fill="url(#goal-net)" stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" />
-          <line x1="0" y1="${-hw}" x2="0" y2="${hw}"
-                stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" />
-        </g>
-      `;
-    }
-    return svg`
-      <g opacity="0.5" style="pointer-events: none">
-        <circle cx="${x}" cy="${y}" r="${PLAYER_RADIUS}"
-                fill="${COLORS.coachBg}" stroke="white" stroke-width="0.15"
-                stroke-dasharray="0.4,0.3" />
-        <text x="${x}" y="${y}"
-              text-anchor="middle" dominant-baseline="central"
-              fill="white" font-size="1.9" font-weight="bold"
-              font-family="system-ui, sans-serif">C</text>
-      </g>
-    `;
-  }
-
-  #getShapeVisuals(style: ShapeStyle) {
-    const styles = getShapeStyles(this.fieldTheme);
-    const def = styles.find(s => s.value === style) ?? styles[0];
-    return def;
-  }
-
-  #renderShape(s: Shape) {
-    const selected = this.selectedIds.has(s.id);
-    const singleSelected = selected && this.selectedIds.size === 1;
-    const vis = this.#getShapeVisuals(s.style);
-    const angle = s.angle ?? 0;
-    const pad = 0.3;
-
-    return svg`
-      <g data-id="${s.id}" data-kind="shape"
-         transform="translate(${s.cx}, ${s.cy}) rotate(${angle})">
-        ${s.kind === 'rect'
-          ? svg`<rect x="${-s.hw}" y="${-s.hh}" width="${s.hw * 2}" height="${s.hh * 2}"
-                      fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
-                      stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
-                      stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
-                      style="cursor: pointer" />`
-          : svg`<ellipse rx="${s.hw}" ry="${s.hh}"
-                         fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
-                         stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
-                         stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
-                         style="cursor: pointer" />`
-        }
-        ${selected ? svg`
-          <rect x="${-s.hw - pad}" y="${-s.hh - pad}"
-                width="${(s.hw + pad) * 2}" height="${(s.hh + pad) * 2}"
-                fill="none" stroke="${this.#selColor}" stroke-width="0.12"
-                stroke-dasharray="0.5,0.3" rx="0.2" />
-        ` : nothing}
-        ${singleSelected ? svg`
-          ${this.#renderShapeHandles(s)}
-          ${this.#shouldShowRotate(s.id, singleSelected) ? this.#renderRectRotateHandles(s.id,
-              -s.hw - pad - 0.5, -s.hh - pad - 0.5,
-               s.hw + pad + 0.5,  s.hh + pad + 0.5) : nothing}
-        ` : nothing}
-      </g>
-    `;
-  }
-
-  #renderShapeHandles(s: Shape) {
-    const hr = 0.5;
-    const hitR = 1.0;
-    const corners = [
-      { x: -s.hw, y: -s.hh, h: 'nw' },
-      { x:  s.hw, y: -s.hh, h: 'ne' },
-      { x:  s.hw, y:  s.hh, h: 'se' },
-      { x: -s.hw, y:  s.hh, h: 'sw' },
-    ];
-    const sides = [
-      { x: 0, y: -s.hh, h: 'n' },
-      { x: s.hw, y: 0, h: 'e' },
-      { x: 0, y: s.hh, h: 's' },
-      { x: -s.hw, y: 0, h: 'w' },
-    ];
-    return svg`
-      ${corners.map(c => svg`
-        <rect x="${c.x - hitR}" y="${c.y - hitR}" width="${hitR * 2}" height="${hitR * 2}"
-              fill="transparent"
-              data-id="${s.id}" data-kind="shape-corner" data-handle="${c.h}"
-              style="cursor: nwse-resize" />
-        <rect x="${c.x - hr}" y="${c.y - hr}" width="${hr * 2}" height="${hr * 2}"
-              fill="${this.#selColor}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
-              style="pointer-events: none" />
-      `)}
-      ${sides.map(c => svg`
-        <rect x="${c.x - hitR}" y="${c.y - hitR}" width="${hitR * 2}" height="${hitR * 2}"
-              fill="transparent"
-              data-id="${s.id}" data-kind="shape-side" data-handle="${c.h}"
-              style="cursor: ${c.h === 'n' || c.h === 's' ? 'ns-resize' : 'ew-resize'}" />
-        <rect x="${c.x - hr * 0.7}" y="${c.y - hr * 0.7}" width="${hr * 1.4}" height="${hr * 1.4}"
-              fill="${COLORS.accent}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
-              style="pointer-events: none" />
-      `)}
-    `;
-  }
-
-  #renderShapeDrawPreview() {
-    const d = this.#shapeDraw!;
-    let hw = Math.abs(d.curX - d.startX) / 2;
-    let hh = Math.abs(d.curY - d.startY) / 2;
-    const cx = (d.startX + d.curX) / 2;
-    const cy = (d.startY + d.curY) / 2;
-    const previewColor = this.fieldTheme === 'white' ? COLORS.shapeStrokeGray : 'white';
-    return svg`
-      <g transform="translate(${cx}, ${cy})" style="pointer-events: none">
-        ${d.kind === 'rect'
-          ? svg`<rect x="${-hw}" y="${-hh}" width="${hw * 2}" height="${hh * 2}"
-                      fill="none" stroke="${previewColor}" stroke-width="0.15"
-                      stroke-dasharray="0.5,0.3" />`
-          : svg`<ellipse rx="${hw}" ry="${hh}"
-                         fill="none" stroke="${previewColor}" stroke-width="0.15"
-                         stroke-dasharray="0.5,0.3" />`
-        }
-      </g>
-    `;
-  }
-
-  #renderTextItem(t: TextItem) {
-    const selected = this.selectedIds.has(t.id);
-    const singleSelected = selected && this.selectedIds.size === 1;
-    const angle = t.angle ?? 0;
-    const fs = t.fontSize ?? TEXT_FONT_SIZE;
-    const approxCharW = fs * 0.6;
-    const hw = Math.max(t.text.length * approxCharW, fs) / 2;
-    const hh = fs * 0.7;
-    const pad = 0.4;
-
-    return svg`
-      <g data-id="${t.id}" data-kind="text"
-         transform="translate(${t.x}, ${t.y}) rotate(${angle})">
-        <rect x="${-hw - pad}" y="${-hh - pad}"
-              width="${(hw + pad) * 2}" height="${(hh + pad) * 2}"
-              fill="transparent"
-              style="cursor: pointer" />
-        ${selected ? svg`
-          <rect x="${-hw - pad}" y="${-hh - pad}"
-                width="${(hw + pad) * 2}" height="${(hh + pad) * 2}"
-                fill="none" stroke="${this.#selColor}" stroke-width="0.12"
-                stroke-dasharray="0.5,0.3" rx="0.2" />
-        ` : nothing}
-        <text x="0" y="0"
-              text-anchor="middle" dominant-baseline="central"
-              fill="${this.fieldTheme === 'white' ? WHITE_THEME.text : 'white'}" font-size="${fs}"
-              font-family="system-ui, sans-serif"
-              filter="${this.fieldTheme === 'white' ? '' : 'url(#text-shadow)'}"
-              style="pointer-events: none">
-          ${t.text}
-        </text>
-        ${this.#shouldShowRotate(t.id, singleSelected) ? this.#renderRectRotateHandles(t.id,
-            -hw - pad - 0.5, -hh - pad - 0.5,
-             hw + pad + 0.5,  hh + pad + 0.5) : nothing}
-      </g>
     `;
   }
 
@@ -3668,52 +1633,39 @@ export class CoachBoard extends LitElement {
 
   #showAbout() {
     this._menuOpen = false;
-    requestAnimationFrame(() => this._aboutDialog?.showModal());
+    this._dialogs?.showAbout();
   }
 
   #showSaveBoard() {
     this._menuOpen = false;
-    this.#pendingBoardAction = null;
     this.#pendingOpenBoardId = null;
-    this._saveBoardName = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
-    this.#openSaveBoardDialog();
-  }
-
-  #openSaveBoardDialog() {
-    requestAnimationFrame(() => {
-      this._saveBoardDialog?.showModal();
-      this.updateComplete.then(() => {
-        const input = this.renderRoot.querySelector('#save-board-input') as HTMLInputElement | null;
-        input?.focus();
-      });
-    });
+    const name = this.#currentBoard?.name === 'Untitled Board' ? '' : (this.#currentBoard?.name ?? '');
+    this._dialogs?.openSaveBoard(name, null);
   }
 
   #handleSaveAs() {
     this._menuOpen = false;
-    this.#pendingBoardAction = 'save-as';
     this.#pendingOpenBoardId = null;
-    this._saveBoardName = `Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`;
-    this.#openSaveBoardDialog();
+    this._dialogs?.openSaveBoard(`Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`, 'save-as');
   }
 
-  #skipSaveBoard() {
-    const pendingAction = this.#pendingBoardAction;
+  #skipSaveBoard(e: CustomEvent<{ pendingAction: PendingBoardAction }>) {
+    const pendingAction = e.detail.pendingAction;
     const pendingId = this.#pendingOpenBoardId;
-    this._saveBoardDialog?.close();
+    this._dialogs?.closeSaveBoard();
     if (pendingAction === 'new') {
-      requestAnimationFrame(() => this._newBoardDialog?.showModal());
+      this._dialogs?.openNewBoard();
     } else if (pendingAction === 'open') {
       this.#doOpenBoard(pendingId!);
     }
   }
 
-  async #confirmSaveBoard() {
-    const name = this._saveBoardName.trim();
+  async #confirmSaveBoard(e: CustomEvent<{ name: string; pendingAction: PendingBoardAction }>) {
+    const name = e.detail.name.trim();
     if (!name || !this.#currentBoard) return;
-    const pendingAction = this.#pendingBoardAction;
+    const pendingAction = e.detail.pendingAction;
     const pendingId = this.#pendingOpenBoardId;
-    this._saveBoardDialog?.close();
+    this._dialogs?.closeSaveBoard();
 
     if (pendingAction === 'save-as') {
       const newBoard: SavedBoard = {
@@ -3739,7 +1691,7 @@ export class CoachBoard extends LitElement {
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
       if (pendingAction === 'new') {
-        requestAnimationFrame(() => this._newBoardDialog?.showModal());
+        this._dialogs?.openNewBoard();
       } else if (pendingAction === 'open') {
         this.#doOpenBoard(pendingId!);
       }
@@ -3810,27 +1762,23 @@ export class CoachBoard extends LitElement {
 
   #showBoardSummary() {
     this._menuOpen = false;
-    this.#cachedSummary = this.#getBoardSummary();
-    requestAnimationFrame(() => this._boardSummaryDialog?.showModal());
-  }
-
-  #saveBoardNotes() {
-    this._boardSummaryDialog?.close();
+    this._dialogs?.openBoardSummary(this.#getBoardSummary());
   }
 
   #showPrintDialog() {
     this._menuOpen = false;
-    requestAnimationFrame(() => this._printDialog?.showModal());
+    this._dialogs?.showPrint();
   }
 
-  #handlePrint() {
-    this._printDialog?.close();
+  #handlePrint(e: CustomEvent<{ printSummary: boolean; printWhiteBg: boolean }>) {
+    this._dialogs?.closePrint();
+    const { printSummary, printWhiteBg } = e.detail;
     this.#isPrinting = true;
     this.#cachedSummary = this.#getBoardSummary();
     const host = this as unknown as HTMLElement;
     const savedTheme = this.fieldTheme;
-    if (this._printSummary) host.classList.add('print-summary');
-    if (this._printWhiteBg) {
+    if (printSummary) host.classList.add('print-summary');
+    if (printWhiteBg) {
       host.classList.add('print-white-bg');
       this.fieldTheme = 'white';
     }
@@ -3840,7 +1788,7 @@ export class CoachBoard extends LitElement {
       if (cleaned) return;
       cleaned = true;
       host.classList.remove('print-summary', 'print-white-bg');
-      if (this._printWhiteBg) this.fieldTheme = savedTheme;
+      if (printWhiteBg) this.fieldTheme = savedTheme;
       this.#isPrinting = false;
     };
     window.addEventListener('afterprint', cleanup, { once: true });
@@ -3852,38 +1800,35 @@ export class CoachBoard extends LitElement {
 
   #showExportDialog() {
     this._menuOpen = false;
-    requestAnimationFrame(() => this._exportDialog?.showModal());
+    this._dialogs?.showExport();
   }
 
-  #exportSvg() { this._exportDialog?.close(); this.#saveSvg(); }
-  #exportPng() { this._exportDialog?.close(); this.#savePng(); }
-  #exportGif() { this._exportDialog?.close(); this.#saveGif(); }
+  #exportSvg() { this._dialogs?.closeExport(); this.#saveSvg(); }
+  #exportPng() { this._dialogs?.closeExport(); this.#savePng(); }
+  #exportGif() { this._dialogs?.closeExport(); this.#saveGif(); }
 
   #handleNewBoard() {
     this._menuOpen = false;
-    this._newBoardPitchType = 'full';
-    this._newBoardTemplate = '';
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this.#pendingBoardAction = 'new';
-      this._saveBoardName = '';
-      this.#openSaveBoardDialog();
+      this._dialogs?.openSaveBoard('', 'new');
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
       deleteBoard(this.#currentBoard.id).catch(() => {});
     }
-    requestAnimationFrame(() => this._newBoardDialog?.showModal());
+    this._dialogs?.openNewBoard();
   }
 
-  async #confirmNewBoard() {
-    this._newBoardDialog?.close();
-    const board = createEmptyBoard('Untitled Board', this._newBoardPitchType);
+  async #confirmNewBoard(e: CustomEvent<{ pitchType: PitchType; template: string }>) {
+    this._dialogs?.closeNewBoard();
+    const { pitchType, template: templateId } = e.detail;
+    const board = createEmptyBoard('Untitled Board', pitchType);
     await saveBoard(board);
     this.#currentBoard = board;
     this._boardName = board.name;
     setActiveBoardId(board.id);
-    const template = this._newBoardTemplate
-      ? getTemplatesForPitch(this._newBoardPitchType).find(t => t.id === this._newBoardTemplate)
+    const template = templateId
+      ? getTemplatesForPitch(pitchType).find(t => t.id === templateId)
       : null;
     const angleOrient = (this._isMobile && template) ? 'horizontal' : (this._isMobile ? 'vertical' : 'horizontal');
     const playerAngle = (team: string) => team === 'b'
@@ -3907,7 +1852,6 @@ export class CoachBoard extends LitElement {
     this.fieldTheme = 'green';
     this.pitchType = board.pitchType;
     this._boardNotes = '';
-    this._newBoardTemplate = '';
     this.fieldOrientation = 'horizontal';
     if (this._isMobile && template) {
       this.#rotateLoadedData('vertical');
@@ -3917,27 +1861,24 @@ export class CoachBoard extends LitElement {
 
   async #showMyBoards() {
     this._menuOpen = false;
-    this._myBoards = await listBoards();
-    requestAnimationFrame(() => this._myBoardsDialog?.showModal());
+    this._dialogs?.openMyBoards(await listBoards());
   }
 
   #handleOpenBoard(id: string) {
     if (id === this.#currentBoard?.id) {
-      this._myBoardsDialog?.close();
+      this._dialogs?.closeMyBoards();
       return;
     }
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
-      this.#pendingBoardAction = 'open';
       this.#pendingOpenBoardId = id;
-      this._myBoardsDialog?.close();
-      this._saveBoardName = '';
-      this.#openSaveBoardDialog();
+      this._dialogs?.closeMyBoards();
+      this._dialogs?.openSaveBoard('', 'open');
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
       deleteBoard(this.#currentBoard.id).catch(() => {});
     }
-    this._myBoardsDialog?.close();
+    this._dialogs?.closeMyBoards();
     this.#doOpenBoard(id);
   }
 
@@ -3995,34 +1936,33 @@ export class CoachBoard extends LitElement {
       animationFrames: structuredClone(board.animationFrames),
     };
     await saveBoard(dup);
-    this._myBoards = await listBoards();
+    this._dialogs?.setMyBoards(await listBoards());
   }
 
   #handleDeleteBoard(board: SavedBoard) {
     this.#pendingDeleteBoard = board;
-    this._deleteBoardName = board.name;
-    requestAnimationFrame(() => this._deleteBoardDialog?.showModal());
+    this._dialogs?.openDeleteConfirm(board.name);
   }
 
   async #confirmDeleteBoard() {
     if (!this.#pendingDeleteBoard) return;
     const id = this.#pendingDeleteBoard.id;
     this.#pendingDeleteBoard = null;
-    this._deleteBoardDialog?.close();
+    this._dialogs?.closeDeleteBoard();
     await deleteBoard(id);
-    this._myBoards = await listBoards();
+    this._dialogs?.setMyBoards(await listBoards());
     if (id === this.#currentBoard?.id) {
-      await this.#confirmNewBoard();
+      await this.#confirmNewBoard(new CustomEvent('', { detail: { pitchType: 'full' as PitchType, template: '' } }));
     }
   }
 
   #importSvgFromMyBoards() {
-    this._myBoardsDialog?.close();
+    this._dialogs?.closeMyBoards();
     this.#importSvg();
   }
 
   async #exportAllBoards() {
-    const boards = this._myBoards.filter(b => b.name !== 'Untitled Board');
+    const boards = (await listBoards()).filter(b => b.name !== 'Untitled Board');
     if (!boards.length) return;
 
     try {
@@ -4066,86 +2006,24 @@ export class CoachBoard extends LitElement {
 
   #pendingImportData: Record<string, unknown> | null = null;
 
-  #buildShareUrl() {
-    const mode = this._shareEditable ? 'edit' : 'view';
-    if (this.#shareShortId) {
-      return `${window.location.origin}/s/${this.#shareShortId}?mode=${mode}`;
-    }
-    return `${window.location.origin}${window.location.pathname}#board=${this.#shareCompressed}&mode=${mode}`;
+  #onSaveBoardClosed() {
+    this.#pendingOpenBoardId = null;
   }
 
-  async #shareLink() {
-    this._menuOpen = false;
-
-    const data = JSON.stringify({
-      name: this._boardName || 'Untitled Board',
-      players: this.players,
-      lines: this.lines,
-      equipment: this.equipment,
-      shapes: this.shapes,
-      textItems: this.textItems,
-      animationFrames: this.animationFrames,
-      fieldTheme: this.fieldTheme,
-      fieldOrientation: this.fieldOrientation,
-      pitchType: this.pitchType,
-      playbackLoop: this._playbackLoop,
-    });
-
-    const boardChanged = data !== this.#lastSharedData;
-    if (boardChanged) {
-      this.#shareShortId = '';
-      this.#shareCompressed = '';
-    }
-
-    if (!this.#shareShortId) {
-      this._shareMessage = 'Generating link\u2026';
-      this._shareUrl = '';
-      requestAnimationFrame(() => this._shareDialog?.showModal());
-
-      try {
-        const res = await fetch('/api/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: data,
-        });
-        if (res.ok) {
-          const { id } = await res.json() as { id: string };
-          this.#shareShortId = id;
-          this.#lastSharedData = data;
-          this.#uploadThumbnail(id).catch(() => {});
-        }
-      } catch { /* API unavailable, fall back to hash */ }
-    }
-
-    if (!this.#shareShortId) {
-      const { compressToEncodedURIComponent } = await import('lz-string');
-      this.#shareCompressed = compressToEncodedURIComponent(data);
-      this.#lastSharedData = data;
-      const url = this.#buildShareUrl();
-      if (url.length > 8000) {
-        this._shareMessage = 'This board is too large to share as a link. Use "Export as SVG" instead and share the file.';
-        this._shareUrl = '';
-        return;
-      }
-    }
-
-    this._shareUrl = this.#buildShareUrl();
-    this._shareMessage = 'Copy the link to share with players, other coaches, etc.';
-    if (!this._shareDialog?.open) {
-      requestAnimationFrame(() => this._shareDialog?.showModal());
-    }
+  #onOpenBoard(e: CustomEvent<{ id: string }>) {
+    this.#handleOpenBoard(e.detail.id);
   }
 
-  #onShareEditableChange(e: Event) {
-    this._shareEditable = (e.target as HTMLInputElement).checked;
-    this._shareUrl = this.#buildShareUrl();
+  #onDuplicateBoard(e: CustomEvent<{ board: SavedBoard }>) {
+    this.#duplicateBoard(e.detail.board);
   }
 
-  async #copyAndClose() {
-    try {
-      await navigator.clipboard.writeText(this._shareUrl);
-      this._shareDialog?.close();
-    } catch { /* leave dialog open so URL remains visible for manual copy */ }
+  #onHandleDeleteBoard(e: CustomEvent<{ board: SavedBoard }>) {
+    this.#handleDeleteBoard(e.detail.board);
+  }
+
+  #onBoardNotesInput(e: CustomEvent<{ value: string }>) {
+    this._boardNotes = e.detail.value;
   }
 
   #importSvg() {
@@ -4171,26 +2049,26 @@ export class CoachBoard extends LitElement {
       const doc = parser.parseFromString(text, 'image/svg+xml');
       const wrapper = doc.querySelector('#coaching-board-data, desc[data-version]');
       if (!wrapper || !wrapper.textContent) {
-        requestAnimationFrame(() => this._importErrorDialog?.showModal());
+        this._dialogs?.showImportError();
         return;
       }
       try {
         const data = JSON.parse(wrapper.textContent) as Record<string, unknown>;
         if (!Array.isArray(data.players)) {
-          requestAnimationFrame(() => this._importErrorDialog?.showModal());
+          this._dialogs?.showImportError();
           return;
         }
         this.#pendingImportData = data;
-        requestAnimationFrame(() => this._importConfirmDialog?.showModal());
+        this._dialogs?.showImportConfirm();
       } catch {
-        requestAnimationFrame(() => this._importErrorDialog?.showModal());
+        this._dialogs?.showImportError();
       }
     };
     reader.readAsText(file);
   }
 
   async #confirmImport() {
-    this._importConfirmDialog?.close();
+    this._dialogs?.closeImportConfirm();
     const data = this.#pendingImportData;
     if (!data) return;
     this.#pendingImportData = null;
@@ -4286,227 +2164,19 @@ export class CoachBoard extends LitElement {
   }
 
   #getItemPosition(id: string, baseX: number, baseY: number): { x: number; y: number } {
-    if (!this._animationMode) return { x: baseX, y: baseY };
-    for (let i = this.activeFrameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos) return { x: pos.x, y: pos.y };
-    }
-    return { x: baseX, y: baseY };
+    return getItemPosition(id, baseX, baseY, this.animationFrames, this.activeFrameIndex, this._animationMode);
   }
 
   #getItemAngle(id: string, baseAngle: number | undefined): number | undefined {
-    if (!this._animationMode) return baseAngle;
-    for (let i = this.activeFrameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos && pos.angle != null) return pos.angle;
-    }
-    return baseAngle;
+    return getItemAngle(id, baseAngle, this.animationFrames, this.activeFrameIndex, this._animationMode);
   }
 
   #getItemPositionAtFrame(id: string, baseX: number, baseY: number, frameIndex: number): { x: number; y: number } {
-    for (let i = frameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos) return { x: pos.x, y: pos.y };
-    }
-    return { x: baseX, y: baseY };
+    return getItemPositionAtFrame(id, baseX, baseY, this.animationFrames, frameIndex);
   }
 
   #getItemAngleAtFrame(id: string, baseAngle: number | undefined, frameIndex: number): number | undefined {
-    for (let i = frameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos && pos.angle != null) return pos.angle;
-    }
-    return baseAngle;
-  }
-
-  #isLineVisible(lineId: string): boolean {
-    if (!this._animationMode) return true;
-    const line = this.lines.find(l => l.id === lineId);
-    if (!line) return false;
-    for (let i = 0; i <= this.activeFrameIndex; i++) {
-      const frame = this.animationFrames[i];
-      if (!frame) continue;
-      if (i === 0) continue;
-      if (frame.visibleLineIds.includes(lineId)) return true;
-    }
-    const frame0 = this.animationFrames[0];
-    if (!frame0) return true;
-    const allFrameLineIds = this.animationFrames.slice(1).flatMap(f => f.visibleLineIds);
-    if (allFrameLineIds.includes(lineId)) {
-      return false;
-    }
-    return true;
-  }
-
-  #getFramePlayers(): Player[] {
-    if (!this._animationMode) return this.players;
-    if (this.isPlaying) return this.#getInterpolatedPlayers();
-    return this.players.map(p => {
-      const pos = this.#getItemPosition(p.id, p.x, p.y);
-      const angle = this.#getItemAngle(p.id, p.angle);
-      return { ...p, x: pos.x, y: pos.y, angle };
-    });
-  }
-
-  #getFrameEquipment(): Equipment[] {
-    if (!this._animationMode) return this.equipment;
-    if (this.isPlaying) return this.#getInterpolatedEquipment();
-    return this.equipment.map(eq => {
-      const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
-      const angle = this.#getItemAngle(eq.id, eq.angle);
-      return { ...eq, x: pos.x, y: pos.y, angle };
-    });
-  }
-
-  #getInterpolatedPlayers(): Player[] {
-    const t = this._playbackProgress;
-    const fromIdx = this.activeFrameIndex;
-    const toIdx = fromIdx + 1;
-    if (toIdx >= this.animationFrames.length) {
-      return this.players.map(p => {
-        const pos = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
-        const angle = this.#getItemAngleAtFrame(p.id, p.angle, fromIdx);
-        return { ...p, x: pos.x, y: pos.y, angle };
-      });
-    }
-    return this.players.map(p => {
-      const from = this.#getItemPositionAtFrame(p.id, p.x, p.y, fromIdx);
-      const to = this.#getItemPositionAtFrame(p.id, p.x, p.y, toIdx);
-      const fromAngle = this.#getItemAngleAtFrame(p.id, p.angle, fromIdx) ?? 0;
-      const toAngle = this.#getItemAngleAtFrame(p.id, p.angle, toIdx) ?? 0;
-      const angleDelta = ((toAngle - fromAngle + 180) % 360 + 360) % 360 - 180;
-      const angle = fromAngle + angleDelta * t;
-      if (from.x === to.x && from.y === to.y) return { ...p, x: from.x, y: from.y, angle };
-      const toFrame = this.animationFrames[toIdx];
-      const trail = toFrame?.trails[p.id];
-      const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
-      const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
-      const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
-      const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
-      return {
-        ...p,
-        x: cubicBezier(t, from.x, cp1x, cp2x, to.x),
-        y: cubicBezier(t, from.y, cp1y, cp2y, to.y),
-        angle,
-      };
-    });
-  }
-
-  #getInterpolatedEquipment(): Equipment[] {
-    const t = this._playbackProgress;
-    const fromIdx = this.activeFrameIndex;
-    const toIdx = fromIdx + 1;
-    if (toIdx >= this.animationFrames.length) {
-      return this.equipment.map(eq => {
-        const pos = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
-        const angle = this.#getItemAngleAtFrame(eq.id, eq.angle, fromIdx);
-        return { ...eq, x: pos.x, y: pos.y, angle };
-      });
-    }
-    return this.equipment.map(eq => {
-      const from = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, fromIdx);
-      const to = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, toIdx);
-      const fromAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, fromIdx) ?? 0;
-      const toAngle = this.#getItemAngleAtFrame(eq.id, eq.angle, toIdx) ?? 0;
-      const angleDelta = ((toAngle - fromAngle + 180) % 360 + 360) % 360 - 180;
-      const angle = fromAngle + angleDelta * t;
-      if (from.x === to.x && from.y === to.y) return { ...eq, x: from.x, y: from.y, angle };
-      const toFrame = this.animationFrames[toIdx];
-      const trail = toFrame?.trails[eq.id];
-      const cp1x = trail?.cp1x ?? from.x + (to.x - from.x) / 3;
-      const cp1y = trail?.cp1y ?? from.y + (to.y - from.y) / 3;
-      const cp2x = trail?.cp2x ?? from.x + (to.x - from.x) * 2 / 3;
-      const cp2y = trail?.cp2y ?? from.y + (to.y - from.y) * 2 / 3;
-      return {
-        ...eq,
-        x: cubicBezier(t, from.x, cp1x, cp2x, to.x),
-        y: cubicBezier(t, from.y, cp1y, cp2y, to.y),
-        angle,
-      };
-    });
-  }
-
-  #renderGhostsAndTrails() {
-    const frame = this.animationFrames[this.activeFrameIndex];
-    if (!frame) return nothing;
-
-    const trails: ReturnType<typeof svg>[] = [];
-
-    for (const p of this.players) {
-      if (!frame.positions[p.id]) continue;
-      const curr = this.#getItemPosition(p.id, p.x, p.y);
-      const prev = this.#getItemPositionAtFrame(p.id, p.x, p.y, this.activeFrameIndex - 1);
-      if (curr.x === prev.x && curr.y === prev.y) continue;
-
-      const trail = frame.trails[p.id];
-      const cp1x = trail?.cp1x ?? prev.x + (curr.x - prev.x) / 3;
-      const cp1y = trail?.cp1y ?? prev.y + (curr.y - prev.y) / 3;
-      const cp2x = trail?.cp2x ?? prev.x + (curr.x - prev.x) * 2 / 3;
-      const cp2y = trail?.cp2y ?? prev.y + (curr.y - prev.y) * 2 / 3;
-
-      trails.push(svg`
-        <g opacity="0.3">
-          ${p.team === 'a'
-            ? svg`<polygon points="${triPoints(prev.x, prev.y, PLAYER_RADIUS)}"
-                           fill="${p.color}" stroke="white" stroke-width="0.15"
-                           stroke-linejoin="round" style="pointer-events:none" />`
-            : p.team === 'neutral'
-            ? svg`<polygon points="${prev.x},${prev.y - DIAMOND_HH} ${prev.x + DIAMOND_HW},${prev.y} ${prev.x},${prev.y + DIAMOND_HH} ${prev.x - DIAMOND_HW},${prev.y}"
-                           fill="${p.color}" stroke="white" stroke-width="0.15"
-                           stroke-linejoin="round" style="pointer-events:none" />`
-            : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
-                          fill="${p.color}" stroke="white" stroke-width="0.15"
-                          style="pointer-events:none" />`
-          }
-        </g>
-        <path d="M ${prev.x},${prev.y} C ${cp1x},${cp1y} ${cp2x},${cp2y} ${curr.x},${curr.y}"
-              fill="none" stroke="${p.color}" stroke-width="0.25" stroke-opacity="0.5"
-              stroke-dasharray="1,0.6" style="pointer-events:none" />
-        <circle cx="${cp1x}" cy="${cp1y}" r="${CONTROL_HANDLE_R}"
-                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
-                data-id="${p.id}" data-kind="trail-cp1"
-                style="cursor:grab" />
-        <circle cx="${cp2x}" cy="${cp2y}" r="${CONTROL_HANDLE_R}"
-                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
-                data-id="${p.id}" data-kind="trail-cp2"
-                style="cursor:grab" />
-      `);
-    }
-
-    for (const eq of this.equipment) {
-      if (!frame.positions[eq.id]) continue;
-      const curr = this.#getItemPosition(eq.id, eq.x, eq.y);
-      const prev = this.#getItemPositionAtFrame(eq.id, eq.x, eq.y, this.activeFrameIndex - 1);
-      if (curr.x === prev.x && curr.y === prev.y) continue;
-
-      const trail = frame.trails[eq.id];
-      const cp1x = trail?.cp1x ?? prev.x + (curr.x - prev.x) / 3;
-      const cp1y = trail?.cp1y ?? prev.y + (curr.y - prev.y) / 3;
-      const cp2x = trail?.cp2x ?? prev.x + (curr.x - prev.x) * 2 / 3;
-      const cp2y = trail?.cp2y ?? prev.y + (curr.y - prev.y) * 2 / 3;
-
-      const color = eq.color ?? COLORS.accent;
-      trails.push(svg`
-        <g opacity="0.3">
-          <circle cx="${prev.x}" cy="${prev.y}" r="${BALL_RADIUS}"
-                  fill="white" stroke="white" stroke-width="0.15"
-                  style="pointer-events:none" />
-        </g>
-        <path d="M ${prev.x},${prev.y} C ${cp1x},${cp1y} ${cp2x},${cp2y} ${curr.x},${curr.y}"
-              fill="none" stroke="${color}" stroke-width="0.25" stroke-opacity="0.5"
-              stroke-dasharray="1,0.6" style="pointer-events:none" />
-        <circle cx="${cp1x}" cy="${cp1y}" r="${CONTROL_HANDLE_R}"
-                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
-                data-id="${eq.id}" data-kind="trail-cp1"
-                style="cursor:grab" />
-        <circle cx="${cp2x}" cy="${cp2y}" r="${CONTROL_HANDLE_R}"
-                fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
-                data-id="${eq.id}" data-kind="trail-cp2"
-                style="cursor:grab" />
-      `);
-    }
-
-    return svg`<g class="ghosts-trails-layer">${trails}</g>`;
+    return getItemAngleAtFrame(id, baseAngle, this.animationFrames, frameIndex);
   }
 
   #onFrameSelect(e: FrameSelectEvent) {
@@ -4640,16 +2310,16 @@ export class CoachBoard extends LitElement {
   #requestClearAll() {
     const hasItems = this.players.length || this.lines.length || this.equipment.length || this.shapes.length || this.textItems.length || this.animationFrames.length;
     if (hasItems) {
-      requestAnimationFrame(() => this._resetDialog?.showModal());
+      this._dialogs?.showReset();
     }
   }
 
   #cancelClearAll() {
-    this._resetDialog?.close();
+    this._dialogs?.closeReset();
   }
 
   #confirmClearAll() {
-    this._resetDialog?.close();
+    this._dialogs?.closeReset();
     this.#onClearAll(new ClearAllEvent());
   }
 
@@ -4910,10 +2580,10 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
+    const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
-      const hit = resolveHit(e.target);
+      const hit = resolveHit(e.composedPath()[0]);
       if (hit && hit.id === this.#lastPlacedId) {
         this.activeTool = 'select';
         this.#lastPlacedId = null;
@@ -4927,26 +2597,24 @@ export class CoachBoard extends LitElement {
     }
 
     if (this.activeTool === 'draw-line') {
-      this.#draw = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
-      this.svgEl.setPointerCapture(e.pointerId);
-      this.requestUpdate();
+      this._draw = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+      this._field.capturePointer(e.pointerId);
       return;
     }
 
     if (this.activeTool === 'draw-shape') {
-      this.#shapeDraw = { kind: this.shapeKind, startX: pt.x, startY: pt.y, curX: pt.x, curY: pt.y };
-      this.svgEl.setPointerCapture(e.pointerId);
-      this.requestUpdate();
+      this._shapeDraw = { kind: this.shapeKind, startX: pt.x, startY: pt.y, curX: pt.x, curY: pt.y };
+      this._field.capturePointer(e.pointerId);
       return;
     }
 
     this._menuOpen = false;
 
-    const hit = resolveHit(e.target);
+    const hit = resolveHit(e.composedPath()[0]);
     if (!hit) {
       if (this.activeTool === 'select' && !this._isMobile) {
-        this.#marquee = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
-        this.svgEl.setPointerCapture(e.pointerId);
+        this._marquee = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+        this._field.capturePointer(e.pointerId);
         if (!isModifier(e) && !this._multiSelect) {
           this.selectedIds = new Set();
         }
@@ -4962,7 +2630,7 @@ export class CoachBoard extends LitElement {
     // Trail control point handles
     if (kind === 'trail-cp1' || kind === 'trail-cp2') {
       this.#trailDrag = { id, cp: kind === 'trail-cp1' ? 'cp1' : 'cp2' };
-      this.svgEl.setPointerCapture(e.pointerId);
+      this._field.capturePointer(e.pointerId);
       return;
     }
 
@@ -4991,14 +2659,14 @@ export class CoachBoard extends LitElement {
       }
       const startAngle = rad2deg(Math.atan2(pt.y - cy, pt.x - cx));
       this.#rotateDrag = { id, cx, cy, startAngle, origRotation };
-      this.svgEl.setPointerCapture(e.pointerId);
+      this._field.capturePointer(e.pointerId);
       return;
     }
 
     // Shape resize handles
     if (kind === 'shape-corner' || kind === 'shape-side') {
       this.#pushUndo();
-      const target = e.target as SVGElement;
+      const target = e.composedPath()[0] as SVGElement;
       const handle = target.dataset.handle ?? 'se';
       const sh = this.shapes.find(s => s.id === id)!;
       this.#shapeResizeDrag = {
@@ -5007,7 +2675,7 @@ export class CoachBoard extends LitElement {
         origHw: sh.hw, origHh: sh.hh,
         startX: pt.x, startY: pt.y,
       };
-      this.svgEl.setPointerCapture(e.pointerId);
+      this._field.capturePointer(e.pointerId);
       return;
     }
 
@@ -5016,7 +2684,7 @@ export class CoachBoard extends LitElement {
       this.#pushUndo();
       this.selectedIds = new Set([id]);
       this.#handleDrag = { kind, id };
-      this.svgEl.setPointerCapture(e.pointerId);
+      this._field.capturePointer(e.pointerId);
       return;
     }
 
@@ -5041,7 +2709,7 @@ export class CoachBoard extends LitElement {
 
     // Start group drag for all selected items
     this.#pushUndo();
-    this.svgEl.setPointerCapture(e.pointerId);
+    this._field.capturePointer(e.pointerId);
     this.#startGroupDrag(pt.x, pt.y);
   }
 
@@ -5074,10 +2742,10 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerMove(e: PointerEvent) {
-    const pt = screenToSVG(this.svgEl, e.clientX, e.clientY);
+    const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
-      const hover = resolveHit(e.target);
+      const hover = resolveHit(e.composedPath()[0]);
       if (hover && hover.id === this.#lastPlacedId) {
         this.ghost = null;
       } else {
@@ -5086,31 +2754,32 @@ export class CoachBoard extends LitElement {
       return;
     }
 
-    if (this.#marquee) {
-      this.#marquee.x2 = pt.x;
-      this.#marquee.y2 = pt.y;
-      this.requestUpdate();
+    if (this._marquee) {
+      this._marquee = { ...this._marquee, x2: pt.x, y2: pt.y };
       return;
     }
 
-    if (this.#draw) {
-      this.#draw.x2 = pt.x;
-      this.#draw.y2 = pt.y;
-      this.requestUpdate();
-      return;
-    }
-
-    if (this.#shapeDraw) {
-      this.#shapeDraw.curX = pt.x;
-      this.#shapeDraw.curY = pt.y;
+    if (this._draw) {
       if (e.shiftKey) {
-        const dx = Math.abs(pt.x - this.#shapeDraw.startX);
-        const dy = Math.abs(pt.y - this.#shapeDraw.startY);
-        const size = Math.min(dx, dy);
-        this.#shapeDraw.curX = this.#shapeDraw.startX + Math.sign(pt.x - this.#shapeDraw.startX) * size;
-        this.#shapeDraw.curY = this.#shapeDraw.startY + Math.sign(pt.y - this.#shapeDraw.startY) * size;
+        const raw = axisConstrain(pt.x - this._draw.x1, pt.y - this._draw.y1, true);
+        this._draw = { ...this._draw, x2: this._draw.x1 + raw.dx, y2: this._draw.y1 + raw.dy };
+      } else {
+        this._draw = { ...this._draw, x2: pt.x, y2: pt.y };
       }
-      this.requestUpdate();
+      return;
+    }
+
+    if (this._shapeDraw) {
+      let curX = pt.x;
+      let curY = pt.y;
+      if (e.shiftKey) {
+        const dx = Math.abs(pt.x - this._shapeDraw.startX);
+        const dy = Math.abs(pt.y - this._shapeDraw.startY);
+        const size = Math.min(dx, dy);
+        curX = this._shapeDraw.startX + Math.sign(pt.x - this._shapeDraw.startX) * size;
+        curY = this._shapeDraw.startY + Math.sign(pt.y - this._shapeDraw.startY) * size;
+      }
+      this._shapeDraw = { ...this._shapeDraw, curX, curY };
       return;
     }
 
@@ -5207,10 +2876,18 @@ export class CoachBoard extends LitElement {
       if (frame) {
         const existing = frame.trails[id] ?? this.#defaultTrailCP(id);
         const newTrails = { ...frame.trails };
+        // Shift constrains control point to horizontal/vertical/45° from its anchor
+        let cpX = pt.x, cpY = pt.y;
+        if (e.shiftKey) {
+          const anchorX = cp === 'cp1' ? existing.cp2x : existing.cp1x;
+          const anchorY = cp === 'cp1' ? existing.cp2y : existing.cp1y;
+          const c = axisConstrain(pt.x - anchorX, pt.y - anchorY, true);
+          cpX = anchorX + c.dx; cpY = anchorY + c.dy;
+        }
         if (cp === 'cp1') {
-          newTrails[id] = { ...existing, cp1x: pt.x, cp1y: pt.y };
+          newTrails[id] = { ...existing, cp1x: cpX, cp1y: cpY };
         } else {
-          newTrails[id] = { ...existing, cp2x: pt.x, cp2y: pt.y };
+          newTrails[id] = { ...existing, cp2x: cpX, cp2y: cpY };
         }
         this.animationFrames = this.animationFrames.map((f, i) =>
           i === this.activeFrameIndex ? { ...f, trails: newTrails } : f
@@ -5222,9 +2899,23 @@ export class CoachBoard extends LitElement {
     if (this.#handleDrag) {
       const { kind, id } = this.#handleDrag;
       if (kind === 'line-start') {
-        this.lines = this.lines.map(l => l.id === id ? { ...l, x1: pt.x, y1: pt.y } : l);
+        this.lines = this.lines.map(l => {
+          if (l.id !== id) return l;
+          if (e.shiftKey) {
+            const c = axisConstrain(pt.x - l.x2, pt.y - l.y2, true);
+            return { ...l, x1: l.x2 + c.dx, y1: l.y2 + c.dy };
+          }
+          return { ...l, x1: pt.x, y1: pt.y };
+        });
       } else if (kind === 'line-end') {
-        this.lines = this.lines.map(l => l.id === id ? { ...l, x2: pt.x, y2: pt.y } : l);
+        this.lines = this.lines.map(l => {
+          if (l.id !== id) return l;
+          if (e.shiftKey) {
+            const c = axisConstrain(pt.x - l.x1, pt.y - l.y1, true);
+            return { ...l, x2: l.x1 + c.dx, y2: l.y1 + c.dy };
+          }
+          return { ...l, x2: pt.x, y2: pt.y };
+        });
       } else if (kind === 'line-control') {
         this.lines = this.lines.map(l => l.id === id ? { ...l, cx: pt.x, cy: pt.y } : l);
       }
@@ -5234,8 +2925,7 @@ export class CoachBoard extends LitElement {
     if (!this.#groupDrag) return;
 
     const { anchorX, anchorY, pointOrigins, lineOrigins } = this.#groupDrag;
-    const dx = pt.x - anchorX;
-    const dy = pt.y - anchorY;
+    const { dx, dy } = axisConstrain(pt.x - anchorX, pt.y - anchorY, e.shiftKey);
 
     if (pointOrigins.size > 0) {
       if (this._animationMode && this.activeFrameIndex > 0) {
@@ -5286,9 +2976,9 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerUp(_e: PointerEvent) {
-    if (this.#marquee) {
-      const m = this.#marquee;
-      this.#marquee = null;
+    if (this._marquee) {
+      const m = this._marquee;
+      this._marquee = null;
       const minX = Math.min(m.x1, m.x2);
       const maxX = Math.max(m.x1, m.x2);
       const minY = Math.min(m.y1, m.y2);
@@ -5315,11 +3005,10 @@ export class CoachBoard extends LitElement {
         }
         this.selectedIds = hit;
       }
-      this.requestUpdate();
     }
 
-    if (this.#draw) {
-      const d = this.#draw;
+    if (this._draw) {
+      const d = this._draw;
       const dx = d.x2 - d.x1;
       const dy = d.y2 - d.y1;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -5346,12 +3035,11 @@ export class CoachBoard extends LitElement {
           );
         }
       }
-      this.#draw = null;
-      this.requestUpdate();
+      this._draw = null;
     }
 
-    if (this.#shapeDraw) {
-      const d = this.#shapeDraw;
+    if (this._shapeDraw) {
+      const d = this._shapeDraw;
       const hw = Math.abs(d.curX - d.startX) / 2;
       const hh = Math.abs(d.curY - d.startY) / 2;
       if (hw > 0.5 && hh > 0.5) {
@@ -5367,9 +3055,15 @@ export class CoachBoard extends LitElement {
         this.shapes = [...this.shapes, newShape];
         this.selectedIds = new Set([newShape.id]);
         this.activeTool = 'select';
+        if (this._animationMode && this.activeFrameIndex > 0) {
+          this.animationFrames = this.animationFrames.map((f, i) =>
+            i === this.activeFrameIndex
+              ? { ...f, visibleShapeIds: [...(f.visibleShapeIds ?? []), newShape.id] }
+              : f
+          );
+        }
       }
-      this.#shapeDraw = null;
-      this.requestUpdate();
+      this._shapeDraw = null;
     }
 
 
@@ -5424,14 +3118,8 @@ export class CoachBoard extends LitElement {
 
   #onPointerLeave(_e: PointerEvent) {
     this.ghost = null;
-    if (this.#draw) {
-      this.#draw = null;
-      this.requestUpdate();
-    }
-    if (this.#shapeDraw) {
-      this.#shapeDraw = null;
-      this.requestUpdate();
-    }
+    this._draw = null;
+    this._shapeDraw = null;
     this.#groupDrag = null;
     this.#handleDrag = null;
     this.#rotateDrag = null;
@@ -5462,6 +3150,35 @@ export class CoachBoard extends LitElement {
         ...this.shapes.map(s => s.id),
         ...this.textItems.map(t => t.id),
       ]);
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'c' && this.selectedIds.size > 0 && !inInput) {
+      const ids = this.selectedIds;
+      this.#clipboard = {
+        players: this.players.filter(p => ids.has(p.id)),
+        equipment: this.equipment.filter(eq => ids.has(eq.id)),
+        lines: this.lines.filter(l => ids.has(l.id)),
+        shapes: this.shapes.filter(s => ids.has(s.id)),
+        textItems: this.textItems.filter(t => ids.has(t.id)),
+      };
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'v' && this.#clipboard && !inInput) {
+      e.preventDefault();
+      this.#pasteClipboard(3, 3);
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'd' && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      const ids = this.selectedIds;
+      this.#clipboard = {
+        players: this.players.filter(p => ids.has(p.id)),
+        equipment: this.equipment.filter(eq => ids.has(eq.id)),
+        lines: this.lines.filter(l => ids.has(l.id)),
+        shapes: this.shapes.filter(s => ids.has(s.id)),
+        textItems: this.textItems.filter(t => ids.has(t.id)),
+      };
+      this.#pasteClipboard(3, 3);
       return;
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedIds.size > 0) {
@@ -5496,8 +3213,35 @@ export class CoachBoard extends LitElement {
         e.preventDefault();
         if (!e.repeat) this.#pushUndo();
         const ids = this.selectedIds;
-        this.players = this.players.map(p => ids.has(p.id) ? { ...p, x: p.x + dx, y: p.y + dy } : p);
-        this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, x: eq.x + dx, y: eq.y + dy } : eq);
+        if (this._animationMode && this.activeFrameIndex > 0) {
+          // In animation mode write nudge to frame positions, not base arrays
+          const frame = this.animationFrames[this.activeFrameIndex];
+          if (frame) {
+            const newPositions = { ...frame.positions };
+            for (const id of ids) {
+              const p = this.players.find(pl => pl.id === id);
+              if (p) {
+                const pos = this.#getItemPosition(p.id, p.x, p.y);
+                const existing = frame.positions[id];
+                newPositions[id] = { x: pos.x + dx, y: pos.y + dy, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
+                continue;
+              }
+              const eq = this.equipment.find(e => e.id === id);
+              if (eq) {
+                const pos = this.#getItemPosition(eq.id, eq.x, eq.y);
+                const existing = frame.positions[id];
+                newPositions[id] = { x: pos.x + dx, y: pos.y + dy, ...(existing?.angle != null ? { angle: existing.angle } : {}) };
+              }
+            }
+            this.animationFrames = this.animationFrames.map((f, i) =>
+              i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
+            );
+          }
+        } else {
+          this.players = this.players.map(p => ids.has(p.id) ? { ...p, x: p.x + dx, y: p.y + dy } : p);
+          this.equipment = this.equipment.map(eq => ids.has(eq.id) ? { ...eq, x: eq.x + dx, y: eq.y + dy } : eq);
+        }
+        // Lines, shapes and text always write to base arrays (not frame-specific)
         this.shapes = this.shapes.map(s => ids.has(s.id) ? { ...s, cx: s.cx + dx, cy: s.cy + dy } : s);
         this.textItems = this.textItems.map(t => ids.has(t.id) ? { ...t, x: t.x + dx, y: t.y + dy } : t);
         this.lines = this.lines.map(l => ids.has(l.id) ? { ...l, x1: l.x1 + dx, y1: l.y1 + dy, x2: l.x2 + dx, y2: l.y2 + dy, cx: l.cx + dx, cy: l.cy + dy } : l);
@@ -5534,6 +3278,43 @@ export class CoachBoard extends LitElement {
         }
         break;
     }
+  }
+
+  #pasteClipboard(dx: number, dy: number) {
+    if (!this.#clipboard) return;
+    this.#pushUndo();
+    const newIds = new Set<string>();
+    const newPlayers = this.#clipboard.players.map(p => {
+      const id = uid('player');
+      newIds.add(id);
+      return { ...p, id, x: p.x + dx, y: p.y + dy };
+    });
+    const newEquipment = this.#clipboard.equipment.map(eq => {
+      const id = uid('eq');
+      newIds.add(id);
+      return { ...eq, id, x: eq.x + dx, y: eq.y + dy };
+    });
+    const newLines = this.#clipboard.lines.map(l => {
+      const id = uid('line');
+      newIds.add(id);
+      return { ...l, id, x1: l.x1 + dx, y1: l.y1 + dy, x2: l.x2 + dx, y2: l.y2 + dy, cx: l.cx + dx, cy: l.cy + dy };
+    });
+    const newShapes = this.#clipboard.shapes.map(s => {
+      const id = uid('shape');
+      newIds.add(id);
+      return { ...s, id, cx: s.cx + dx, cy: s.cy + dy };
+    });
+    const newTextItems = this.#clipboard.textItems.map(t => {
+      const id = uid('text');
+      newIds.add(id);
+      return { ...t, id, x: t.x + dx, y: t.y + dy };
+    });
+    this.players = [...this.players, ...newPlayers];
+    this.equipment = [...this.equipment, ...newEquipment];
+    this.lines = [...this.lines, ...newLines];
+    this.shapes = [...this.shapes, ...newShapes];
+    this.textItems = [...this.textItems, ...newTextItems];
+    this.selectedIds = newIds;
   }
 
   #addPlayer(x: number, y: number) {

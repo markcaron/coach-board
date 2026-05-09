@@ -1,0 +1,44 @@
+---
+description: Warns against using the 'accessor' keyword in Lit components that have no exported types consumed by other modules — it breaks the vite-plugin-pwa secondary Rollup build.
+globs: src/components/*.ts
+alwaysApply: false
+---
+
+# Lit + Vite: `accessor` keyword and the PWA plugin
+
+`vite-plugin-pwa` runs a **secondary Rollup build** (for SW generation) that does NOT go through esbuild. If a `.ts` component file reaches that secondary build untransformed, Rollup's Acorn parser chokes on the `accessor` keyword.
+
+## When this bites you
+
+A component is processed raw by the secondary Rollup build when it has **no `import type`** pointing at it from any other module — i.e. it is imported only as a bare side-effect:
+
+```ts
+import './cb-board-bar.js'; // ← only import, no `import type`
+```
+
+## ✅ Safe approaches
+
+**Option A — plain class fields** (preferred for simple components):
+```ts
+// ✅
+@property() boardName: string = '';
+@property({ type: Boolean }) isSaved: boolean = false;
+```
+
+**Option B — add an `import type`** so esbuild processes the file in the primary build:
+```ts
+// in coach-board.ts
+import './cb-widget.js';
+import type { CbWidget } from './cb-widget.js'; // ensures primary-build esbuild transform runs first
+```
+
+## ❌ Avoid
+
+```ts
+// ❌ will break the build for side-effect-only-imported components
+@property() accessor boardName: string = '';
+```
+
+## Rule of thumb
+
+If a new Lit component does **not** export any types needed by its consumers, use plain `@property()` / `@state()` class fields — not the `accessor` form.
