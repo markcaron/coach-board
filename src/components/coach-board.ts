@@ -2141,7 +2141,7 @@ export class CoachBoard extends LitElement {
           </g>
 
           <g class="text-layer">
-            ${this.textItems.filter(t => !this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
+            ${repeat(this.textItems.filter(t => !this.selectedIds.has(t.id)), t => t.id, t => this.#renderTextItem(t))}
           </g>
 
           <g class="selected-layer">
@@ -2149,7 +2149,7 @@ export class CoachBoard extends LitElement {
             ${repeat(this.lines.filter(l => this.selectedIds.has(l.id) && this.#isLineVisible(l.id)), l => l.id, l => this.#renderLine(l))}
             ${repeat(this.#getFramePlayers().filter(p => this.selectedIds.has(p.id)), p => p.id, p => this.#renderPlayer(p))}
             ${repeat(this.#getFrameEquipment().filter(eq => this.selectedIds.has(eq.id)), eq => eq.id, eq => this.#renderEquipment(eq))}
-            ${this.textItems.filter(t => this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
+            ${repeat(this.textItems.filter(t => this.selectedIds.has(t.id)), t => t.id, t => this.#renderTextItem(t))}
           </g>
 
           ${this.activeTool === 'add-player' && this.ghost
