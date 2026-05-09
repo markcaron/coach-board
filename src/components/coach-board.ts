@@ -140,6 +140,10 @@ export class CoachBoard extends LitElement {
       padding-top: env(safe-area-inset-top);
     }
 
+    cb-board-bar {
+      flex-shrink: 0;
+    }
+
     .update-toast {
       display: flex;
       align-items: center;

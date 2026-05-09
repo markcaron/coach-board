@@ -12,6 +12,10 @@ export class CbShare extends LitElement {
       display: contents;
     }
 
+    dialog:not([open]) {
+      display: none;
+    }
+
     dialog {
       background: var(--pt-bg-surface);
       border: 1px solid var(--pt-border);
