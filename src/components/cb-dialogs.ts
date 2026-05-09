@@ -1163,7 +1163,6 @@ export class CbDialogs extends LitElement {
 
   #onBoardNotesSave() {
     this._boardSummaryDialog?.close();
-    this.#emit('cb-board-notes-save');
   }
 
   #onBoardSummaryClosed() {

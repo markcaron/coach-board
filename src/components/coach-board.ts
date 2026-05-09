@@ -1904,7 +1904,6 @@ export class CoachBoard extends LitElement {
         @cb-export-png="${this.#exportPng}"
         @cb-export-gif="${this.#exportGif}"
         @cb-board-notes-input="${this.#onBoardNotesInput}"
-        @cb-board-notes-save="${() => {}}"
         @cb-board-summary-closed="${() => this.#saveToStorage()}"
         @cb-print-summary-change="${this.#onPrintSummaryChange}"
         @cb-print-white-bg-change="${this.#onPrintWhiteBgChange}"
@@ -2865,10 +2864,6 @@ export class CoachBoard extends LitElement {
     this._menuOpen = false;
     this.#cachedSummary = this.#getBoardSummary();
     this._dialogs?.showBoardSummary();
-  }
-
-  #saveBoardNotes() {
-    this._dialogs?.closeBoardSummary();
   }
 
   #showPrintDialog() {
