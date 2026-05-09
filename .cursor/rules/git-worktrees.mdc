@@ -1,0 +1,33 @@
+---
+description: Use git worktrees for parallel feature branches to avoid branch-switching conflicts
+alwaysApply: true
+---
+
+# Git Worktrees for Parallel Work
+
+Multiple agents working on this repo **must use git worktrees** so each branch lives in its own directory. This prevents agents from accidentally editing files on the wrong branch and avoids the "nothing to commit" confusion that occurs when an agent switches branches mid-session.
+
+## Setup a new worktree
+
+```bash
+# Add a worktree for a new feature branch
+git worktree add ../coach-board-feat-my-feature -b feat/my-feature origin/staging/kc-current
+
+# Work inside that directory
+cd ../coach-board-feat-my-feature
+```
+
+## List / remove worktrees
+
+```bash
+git worktree list
+git worktree remove ../coach-board-feat-my-feature
+```
+
+## Rules
+
+- **Never `git checkout` to switch branches** in the main worktree while another agent is active — create a worktree instead.
+- Name worktrees `../coach-board-<branch-slug>` (sibling of the main repo dir) to keep them easy to find.
+- Worktrees share the same `.git` directory, so all branches/remotes are visible everywhere.
+- Remove the worktree after the PR is merged: `git worktree remove <path>`.
+- The **main worktree** (`/Users/mcaron/Sites/coach-board`) should stay on `staging/kc-current`.
