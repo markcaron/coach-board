@@ -1,5 +1,7 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
+import { guard } from 'lit/directives/guard.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, ShapeStyle, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
@@ -2094,7 +2096,7 @@ export class CoachBoard extends LitElement {
                 width="${fd.w}" height="${fd.h}"
                 fill="${this.fieldTheme === 'white' ? 'white' : 'url(#grass-stripes)'}" rx="0.5" />
 
-          ${(() => {
+          ${guard([this.fieldTheme, this.fieldOrientation, this.pitchType], () => {
             const lc = this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white';
             const v = this.fieldOrientation === 'vertical';
             switch (this.pitchType) {
@@ -2103,10 +2105,10 @@ export class CoachBoard extends LitElement {
               case 'half-attack': return v ? renderVerticalHalfFieldAttacking(lc) : renderHalfFieldAttacking(lc);
               default: return v ? renderVerticalField(lc) : renderField(lc);
             }
-          })()}
+          })}
 
           <g class="shapes-layer">
-            ${this.shapes.filter(s => !this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
+            ${repeat(this.shapes.filter(s => !this.selectedIds.has(s.id)), s => s.id, s => this.#renderShape(s))}
             ${this.#shapeDraw ? this.#renderShapeDrawPreview() : nothing}
           </g>
 
@@ -2124,18 +2126,18 @@ export class CoachBoard extends LitElement {
           ` : nothing}
 
           <g class="lines-layer">
-            ${this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
+            ${repeat(this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)), l => l.id, l => this.#renderLine(l))}
             ${this.#draw ? this.#renderDrawPreview() : nothing}
           </g>
 
           ${this._animationMode && this.activeFrameIndex > 0 && !this.isPlaying && this._viewMode !== 'readonly' ? this.#renderGhostsAndTrails() : nothing}
 
           <g class="players-layer">
-            ${this.#getFramePlayers().filter(p => !this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
+            ${repeat(this.#getFramePlayers().filter(p => !this.selectedIds.has(p.id)), p => p.id, p => this.#renderPlayer(p))}
           </g>
 
           <g class="equipment-layer">
-            ${this.#getFrameEquipment().filter(eq => !this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
+            ${repeat(this.#getFrameEquipment().filter(eq => !this.selectedIds.has(eq.id)), eq => eq.id, eq => this.#renderEquipment(eq))}
           </g>
 
           <g class="text-layer">
@@ -2143,10 +2145,10 @@ export class CoachBoard extends LitElement {
           </g>
 
           <g class="selected-layer">
-            ${this.shapes.filter(s => this.selectedIds.has(s.id)).map(s => this.#renderShape(s))}
-            ${this.lines.filter(l => this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
-            ${this.#getFramePlayers().filter(p => this.selectedIds.has(p.id)).map(p => this.#renderPlayer(p))}
-            ${this.#getFrameEquipment().filter(eq => this.selectedIds.has(eq.id)).map(eq => this.#renderEquipment(eq))}
+            ${repeat(this.shapes.filter(s => this.selectedIds.has(s.id)), s => s.id, s => this.#renderShape(s))}
+            ${repeat(this.lines.filter(l => this.selectedIds.has(l.id) && this.#isLineVisible(l.id)), l => l.id, l => this.#renderLine(l))}
+            ${repeat(this.#getFramePlayers().filter(p => this.selectedIds.has(p.id)), p => p.id, p => this.#renderPlayer(p))}
+            ${repeat(this.#getFrameEquipment().filter(eq => this.selectedIds.has(eq.id)), eq => eq.id, eq => this.#renderEquipment(eq))}
             ${this.textItems.filter(t => this.selectedIds.has(t.id)).map(t => this.#renderTextItem(t))}
           </g>
 
