@@ -11,6 +11,7 @@ import { uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
+import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
 import { ToolChangedEvent, ClearAllEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
@@ -2315,37 +2316,19 @@ export class CoachBoard extends LitElement {
   }
 
   #getItemPosition(id: string, baseX: number, baseY: number): { x: number; y: number } {
-    if (!this._animationMode) return { x: baseX, y: baseY };
-    for (let i = this.activeFrameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos) return { x: pos.x, y: pos.y };
-    }
-    return { x: baseX, y: baseY };
+    return getItemPosition(id, baseX, baseY, this.animationFrames, this.activeFrameIndex, this._animationMode);
   }
 
   #getItemAngle(id: string, baseAngle: number | undefined): number | undefined {
-    if (!this._animationMode) return baseAngle;
-    for (let i = this.activeFrameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos && pos.angle != null) return pos.angle;
-    }
-    return baseAngle;
+    return getItemAngle(id, baseAngle, this.animationFrames, this.activeFrameIndex, this._animationMode);
   }
 
   #getItemPositionAtFrame(id: string, baseX: number, baseY: number, frameIndex: number): { x: number; y: number } {
-    for (let i = frameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos) return { x: pos.x, y: pos.y };
-    }
-    return { x: baseX, y: baseY };
+    return getItemPositionAtFrame(id, baseX, baseY, this.animationFrames, frameIndex);
   }
 
   #getItemAngleAtFrame(id: string, baseAngle: number | undefined, frameIndex: number): number | undefined {
-    for (let i = frameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos && pos.angle != null) return pos.angle;
-    }
-    return baseAngle;
+    return getItemAngleAtFrame(id, baseAngle, this.animationFrames, frameIndex);
   }
 
   #onFrameSelect(e: FrameSelectEvent) {

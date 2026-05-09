@@ -6,6 +6,7 @@ import { COLORS, getTextColor, SHAPE_STYLES, getShapeStyles, getLineColors } fro
 import { renderField, renderVerticalField, renderHalfField, renderVerticalHalfField, renderHalfFieldAttacking, renderVerticalHalfFieldAttacking, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { screenToSVG as _screenToSVG } from '../lib/svg-utils.js';
+import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
 
 // ── Shared types exported for coach-board.ts ─────────────────────
 
@@ -361,37 +362,19 @@ export class CbField extends LitElement {
   }
 
   #getItemPosition(id: string, baseX: number, baseY: number): { x: number; y: number } {
-    if (!this.animationMode) return { x: baseX, y: baseY };
-    for (let i = this.activeFrameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos) return { x: pos.x, y: pos.y };
-    }
-    return { x: baseX, y: baseY };
+    return getItemPosition(id, baseX, baseY, this.animationFrames, this.activeFrameIndex, this.animationMode);
   }
 
   #getItemAngle(id: string, baseAngle: number | undefined): number | undefined {
-    if (!this.animationMode) return baseAngle;
-    for (let i = this.activeFrameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos && pos.angle != null) return pos.angle;
-    }
-    return baseAngle;
+    return getItemAngle(id, baseAngle, this.animationFrames, this.activeFrameIndex, this.animationMode);
   }
 
   #getItemPositionAtFrame(id: string, baseX: number, baseY: number, frameIndex: number): { x: number; y: number } {
-    for (let i = frameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos) return { x: pos.x, y: pos.y };
-    }
-    return { x: baseX, y: baseY };
+    return getItemPositionAtFrame(id, baseX, baseY, this.animationFrames, frameIndex);
   }
 
   #getItemAngleAtFrame(id: string, baseAngle: number | undefined, frameIndex: number): number | undefined {
-    for (let i = frameIndex; i >= 0; i--) {
-      const pos = this.animationFrames[i]?.positions[id];
-      if (pos && pos.angle != null) return pos.angle;
-    }
-    return baseAngle;
+    return getItemAngleAtFrame(id, baseAngle, this.animationFrames, frameIndex);
   }
 
   #isLineVisible(lineId: string): boolean {
