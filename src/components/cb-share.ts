@@ -13,54 +13,63 @@ export class CbShare extends LitElement {
     }
 
     dialog {
-      border: none;
-      border-radius: 12px;
+      background: var(--pt-bg-surface);
+      border: 1px solid var(--pt-border);
+      border-radius: 10px;
       padding: 0;
-      background: var(--pt-bg-secondary);
       color: var(--pt-text);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-      max-width: min(480px, 94vw);
-      width: 100%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      max-width: 480px;
+      width: calc(100% - 32px);
+      display: flex;
+      flex-direction: column;
     }
 
     dialog::backdrop {
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
     }
 
     .dialog-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 20px 12px;
-      border-bottom: 1px solid var(--pt-border);
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
     }
 
     .dialog-header h2 {
       margin: 0;
-      font-size: 1rem;
-      font-weight: 600;
+      font-size: 0.95rem;
+      font-weight: bold;
       color: var(--pt-text);
     }
 
     .dialog-close {
-      background: none;
+      background: transparent;
       border: none;
       cursor: pointer;
       color: var(--pt-text-muted);
-      padding: 4px;
-      border-radius: 4px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 10px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: color 0.15s;
+      font: inherit;
     }
 
-    .dialog-close:hover {
-      background: var(--pt-bg-hover);
-      color: var(--pt-text);
+    .dialog-close:hover { color: var(--pt-text-white); }
+
+    .dialog-close:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .dialog-body {
-      padding: 20px;
+      padding: 20px 16px;
     }
 
     .dialog-body p {
@@ -115,7 +124,7 @@ export class CbShare extends LitElement {
     }
 
     .cancel-btn:hover {
-      background: var(--pt-bg-hover);
+      background: var(--pt-border);
     }
 
     .confirm-success {
