@@ -763,7 +763,8 @@ export class CbToolbar extends LitElement {
       position: relative;
     }
 
-    .ctx-trigger-btn::after {
+    .ctx-trigger-btn::after,
+    .ctx-icon-btn.has-submenu::after {
       content: '';
       position: absolute;
       bottom: 4px;
@@ -902,35 +903,40 @@ export class CbToolbar extends LitElement {
     .ctx-panel-input {
       flex: 1;
       min-width: 0;
+      height: 36px;
+      text-align: left;
+      font: bold 0.85rem system-ui, sans-serif;
+      color: var(--pt-text-white);
       background: var(--pt-bg-primary);
-      color: var(--pt-text);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
-      padding: 6px 8px;
-      font: inherit;
-      font-size: 0.85rem;
+      padding: 0 8px;
     }
 
     .ctx-panel-input:focus-visible {
       outline: 2px solid var(--pt-accent);
-      outline-offset: 1px;
+      outline-offset: 2px;
     }
 
     .ctx-font-select {
-      flex: 1;
+      width: 80px;
+      height: 36px;
+      font: bold 0.85rem system-ui, sans-serif;
+      color: var(--pt-text-white);
       background: var(--pt-bg-primary);
-      color: var(--pt-text);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 6px;
-      padding: 5px 8px;
-      font: inherit;
-      font-size: 0.85rem;
+      padding: 0 26px 0 10px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ccc'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
       cursor: pointer;
     }
 
     .ctx-font-select:focus-visible {
       outline: 2px solid var(--pt-accent);
-      outline-offset: 1px;
+      outline-offset: 2px;
     }
 
     .ctx-color-grid {
@@ -2503,11 +2509,11 @@ export class CbToolbar extends LitElement {
     const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as unknown as Record<string, unknown>).groupId);
     return html`
       <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
-        <button class="ctx-icon-btn" title="Grouping" aria-label="Grouping"
+        <button class="ctx-icon-btn has-submenu" title="Grouping" aria-label="Grouping"
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'grouping'}"
                 @click="${(e: Event) => this.#onCtxArrangeClick('grouping', e)}">
-          <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+          <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0">
             <path d="m92.305 184.62c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.316-92.316-92.305-92.316-50.988 0-92.305 41.328-92.305 92.305 0 50.977 41.328 92.316 92.305 92.316zm0 1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.316-92.305 92.305 0 50.988 41.328 92.305 92.305 92.305zm1015.4 0c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.305 92.305 92.305zm0-1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.316-92.305-92.316-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.316 92.305 92.316zm-969.24-46.164h923.07v923.07h-923.07zm992.32-92.305h-1061.5c-23.074 0-23.074 0-23.074 23.074v1061.5c0 23.074 0 23.074 23.074 23.074h1061.5c23.074 0 23.074 0 23.074-23.074l0.003906-1061.5c0-23.074 0-23.074-23.074-23.074zm-438.47 830.77h-369.23v-369.23h369.23zm69.238-461.55h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074l0.003906-507.69c0-23.078 0-23.078-23.078-23.078zm115.38 276.93h-369.23v-369.23h369.23zm69.227-461.53h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074v-507.7c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/>
           </svg>
         </button>
@@ -2516,11 +2522,13 @@ export class CbToolbar extends LitElement {
                @keydown="${this.#onMenuKeyDown}">
             <button role="menuitem" tabindex="-1"
                     @click="${() => { this._openMenu = null; this.dispatchEvent(new GroupItemsEvent()); }}">
+              <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m92.305 184.62c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.316-92.316-92.305-92.316-50.988 0-92.305 41.328-92.305 92.305 0 50.977 41.328 92.316 92.305 92.316zm0 1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.316-92.305 92.305 0 50.988 41.328 92.305 92.305 92.305zm1015.4 0c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.305 92.305 92.305zm0-1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.316-92.305-92.316-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.316 92.305 92.316zm-969.24-46.164h923.07v923.07h-923.07zm992.32-92.305h-1061.5c-23.074 0-23.074 0-23.074 23.074v1061.5c0 23.074 0 23.074 23.074 23.074h1061.5c23.074 0 23.074 0 23.074-23.074l0.003906-1061.5c0-23.074 0-23.074-23.074-23.074zm-438.47 830.77h-369.23v-369.23h369.23zm69.238-461.55h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074l0.003906-507.69c0-23.078 0-23.078-23.078-23.078zm115.38 276.93h-369.23v-369.23h369.23zm69.227-461.53h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074v-507.7c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
               Group
             </button>
             ${hasGroup ? html`
               <button role="menuitem" tabindex="-1"
                       @click="${() => { this._openMenu = null; this.dispatchEvent(new UngroupItemsEvent()); }}">
+                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0"><path d="m369.23 184.62c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.156 46.152 92.305 92.305 92.305zm738.47-738.45c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.156 46.152 92.305 92.305 92.305zm-276.92-461.53c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm-738.47-738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0.003906-92.305 46.141-92.305 92.293 0 46.152 46.152 92.316 92.305 92.316zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm692.32-138.46h-646.16v-646.16h646.15v646.16zm69.227-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074l0.003906-784.62c0-23.078 0-23.078-23.078-23.078zm207.7 461.55h-646.16v-646.16h646.15v646.16zm69.23-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074v-784.62c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
                 Ungroup
               </button>
             ` : nothing}
@@ -2528,11 +2536,11 @@ export class CbToolbar extends LitElement {
         ` : nothing}
       </div>
       <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
-        <button class="ctx-icon-btn" title="Align" aria-label="Align"
+        <button class="ctx-icon-btn has-submenu" title="Align" aria-label="Align"
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'align'}"
                 @click="${(e: Event) => this.#onCtxArrangeClick('align', e)}">
-          <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+          <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0">
             <path d="m258 330h828v240h-828z" fill="currentColor"/>
             <path d="m258 630h444v240h-444z" fill="currentColor"/>
             <path d="m114 162h84v876h-84z" fill="currentColor"/>
@@ -2572,12 +2580,15 @@ export class CbToolbar extends LitElement {
               Align bottom
             </button>
             ${count >= 3 ? html`
+              <div class="sb-menu-separator" role="separator"></div>
               <button role="menuitem" tabindex="-1"
                       @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('distribute-h')); }}">
+                <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0"><path d="M264 216L264 1384L152 1384L152 216L264 216Z" fill="currentColor"/><path d="M1448 216L1448 1384L1336 1384L1336 216L1448 216Z" fill="currentColor"/><path d="M960 504L960 1096L640 1096L640 504L960 504Z" fill="currentColor"/></svg>
                 Distribute horizontal
               </button>
               <button role="menuitem" tabindex="-1"
                       @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('distribute-v')); }}">
+                <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0"><path d="M216 1336H1384V1448H216V1336Z" fill="currentColor"/><path d="M216 152H1384V264H216V152Z" fill="currentColor"/><path d="M504 640H1096V960H504V640Z" fill="currentColor"/></svg>
                 Distribute vertical
               </button>
             ` : nothing}
