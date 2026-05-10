@@ -287,6 +287,9 @@ export class CoachBoard extends LitElement {
     @media (prefers-reduced-motion: reduce) {
       .app-wrap { transition: transform 150ms ease; }
       .sidebar  { transition: none; }
+      /* Neutralise toast animations; JS dismiss delay is also skipped (see handler) */
+      .update-toast,
+      .update-toast.toast-dismissing { animation: none; }
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
@@ -615,6 +618,21 @@ export class CoachBoard extends LitElement {
       padding-top: env(safe-area-inset-top);
     }
 
+    /* translateX(-50%) must be present in every stop — the toast uses
+       left:50% + translateX(-50%) for centering; omitting it from a
+       keyframe would override the centering and cause a horizontal jump */
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* Exit drops 8px (vs entry's 12px) — smaller offset so the
+       dismissal feels deliberate rather than falling away dramatically */
+    @keyframes toast-out {
+      from { opacity: 1; transform: translateX(-50%) translateY(0); }
+      to   { opacity: 0; transform: translateX(-50%) translateY(8px); }
+    }
+
     .update-toast {
       position: fixed;
       bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
@@ -634,6 +652,11 @@ export class CoachBoard extends LitElement {
       font-size: 0.85rem;
       line-height: 1.5em;
       font-family: system-ui, -apple-system, sans-serif;
+      animation: toast-in 220ms cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    .update-toast.toast-dismissing {
+      animation: toast-out 180ms ease-in forwards;
     }
 
     .update-toast svg {
@@ -1068,6 +1091,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _boardNotes: string = '';
   @state() private accessor _viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @state() private accessor _updateAvailable: boolean = false;
+  @state() private accessor _toastDismissing: boolean = false;
   #updateSW: ((reloadPage?: boolean) => Promise<void>) | null = null;
   @state() private accessor _showPlayOverlay: boolean = true;
   @state() private accessor _pauseFlash: boolean = false;
@@ -2374,13 +2398,19 @@ export class CoachBoard extends LitElement {
       </div><!-- .app-board -->
       </div><!-- .app-wrap -->
       ${this._updateAvailable ? html`
-        <div class="update-toast" role="status" aria-live="polite" aria-atomic="true">
+        <div class="update-toast ${this._toastDismissing ? 'toast-dismissing' : ''}"
+             role="status" aria-live="polite" aria-atomic="true">
           <svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
             <path d="m855.52 688.45c-248.88-56.199-287.43-94.75-343.62-343.62-2.5742-11.375-12.699-19.477-24.398-19.477s-21.824 8.1016-24.398 19.477c-56.227 248.88-94.75 287.43-343.62 343.62-11.398 2.6016-19.5 12.699-19.5 24.398 0 11.699 8.1016 21.801 19.5 24.398 248.88 56.227 287.4 94.773 343.62 343.62 2.5742 11.375 12.699 19.477 24.398 19.477s21.824-8.1016 24.398-19.477c56.227-248.85 94.75-287.4 343.62-343.62 11.398-2.6016 19.477-12.699 19.477-24.398 0-11.699-8.1016-21.801-19.477-24.398z"/>
             <path d="m1080.5 300.98c-132.3-29.875-150.88-48.449-180.75-180.73-2.6016-11.398-12.699-19.477-24.398-19.477s-21.801 8.0742-24.398 19.477c-29.875 132.27-48.449 150.85-180.73 180.73-11.398 2.6016-19.477 12.699-19.477 24.398s8.0742 21.801 19.477 24.398c132.27 29.875 150.85 48.449 180.73 180.75 2.6016 11.375 12.699 19.477 24.398 19.477s21.801-8.1016 24.398-19.477c29.875-132.3 48.449-150.88 180.75-180.75 11.375-2.6016 19.477-12.699 19.477-24.398s-8.1016-21.801-19.477-24.398z"/>
           </svg>
           <span>A new version of CoachingBoard is available.</span>
-          <button class="dismiss-btn" @click="${() => { this._updateAvailable = false; }}">Dismiss</button>
+          <button class="dismiss-btn" ?disabled="${this._toastDismissing}"
+                  @click="${() => {
+                    this._toastDismissing = true;
+                    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
+                    setTimeout(() => { this._updateAvailable = false; this._toastDismissing = false; }, delay);
+                  }}">Dismiss</button>
           <button class="refresh-btn" @click="${() => this.#updateSW?.(true)}">Refresh</button>
         </div>
       ` : nothing}
