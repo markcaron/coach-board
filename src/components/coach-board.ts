@@ -289,17 +289,18 @@ export class CoachBoard extends LitElement {
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
-    /* Flex child inside .board-area — visually floats at the left
-       edge with border-radius + shadow, centered vertically */
+    /* Absolutely positioned over .board-area so the field canvas
+       is one seamless surface — no flex-sibling boundary to seam */
 
     .sidebar {
-      flex-shrink: 0;
-      align-self: center;
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 6px 4px;
-      margin: 0 4px 0 8px;
       gap: 2px;
       background: var(--pt-bg-toolbar);
       border-radius: 10px;
@@ -456,6 +457,7 @@ export class CoachBoard extends LitElement {
       flex-direction: row;
       overflow: hidden;
       min-height: 0;
+      position: relative; /* containing block for absolutely-positioned sidebar */
     }
 
     .field-wrap {
@@ -483,13 +485,8 @@ export class CoachBoard extends LitElement {
       /* overflow:visible so dropdowns inside cb-toolbar are not clipped */
     }
 
-    /* White field theme — app background switches via --app-canvas-bg
-       so board-area, field-wrap and the host itself all show the same
-       seamless surface behind the floating sidebar and field */
-    .board-area,
-    .field-wrap {
-      background: var(--app-canvas-bg, transparent);
-    }
+    /* White field theme — no background needed here; the sidebar floats
+       absolutely over .field-area which provides the seamless canvas */
 
     .context-board-name {
       padding: 0 14px;
@@ -1585,12 +1582,6 @@ export class CoachBoard extends LitElement {
     }
     if (changedProperties.has('selectedIds') && this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
       this._rotateHandleId = null;
-    }
-    if (changedProperties.has('fieldTheme')) {
-      this.style.setProperty(
-        '--app-canvas-bg',
-        this.fieldTheme === 'white' ? 'var(--pt-field-area-white)' : 'transparent'
-      );
     }
   }
 
