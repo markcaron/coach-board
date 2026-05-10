@@ -308,31 +308,7 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
     }
 
-    .sidebar-hamburger {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 44px;
-      height: 44px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      color: var(--pt-text);
-      cursor: pointer;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-      transition: background 0.12s;
-    }
-
-    .sidebar-hamburger:hover {
-      background: var(--pt-border);
-    }
-
-    .sidebar-hamburger:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: 2px;
-    }
-
+    /* Hamburger uses sidebar-tool for all sizing/interaction — only the SVG transition is unique */
     .sidebar-hamburger svg {
       transition: opacity 0.15s;
     }
@@ -1693,16 +1669,20 @@ export class CoachBoard extends LitElement {
       ` : html`
         <!-- Normal / shared-edit mode: sidebar + main area -->
         <nav class="sidebar" aria-label="Tool palette">
-          <button class="sidebar-hamburger"
-                  aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
-                  aria-haspopup="true"
-                  aria-expanded="${this._menuOpen}"
-                  title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
-                  @click="${this.#toggleMenu}">
-            ${this._menuOpen
-              ? svg`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`
-              : svg`<svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z"/></svg>`}
-          </button>
+          <div class="sidebar-header">
+            <div class="sidebar-dropdown-wrap">
+              <button class="sidebar-tool sidebar-hamburger"
+                      aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
+                      aria-haspopup="true"
+                      aria-expanded="${this._menuOpen}"
+                      title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
+                      @click="${this.#toggleMenu}">
+                ${this._menuOpen
+                  ? svg`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`
+                  : svg`<svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z"/></svg>`}
+              </button>
+            </div>
+          </div>
           <div class="sidebar-divider" role="separator"></div>
 
           <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
@@ -1927,7 +1907,7 @@ export class CoachBoard extends LitElement {
                   aria-pressed="${t === 'add-text'}"
                   tabindex="${this._sidebarFocusIndex === 4 ? 0 : -1}"
                   @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); this._sidebarFocusIndex = 4; }}">
-            <svg viewBox="240 204 720 720" width="20" height="20" fill="currentColor"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
+            <svg viewBox="280 280 680 680" width="20" height="20" fill="currentColor"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
           </button>
 
           </div><!-- .sidebar-tools -->
