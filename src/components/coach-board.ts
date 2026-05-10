@@ -4050,6 +4050,31 @@ export class CoachBoard extends LitElement {
       this.#pasteClipboard(3, 3);
       return;
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'g' && !e.shiftKey && this.selectedIds.size >= 2 && !inInput) {
+      e.preventDefault();
+      this.#onGroupItems(new GroupItemsEvent());
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'G' && e.shiftKey && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      this.#onUngroupItems(new UngroupItemsEvent());
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === '[' && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      this.#onRotateItems(new RotateItemsEvent(-45));
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === ']' && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      this.#onRotateItems(new RotateItemsEvent(45));
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'A' && e.shiftKey && !inInput) {
+      e.preventDefault();
+      this.selectedIds = new Set();
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedIds.size > 0) {
       if (inInput) return;
       this.#pushUndo();
