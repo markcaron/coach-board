@@ -519,7 +519,7 @@ export class CoachBoard extends LitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: min(40%, 400px);
+      max-width: min(40%, 30em);
       user-select: none;
     }
 
