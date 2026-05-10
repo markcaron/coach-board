@@ -292,27 +292,17 @@ export class CoachBoard extends LitElement {
       .update-toast.toast-dismissing { animation: none; }
     }
 
-    /* ── Pinned sidebar at wide viewports ──────────────────────── */
-    /* ≥1100px: sidebar leaves the float/drawer pattern and becomes a
-       real flex column beside the field — no overlap, no grab handle */
+    /* ── Locked sidebar at wide viewports ──────────────────────── */
+    /* ≥1100px: sidebar stays floating exactly where it is — just locked
+       open. No collapse, no drawer slide, grab handle hidden. */
     @media (min-width: 1100px) {
       .sidebar,
       .sidebar.sidebar--collapsed {
-        position: relative;
-        left: unset;
-        top: unset;
-        transform: none;
+        transform: translateY(-50%);
         transition: none;
-        border-radius: 0;
-        box-shadow: 2px 0 6px rgba(0, 0, 0, 0.3);
-        align-self: stretch;
-        justify-content: center;
-        margin: 0;
       }
 
       .sidebar-handle { display: none; }
-
-      .sidebar-tools { justify-content: center; }
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
