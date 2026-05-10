@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.4.0 — SD Wave (2026-05-10)
+
+### Features
+
+- **Partial drawer sidebar** (#121): The floating tool sidebar now collapses to a 14px grab-handle strip at the left edge of the canvas, fixing the mobile overlap introduced by the left-layout refactor. Expands on grab-handle tap, hover (desktop), or tool selection; collapses when interacting with the board. Reduced-motion aware; collapsed sidebar content is `inert` so hidden buttons don't appear in the tab order.
+- **Pitch Theme moved to context bar** (#119): The theme selector — now labeled **Grass** and **Whiteboard** — moved from the bottom bar to the right end of the context bar, persistently visible in both normal and readonly modes. The readonly bottom bar (which existed only for this control) is removed.
+- **Toast enter/exit animation** (#115): The "new version" update toast slides up and fades in on entry, then drops and fades out on dismiss. Reduced-motion support skips the animation and removes the dismiss delay. Double-click guard prevents duplicate dismiss timeouts.
+- **Shift+drag line control point resets curve** (#104): Holding Shift while dragging a line's curve handle snaps the control point to the midpoint of the two endpoints, straightening the line instantly — completing the Shift+drag axis-constraint system.
+
+### Bug Fixes
+
+- **Readonly context bar branding** (#118): Restored the CoachingBoard logo and home link in shared/readonly board views, which were dropped by the left-sidebar layout refactor.
+- **Board name ellipsis**: Long board names in the context bar now truncate with an ellipsis (`max-width: min(40%, 30em)`). Root cause: `display: flex` on the container was preventing `text-overflow` from reaching text node children.
+- **White pitch theme seam** (#103): Eliminated the 1px compositing seam between the sidebar area and the field when the Whiteboard theme was active, by making the sidebar `position: absolute` over the field canvas.
+- **Update toast layout** (#108): The update notification is now a `position: fixed` floating overlay positioned outside `.app-wrap` — board layout no longer shifts when it appears, and `z-index` now takes effect.
+- **Context panel header padding** (#111): Panel titles no longer sit flush against the left edge of the context panel.
+
+### Design System
+
+- **Inverted surface tokens** (#114): Added `--pt-bg-inverted`, `--pt-text-on-inverted`, and `--pt-border-on-inverted` — semantic tokens for light/contrast UI elements on the dark app chrome. Used by the update toast.
+
+### Refactoring
+
+- **Inline styles → CSS classes** (#107): Replaced ~100 repeated inline `style=` attributes across 5 components (`cb-toolbar`, `coach-board`, `cb-dialogs`, `cb-share`, `cb-field`) with named CSS classes in each component's static styles.
+
 ## 1.3.0 — KC Current (2026-05-09)
 
 ### Features
