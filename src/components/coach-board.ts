@@ -374,6 +374,7 @@ export class CoachBoard extends LitElement {
       min-width: 16px;
       height: 16px;
       background: var(--pt-color-navy-900);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       color: var(--pt-text-white);
       border-radius: 8px;
       font-size: 0.6rem;

@@ -1,4 +1,4 @@
-import { LitElement, html, svg, css, nothing } from 'lit';
+import { LitElement, html, svg, css, nothing, type PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle, FieldTheme } from '../lib/types.js';
@@ -796,8 +796,8 @@ export class CbToolbar extends LitElement {
     }
 
     .ctx-trigger-btn[aria-pressed="true"] {
-      background: var(--pt-danger-hover);
-      border-color: var(--pt-danger-hover);
+      background: var(--pt-accent);
+      border-color: var(--pt-accent);
       color: var(--pt-text-white);
     }
 
@@ -857,16 +857,14 @@ export class CbToolbar extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
-      min-width: 24px;
-      min-height: 24px;
+      min-width: 44px;
+      min-height: 44px;
       background: transparent;
       border: none;
       border-radius: 4px;
       color: var(--pt-text-muted);
       cursor: pointer;
-      padding: 0;
+      padding: 10px;
       font: inherit;
     }
 
@@ -1213,19 +1211,36 @@ export class CbToolbar extends LitElement {
     return this.selectedItems.filter(isTextItem);
   }
 
+  // Computed in #onPanelTriggerClick before setting _openMenu so the next render
+  // picks up the correct position. panelFlipped = true → use as CSS `bottom`, else `top`.
   #panelTop = 0;
   #panelFlipped = false;
   #ctxMenuFlipped = false;
   #panelLeft = 0;
+  #boundDocKeyDown!: (e: KeyboardEvent) => void;
 
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener('pointerdown', this.#onDocClick);
+    this.#boundDocKeyDown = this.#onDocKeyDown.bind(this);
+    document.addEventListener('keydown', this.#boundDocKeyDown, true);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('pointerdown', this.#onDocClick);
+    document.removeEventListener('keydown', this.#boundDocKeyDown, true);
+  }
+
+  override updated(changed: PropertyValues) {
+    super.updated(changed);
+    if (changed.has('_openMenu') && this._openMenu === 'ctx-panel') {
+      this.updateComplete.then(() => {
+        const panel = this.shadowRoot?.querySelector('.ctx-panel');
+        const first = panel?.querySelector<HTMLElement>('button, input, select');
+        first?.focus();
+      });
+    }
   }
 
   #openDropdown(menu: MenuId) {
@@ -1320,7 +1335,7 @@ export class CbToolbar extends LitElement {
     const selType = this.#selectionType;
 
     if (this.hideToolSelector) {
-      return html``;
+      return nothing;
     }
 
     const t = this.activeTool;
@@ -2182,6 +2197,14 @@ export class CbToolbar extends LitElement {
     }
   }
 
+  #onDocKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && this._openMenu === 'ctx-panel') {
+      e.stopPropagation();
+      this._openMenu = null;
+      this.shadowRoot?.querySelector<HTMLElement>('.ctx-trigger-btn')?.focus();
+    }
+  }
+
   #renderSidebarContext() {
     const selType = this.#selectionType;
     const hasGroupA = selType !== 'none' && selType !== 'mixed';
@@ -2303,6 +2326,9 @@ export class CbToolbar extends LitElement {
       : 'Style';
     return html`
       <div class="ctx-panel"
+           role="dialog"
+           aria-label="${title} style options"
+           aria-modal="false"
            style="${this.#panelFlipped ? `bottom:${this.#panelTop}px` : `top:${this.#panelTop}px`}"
            @pointerdown="${(e: Event) => e.stopPropagation()}"
            @keydown="${this.#onPanelKeyDown}">
