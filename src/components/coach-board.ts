@@ -286,6 +286,7 @@ export class CoachBoard extends LitElement {
 
     @media (prefers-reduced-motion: reduce) {
       .app-wrap { transition: transform 150ms ease; }
+      .sidebar  { transition: none; }
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
@@ -1671,6 +1672,7 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
 
@@ -1878,6 +1880,7 @@ export class CoachBoard extends LitElement {
             </button>
 
           <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
+               ?inert="${this._sidebarCollapsed}"
                @keydown="${this.#onSidebarToolKeyDown}">
 
           <!-- Select (with submenu: Select / Multi-select) -->
