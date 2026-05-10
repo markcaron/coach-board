@@ -654,6 +654,19 @@ export class CoachBoard extends LitElement {
         overflow: visible !important;
         background: white !important;
       }
+      /* Collapse the push-drawer grid so the panel and board print correctly */
+      .app-wrap {
+        display: block !important;
+        transform: none !important;
+      }
+      .menu-panel {
+        display: none !important;
+      }
+      .app-board {
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+      }
       .toolbar-area, .bottom-bar, cb-board-bar,
       .rotate-overlay, cb-dialogs {
         display: none !important;
