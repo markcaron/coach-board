@@ -315,6 +315,12 @@ export class CbToolbar extends LitElement {
       background: var(--pt-border);
     }
 
+    .sb-menu-separator {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.12);
+      margin: 4px 0;
+    }
+
     .color-dot {
       display: inline-block;
       width: 12px;
@@ -903,7 +909,7 @@ export class CbToolbar extends LitElement {
     .ctx-panel-input {
       flex: 1;
       min-width: 0;
-      height: 36px;
+      min-height: 36px;
       text-align: left;
       font: bold 0.85rem system-ui, sans-serif;
       color: var(--pt-text-white);
@@ -913,6 +919,12 @@ export class CbToolbar extends LitElement {
       padding: 0 8px;
     }
 
+    .ctx-panel .save-btn {
+      min-height: 36px;
+      height: 36px;
+      padding: 0 10px;
+    }
+
     .ctx-panel-input:focus-visible {
       outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
@@ -920,7 +932,7 @@ export class CbToolbar extends LitElement {
 
     .ctx-font-select {
       width: 80px;
-      height: 36px;
+      min-height: 36px;
       font: bold 0.85rem system-ui, sans-serif;
       color: var(--pt-text-white);
       background: var(--pt-bg-primary);
@@ -1057,6 +1069,12 @@ export class CbToolbar extends LitElement {
     .ctx-dd-wrap [role="menuitem"]:focus-visible,
     .ctx-dd-wrap [role="menuitemradio"]:focus-visible {
       background: var(--pt-border);
+    }
+
+    .ctx-dd-wrap .sb-menu-separator {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.12);
+      margin: 4px 0;
     }
 
     .ctx-number-input {
@@ -1990,6 +2008,7 @@ export class CbToolbar extends LitElement {
                 Align bottom
               </button>
               ${count >= 3 ? html`
+                <div class="sb-menu-separator" role="separator"></div>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('distribute-h')); }}">
                   <svg viewBox="0 0 1600 1600" width="14" height="14" style="flex-shrink:0"><path d="M264 216L264 1384L152 1384L152 216L264 216Z" fill="currentColor"/><path d="M1448 216L1448 1384L1336 1384L1336 216L1448 216Z" fill="currentColor"/><path d="M960 504L960 1096L640 1096L640 504L960 504Z" fill="currentColor"/></svg>

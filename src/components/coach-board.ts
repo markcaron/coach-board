@@ -367,6 +367,26 @@ export class CoachBoard extends LitElement {
       color: var(--pt-text-white);
     }
 
+    .sidebar-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      min-width: 16px;
+      height: 16px;
+      background: var(--pt-accent);
+      color: var(--pt-text-white);
+      border-radius: 8px;
+      font-size: 0.6rem;
+      font-weight: bold;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 3px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
     /* Adobe-style corner triangle for buttons with submenus */
     .sidebar .has-submenu::after {
       content: '';
@@ -1798,14 +1818,17 @@ export class CoachBoard extends LitElement {
           <!-- Select (with submenu: Select / Multi-select) -->
           <div class="sidebar-dropdown-wrap">
             <button class="sidebar-tool has-submenu"
-                    title="Select"
-                    aria-label="Select"
+                    title="${this._multiSelect ? 'Multi-select' : 'Select'}"
+                    aria-label="${this._multiSelect ? 'Multi-select' : 'Select'}"
                     aria-pressed="${t === 'select'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'select'}"
                     tabindex="${this._sidebarFocusIndex === 0 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('select', 0); }}">
-              <svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor" /></svg>
+              ${this._multiSelect
+                ? svg`<svg viewBox="0 0 1600 1600" width="20" height="20"><path d="M87.5712 346.734C84.8837 339.234 92.1337 331.796 99.8212 334.608L469.249 467.508L647.075 961.824L471.447 1365.05C468.322 1372.3 456.822 1373.61 453.385 1363.61L87.5712 346.734Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M1506.44 616.688C1514.62 619.625 1514.87 631.063 1507.06 634.437L1056.63 830.624L860.447 1281.05C857.322 1288.3 845.822 1289.61 842.384 1279.61L476.571 262.733C473.884 255.233 481.134 247.796 488.821 250.608L1506.44 616.688Z" fill="currentColor"/></svg>`
+                : svg`<svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor"/></svg>`}
+              ${this.selectedIds.size > 0 ? html`<span class="sidebar-badge">${this.selectedIds.size}</span>` : nothing}
             </button>
             ${this._sidebarMenu === 'select' ? html`
               <div role="menu" aria-label="Select tool" @keydown="${this.#onSidebarMenuKeyDown}">
