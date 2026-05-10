@@ -759,6 +759,24 @@ export class CbToolbar extends LitElement {
       font: inherit;
     }
 
+    .ctx-trigger-btn {
+      position: relative;
+    }
+
+    .ctx-trigger-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 0 0 6px 6px;
+      border-color: transparent transparent currentColor transparent;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
     .ctx-trigger-btn:hover,
     .ctx-icon-btn:hover {
       background: var(--pt-border);
@@ -797,7 +815,8 @@ export class CbToolbar extends LitElement {
     /* ── Floating context panel ───────────────────────────────── */
 
     .ctx-panel {
-      position: fixed;
+      position: absolute;
+      left: calc(100% + 8px);
       z-index: 200;
       background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -944,7 +963,9 @@ export class CbToolbar extends LitElement {
     }
 
     .ctx-dd-wrap [role="menu"] {
-      position: fixed;
+      position: absolute;
+      top: 0;
+      left: calc(100% + 4px);
       z-index: 300;
       min-width: 180px;
       width: max-content;
@@ -1121,8 +1142,6 @@ export class CbToolbar extends LitElement {
 
   #panelTop = 0;
   #panelLeft = 0;
-  #ctxMenuTop = 0;
-  #ctxMenuLeft = 0;
 
   connectedCallback() {
     super.connectedCallback();
@@ -2056,9 +2075,7 @@ export class CbToolbar extends LitElement {
       this._openMenu = null;
     } else {
       const btn = e.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      this.#panelTop = rect.top;
-      this.#panelLeft = rect.right + 8;
+      this.#panelTop = btn.offsetTop;
       this._openMenu = 'ctx-panel';
     }
   }
@@ -2068,10 +2085,6 @@ export class CbToolbar extends LitElement {
     if (this._openMenu === menu) {
       this._openMenu = null;
     } else {
-      const btn = e.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      this.#ctxMenuTop = rect.top;
-      this.#ctxMenuLeft = rect.right + 4;
       this._openMenu = menu;
     }
   }
@@ -2206,7 +2219,7 @@ export class CbToolbar extends LitElement {
       : 'Style';
     return html`
       <div class="ctx-panel"
-           style="top:${this.#panelTop}px;left:${this.#panelLeft}px"
+           style="top:${this.#panelTop}px"
            @pointerdown="${(e: Event) => e.stopPropagation()}"
            @keydown="${this.#onPanelKeyDown}">
         <div class="ctx-panel-header">
@@ -2425,7 +2438,6 @@ export class CbToolbar extends LitElement {
         </button>
         ${this._openMenu === 'grouping' ? html`
           <div role="menu" id="menu-ctx-grouping" aria-label="Grouping"
-               style="top:${this.#ctxMenuTop}px;left:${this.#ctxMenuLeft}px"
                @keydown="${this.#onMenuKeyDown}">
             <button role="menuitem" tabindex="-1"
                     @click="${() => { this._openMenu = null; this.dispatchEvent(new GroupItemsEvent()); }}">
@@ -2453,7 +2465,6 @@ export class CbToolbar extends LitElement {
         </button>
         ${this._openMenu === 'align' ? html`
           <div role="menu" id="menu-ctx-align" aria-label="Align & Distribute"
-               style="top:${this.#ctxMenuTop}px;left:${this.#ctxMenuLeft}px"
                @keydown="${this.#onMenuKeyDown}">
             <button role="menuitem" tabindex="-1"
                     @click="${() => { this._openMenu = null; this.dispatchEvent(new AlignItemsEvent('left')); }}">
