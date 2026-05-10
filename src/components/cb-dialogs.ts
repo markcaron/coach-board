@@ -466,6 +466,10 @@ export class CbDialogs extends LitElement {
       margin-top: 0;
     }
 
+    .import-svg-btn--constrained {
+      max-width: 50%;
+    }
+
     .import-svg-btn {
       display: flex;
       align-items: center;
@@ -901,7 +905,7 @@ export class CbDialogs extends LitElement {
             <span>All board data is saved to your browser's local storage. Exporting boards as backup SVGs is the best way to keep backups.</span>
           </div>
           <div class="boards-action-row">
-            <button class="import-svg-btn" style="max-width: 50%;"
+            <button class="import-svg-btn import-svg-btn--constrained"
                     @click="${() => this.#emit('cb-import-svg')}">
               <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" fill="currentColor">
                 <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>

@@ -1151,7 +1151,7 @@ export class CbToolbar extends LitElement {
       padding: 6px;
     }
 
-    .color-picker-btn {
+    .icon-grid-btn {
       width: 44px;
       height: 44px;
       padding: 0;
@@ -1159,6 +1159,11 @@ export class CbToolbar extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 6px;
+    }
+
+    .icon-grid-btn[aria-checked="true"] {
+      background: var(--pt-border);
+      border-color: var(--pt-text-white);
     }
 
     .number-input--wide {
@@ -1861,7 +1866,7 @@ export class CbToolbar extends LitElement {
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.color === c.color}"
                         aria-label="${c.name}"
-                        class="color-picker-btn" style="${ref.color === c.color ? ' background: var(--pt-border); border-color: white;' : ''}"
+                        class="icon-grid-btn"
                         @click="${() => this.#changeLineColor(c.color)}">
                   <span class="color-swatch" style="background: ${c.color}"></span>
                 </button>
@@ -1930,7 +1935,7 @@ export class CbToolbar extends LitElement {
                 <button role="menuitemradio" tabindex="-1"
                         aria-checked="${ref.style === s.value}"
                         aria-label="${s.name}"
-                        class="color-picker-btn" style="${ref.style === s.value ? ' background: var(--pt-border); border-color: white;' : ''}"
+                        class="icon-grid-btn"
                         @click="${() => this.#changeShapeStyle(s.value)}">
                   ${s.value === 'outline'
                     ? html`<span class="color-swatch" style="background: transparent; border: 2px solid var(--swatch-border, white);"></span>`
