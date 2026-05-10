@@ -574,13 +574,14 @@ export class CoachBoard extends LitElement {
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
-      max-width: min(420px, calc(100vw - 32px));
-      background: var(--pt-bg-surface);
-      color: var(--pt-text);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      width: min(560px, calc(100vw - 32px));
+      background: var(--pt-text-white);
+      color: var(--pt-bg-body);
+      border: 1px solid var(--pt-border);
       border-radius: 10px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       font-size: 0.85rem;
+      line-height: 1.5em;
       font-family: system-ui, -apple-system, sans-serif;
     }
 
@@ -599,10 +600,10 @@ export class CoachBoard extends LitElement {
       gap: 6px;
       padding: 8px 20px;
       min-height: 44px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      border: 1px solid var(--pt-border);
       border-radius: 6px;
-      background: var(--pt-bg-surface);
-      color: var(--pt-text);
+      background: var(--pt-text-white);
+      color: var(--pt-bg-body);
       font: inherit;
       font-size: 0.85rem;
       cursor: pointer;
@@ -610,7 +611,7 @@ export class CoachBoard extends LitElement {
     }
 
     .update-toast button:hover {
-      background: var(--pt-border);
+      background: var(--pt-field-area-white);
     }
 
     .update-toast button:focus-visible {
@@ -630,12 +631,12 @@ export class CoachBoard extends LitElement {
 
     .update-toast .dismiss-btn {
       background: transparent;
-      color: var(--pt-text);
+      color: var(--pt-bg-body);
       border-color: var(--pt-border);
     }
 
     .update-toast .dismiss-btn:hover {
-      background: var(--pt-border);
+      background: var(--pt-field-area-white);
     }
 
     .readonly-branding {
