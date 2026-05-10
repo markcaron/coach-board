@@ -134,9 +134,6 @@ export class CoachBoard extends LitElement {
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
-      /* Colors the bottom safe area (home indicator region) to match the
-         bottom bar rather than showing the body/field background */
-      background: var(--pt-bg-toolbar);
       --panel-w: min(280px, 85vw);
       touch-action: manipulation;
       --color-blue: var(--pt-color-blue-400);
