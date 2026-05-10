@@ -898,8 +898,20 @@ export class CoachBoard extends LitElement {
         overflow: visible !important;
         background: white !important;
       }
-      .toolbar-area, .context-bar, .sidebar, .bottom-bar, cb-board-bar,      .rotate-overlay, cb-dialogs {
-        display: none !important;
+      /* Collapse grid bars so the field fills the page */
+      .app-board {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      .board-area {
+        display: block !important;
+      }
+      .field-wrap {
+        display: block !important;
+      }
+      .toolbar-area, .context-bar, .sidebar, .bottom-bar, cb-board-bar,
+      .rotate-overlay, cb-dialogs, cb-timeline {        display: none !important;
       }
       cb-field {
         flex: none !important;
