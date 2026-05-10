@@ -292,6 +292,29 @@ export class CoachBoard extends LitElement {
       .update-toast.toast-dismissing { animation: none; }
     }
 
+    /* ── Pinned sidebar at wide viewports ──────────────────────── */
+    /* ≥1100px: sidebar leaves the float/drawer pattern and becomes a
+       real flex column beside the field — no overlap, no grab handle */
+    @media (min-width: 1100px) {
+      .sidebar,
+      .sidebar.sidebar--collapsed {
+        position: relative;
+        left: unset;
+        top: unset;
+        transform: none;
+        transition: none;
+        border-radius: 0;
+        box-shadow: 2px 0 6px rgba(0, 0, 0, 0.3);
+        align-self: stretch;
+        justify-content: center;
+        margin: 0;
+      }
+
+      .sidebar-handle { display: none; }
+
+      .sidebar-tools { justify-content: center; }
+    }
+
     /* ── Floating left sidebar (tool palette) ─────────────────── */
     /* Absolutely positioned over .board-area so the field canvas
        is one seamless surface — no flex-sibling boundary to seam */
@@ -1217,10 +1240,15 @@ export class CoachBoard extends LitElement {
   #onSidebarPointerLeave = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
     if (this._sidebarMenu !== null) return;
+    if (this.#wideQuery.matches) return; // pinned — never auto-collapse
     this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
+  #wideQuery   = window.matchMedia('(min-width: 1100px)');
+  #onWideChange = (e: MediaQueryListEvent) => {
+    if (e.matches) this._sidebarCollapsed = false;
+  };
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
     this._isMobile = e.matches;
@@ -1688,8 +1716,9 @@ export class CoachBoard extends LitElement {
     document.addEventListener('keydown', this.#boundKeyDown);
     document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
+    this.#wideQuery.addEventListener('change', this.#onWideChange);
     this._isMobile = this.#mobileQuery.matches;
-    this._sidebarCollapsed = this.#mobileQuery.matches;
+    this._sidebarCollapsed = this.#mobileQuery.matches && !this.#wideQuery.matches;
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -1710,6 +1739,7 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    this.#wideQuery.removeEventListener('change', this.#onWideChange);
     if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
@@ -3442,7 +3472,7 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    if (!this._sidebarCollapsed) this._sidebarCollapsed = true;
+    if (!this._sidebarCollapsed && !this.#wideQuery.matches) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
