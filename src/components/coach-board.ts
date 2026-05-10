@@ -565,15 +565,24 @@ export class CoachBoard extends LitElement {
     }
 
     .update-toast {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
-      background: white;
-      color: var(--pt-color-navy-800, #16213e);
+      width: min(560px, calc(100vw - 32px));
+      background: var(--pt-text-white);
+      color: var(--pt-bg-body);
+      border: 1px solid var(--pt-border);
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       font-size: 0.85rem;
+      line-height: 1.5em;
       font-family: system-ui, -apple-system, sans-serif;
-      z-index: 100;
     }
 
     .update-toast svg {
@@ -591,10 +600,10 @@ export class CoachBoard extends LitElement {
       gap: 6px;
       padding: 8px 20px;
       min-height: 44px;
-      border: 1px solid rgba(0, 0, 0, 0.15);
+      border: 1px solid var(--pt-border);
       border-radius: 6px;
-      background: white;
-      color: var(--pt-color-navy-800, #16213e);
+      background: var(--pt-text-white);
+      color: var(--pt-bg-body);
       font: inherit;
       font-size: 0.85rem;
       cursor: pointer;
@@ -602,7 +611,7 @@ export class CoachBoard extends LitElement {
     }
 
     .update-toast button:hover {
-      background: #f0f0f0;
+      background: var(--pt-field-area-white);
     }
 
     .update-toast button:focus-visible {
@@ -613,7 +622,7 @@ export class CoachBoard extends LitElement {
     .update-toast .refresh-btn {
       background: var(--pt-success-hover);
       border-color: var(--pt-success-hover);
-      color: white;
+      color: var(--pt-text-white);
     }
 
     .update-toast .refresh-btn:hover {
@@ -622,12 +631,12 @@ export class CoachBoard extends LitElement {
 
     .update-toast .dismiss-btn {
       background: transparent;
-      color: var(--pt-color-navy-800, #16213e);
-      border-color: var(--pt-color-navy-600, #1c3a5c);
+      color: var(--pt-bg-body);
+      border-color: var(--pt-border);
     }
 
     .update-toast .dismiss-btn:hover {
-      background: rgba(0, 0, 0, 0.05);
+      background: var(--pt-field-area-white);
     }
 
     .readonly-branding {
@@ -939,7 +948,7 @@ export class CoachBoard extends LitElement {
         display: block !important;
       }
       .toolbar-area, .context-bar, .sidebar, .bottom-bar, cb-board-bar,
-      .rotate-overlay, cb-dialogs, cb-timeline {        display: none !important;
+      .rotate-overlay, cb-dialogs, cb-timeline, .update-toast { display: none !important;
       }
       cb-field {
         flex: none !important;
@@ -1681,17 +1690,6 @@ export class CoachBoard extends LitElement {
       <div class="app-wrap ${this._menuOpen ? 'menu-open' : ''}">
       ${this.#renderMenuPanel()}<!-- grid col 1: left panel -->
       <div class="app-board"><!-- grid col 2 -->
-      ${this._updateAvailable ? html`
-        <div class="update-toast">
-          <svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" style="flex-shrink:0">
-            <path d="m855.52 688.45c-248.88-56.199-287.43-94.75-343.62-343.62-2.5742-11.375-12.699-19.477-24.398-19.477s-21.824 8.1016-24.398 19.477c-56.227 248.88-94.75 287.43-343.62 343.62-11.398 2.6016-19.5 12.699-19.5 24.398 0 11.699 8.1016 21.801 19.5 24.398 248.88 56.227 287.4 94.773 343.62 343.62 2.5742 11.375 12.699 19.477 24.398 19.477s21.824-8.1016 24.398-19.477c56.227-248.85 94.75-287.4 343.62-343.62 11.398-2.6016 19.477-12.699 19.477-24.398 0-11.699-8.1016-21.801-19.477-24.398z"/>
-            <path d="m1080.5 300.98c-132.3-29.875-150.88-48.449-180.75-180.73-2.6016-11.398-12.699-19.477-24.398-19.477s-21.801 8.0742-24.398 19.477c-29.875 132.27-48.449 150.85-180.73 180.73-11.398 2.6016-19.477 12.699-19.477 24.398s8.0742 21.801 19.477 24.398c132.27 29.875 150.85 48.449 180.73 180.75 2.6016 11.375 12.699 19.477 24.398 19.477s21.801-8.1016 24.398-19.477c29.875-132.3 48.449-150.88 180.75-180.75 11.375-2.6016 19.477-12.699 19.477-24.398s-8.1016-21.801-19.477-24.398z"/>
-          </svg>
-          <span>A new version of CoachingBoard is available.</span>
-          <button class="dismiss-btn" @click="${() => { this._updateAvailable = false; }}">Dismiss</button>
-          <button class="refresh-btn" @click="${() => this.#updateSW?.(true)}">Refresh</button>
-        </div>
-      ` : nothing}
 
       ${isReadonly ? html`
         <!-- Readonly mode: no sidebar, context bar + field + bottom bar fill grid col 2 -->
@@ -2269,6 +2267,17 @@ export class CoachBoard extends LitElement {
       </div>
       </div><!-- .app-board -->
       </div><!-- .app-wrap -->
+      ${this._updateAvailable ? html`
+        <div class="update-toast" role="status" aria-live="polite" aria-atomic="true">
+          <svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
+            <path d="m855.52 688.45c-248.88-56.199-287.43-94.75-343.62-343.62-2.5742-11.375-12.699-19.477-24.398-19.477s-21.824 8.1016-24.398 19.477c-56.227 248.88-94.75 287.43-343.62 343.62-11.398 2.6016-19.5 12.699-19.5 24.398 0 11.699 8.1016 21.801 19.5 24.398 248.88 56.227 287.4 94.773 343.62 343.62 2.5742 11.375 12.699 19.477 24.398 19.477s21.824-8.1016 24.398-19.477c56.227-248.85 94.75-287.4 343.62-343.62 11.398-2.6016 19.477-12.699 19.477-24.398 0-11.699-8.1016-21.801-19.477-24.398z"/>
+            <path d="m1080.5 300.98c-132.3-29.875-150.88-48.449-180.75-180.73-2.6016-11.398-12.699-19.477-24.398-19.477s-21.801 8.0742-24.398 19.477c-29.875 132.27-48.449 150.85-180.73 180.73-11.398 2.6016-19.477 12.699-19.477 24.398s8.0742 21.801 19.477 24.398c132.27 29.875 150.85 48.449 180.73 180.75 2.6016 11.375 12.699 19.477 24.398 19.477s21.801-8.1016 24.398-19.477c29.875-132.3 48.449-150.88 180.75-180.75 11.375-2.6016 19.477-12.699 19.477-24.398s-8.1016-21.801-19.477-24.398z"/>
+          </svg>
+          <span>A new version of CoachingBoard is available.</span>
+          <button class="dismiss-btn" @click="${() => { this._updateAvailable = false; }}">Dismiss</button>
+          <button class="refresh-btn" @click="${() => this.#updateSW?.(true)}">Refresh</button>
+        </div>
+      ` : nothing}
     `;
   }
 
