@@ -789,7 +789,8 @@ export class CbToolbar extends LitElement {
     .ctx-sep {
       width: 40px;
       border: none;
-      border-top: 1px solid rgba(255, 255, 255, 0.35);
+      border-top: 1px solid rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
       margin: 4px 0;
     }
 
