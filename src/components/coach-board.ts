@@ -4066,6 +4066,7 @@ export class CoachBoard extends LitElement {
       this.activeTool = 'select';
       this.ghost = null;
       this.selectedIds = new Set();
+      this._multiSelect = false;
       this.#lastPlacedId = null;
       return;
     }
