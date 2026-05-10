@@ -143,7 +143,9 @@
 
       html, body {
         height: 100%;
-        background: var(--pt-bg-body);
+        /* --pt-bg-toolbar colors the top/bottom safe-area zones on iOS PWA
+           where 100dvh doesn't reach (status bar and home indicator regions) */
+        background: var(--pt-bg-toolbar);
         color: var(--pt-text);
         font-family: system-ui, -apple-system, sans-serif;
       }
