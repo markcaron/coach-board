@@ -2145,7 +2145,7 @@ export class CbToolbar extends LitElement {
       ${this.#hasRotatable ? html`
         <button class="ctx-icon-btn" title="Rotate counter-clockwise (R)" aria-label="Rotate counter-clockwise (R)"
                 @click="${this.#rotateItems}">
-          <svg viewBox="0 0 1600 1600" width="15" height="15" fill="currentColor">
+          <svg viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor">
             <path d="M228.987 616.493C253.987 627.993 283.987 616.493 295.487 591.993C376.487 415.007 554.993 299.993 749.98 299.993C821.98 299.993 891.98 314.993 957.487 344.493C1022.99 373.993 1080.99 416.493 1128.5 469.993L1288.5 649.993H1100.01C1072.51 649.993 1050.01 672.493 1050.01 699.993C1050.01 727.493 1072.51 749.993 1100.01 749.993H1400.01C1406.51 749.993 1412.51 748.493 1418.51 746.493C1421.01 745.493 1422.51 743.993 1425.01 742.493C1428.01 740.993 1431.01 739.493 1433.51 737.493C1433.51 737.493 1434.01 736.493 1434.51 736.493C1437.01 733.993 1438.51 730.993 1440.51 728.493C1442.51 725.993 1444.51 723.493 1445.51 720.493C1446.51 718.493 1446.51 715.493 1447.51 713.493C1448.51 709.493 1450.01 705.493 1450.01 701.493V400C1450.01 372.5 1427.51 350 1400.01 350C1372.51 350 1350.01 372.5 1350.01 400V568.493L1203.5 403.507C1146 339.007 1077 288.507 998.513 253C920.019 217.5 836.02 199.5 750.02 199.5C516.02 199.5 301.527 336.993 204.513 549.5C193.013 574.5 204.513 604.5 229.513 616L228.987 616.493Z"/>
             <path d="M200 1250C227.5 1250 250 1227.5 250 1200V1031.51L396.507 1196.49C454.007 1260.99 523.007 1311.49 601.493 1347C679.988 1382.5 763.987 1400.5 849.987 1400.5C1083.99 1400.5 1298.48 1263.01 1395.49 1050.5C1406.99 1025.5 1395.49 995.5 1370.49 984C1345.49 972.5 1315.49 984 1303.99 1008.5C1222.99 1185.49 1044.49 1300.5 849.5 1300.5C777.5 1300.5 707.5 1285.5 641.993 1256C576.488 1226.5 518.493 1184 470.98 1130.5L310.98 950.5H499.473C526.973 950.5 549.473 928 549.473 900.5C549.473 873 526.973 850.5 499.473 850.5H199.473C196.973 850.5 194.973 851.5 192.473 852C188.973 852.5 185.473 853 181.973 854C178.473 855.5 175.973 857.5 172.973 859.5C170.973 861 168.473 861.5 166.473 863.5C166.473 863.5 165.973 864.5 165.473 864.5C162.973 867 160.973 870 158.973 873C157.473 875.5 154.973 878 153.973 880.5C152.973 883 152.973 885.5 151.973 888C150.973 892 149.473 895.5 149.473 900V1201.49C149.473 1228.99 171.973 1251.49 199.473 1251.49L200 1250Z"/>
           </svg>
@@ -2163,7 +2163,7 @@ export class CbToolbar extends LitElement {
                 title="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)"
                 aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)"
                 @click="${this.#requestDelete}">
-          <svg viewBox="0 0 16 16" width="14" height="14">
+          <svg viewBox="0 0 16 16" width="18" height="18">
             <path d="M5 2V1h6v1h4v2H1V2h4zm1 4v7h1V6H6zm3 0v7h1V6H9zM2 5l1 10h10l1-10H2z" fill="currentColor"/>
           </svg>
         </button>
@@ -2192,8 +2192,8 @@ export class CbToolbar extends LitElement {
       const p = this.#singlePlayer ?? this.#selectedPlayers[0];
       if (!p) return html`<svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="6" fill="${this.fieldTheme === 'white' ? '#3b82f6' : '#60a5fa'}"/></svg>`;
       return p.team === 'a'
-        ? html`<svg viewBox="0 0 16 16" width="16" height="16"><polygon points="8,2 14,14 2,14" fill="${p.color}" stroke="white" stroke-width="0.8"/></svg>`
-        : html`<span class="color-swatch" style="background:${p.color};width:14px;height:14px;border-radius:50%;border:1px solid white;display:inline-block;"></span>`;
+        ? html`<svg viewBox="0 0 16 16" width="20" height="20"><polygon points="8,2 14,14 2,14" fill="${p.color}" stroke="white" stroke-width="0.8"/></svg>`
+        : html`<span class="color-swatch" style="background:${p.color};width:18px;height:18px;border-radius:50%;border:1px solid white;display:inline-block;"></span>`;
     }
     if (selType === 'single-cone' || selType === 'cones') {
       const ref = this.#selectedCones[0];
