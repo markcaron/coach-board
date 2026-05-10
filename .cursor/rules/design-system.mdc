@@ -68,6 +68,22 @@ All horizontal bars (top context, bottom) share:
 
 See `cb-dialogs.ts` and `cb-share.ts` for the canonical dialog CSS — reuse `.dialog-header`, `.dialog-body`, `.confirm-actions`, `.cancel-btn`, `.confirm-success` patterns.
 
+## CSS in static styles, not inline
+
+All styles belong in the component's `static styles = css\`...\`` block. Never use `style="..."` attributes in templates except for dynamic values that cannot be expressed as CSS (e.g. `style="--playback-progress: ${t}"`).
+
+```ts
+// ❌ Inline style
+html`<div style="background: var(--pt-bg-toolbar); border-radius: 6px;">`
+
+// ✅ Named class in static styles
+html`<div class="my-panel">`
+// + in static styles:
+// .my-panel { background: var(--pt-bg-toolbar); border-radius: 6px; }
+```
+
+The one allowed exception: CSS custom properties set dynamically at runtime (e.g. `style="--panel-w: ${width}px"`).
+
 ## What NOT to do
 
 ```css
