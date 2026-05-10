@@ -3578,7 +3578,13 @@ export class CoachBoard extends LitElement {
           return { ...l, x2: pt.x, y2: pt.y };
         });
       } else if (kind === 'line-control') {
-        this.lines = this.lines.map(l => l.id === id ? { ...l, cx: pt.x, cy: pt.y } : l);
+        this.lines = this.lines.map(l => {
+          if (l.id !== id) return l;
+          if (e.shiftKey) {
+            return { ...l, cx: (l.x1 + l.x2) / 2, cy: (l.y1 + l.y2) / 2 };
+          }
+          return { ...l, cx: pt.x, cy: pt.y };
+        });
       }
       return;
     }
