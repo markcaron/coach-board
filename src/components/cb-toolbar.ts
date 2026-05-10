@@ -1223,6 +1223,7 @@ export class CbToolbar extends LitElement {
     super.connectedCallback();
     document.addEventListener('pointerdown', this.#onDocClick);
     this.#boundDocKeyDown = this.#onDocKeyDown.bind(this);
+    // Capture phase: intercept Escape before it bubbles up to coach-board's sidebar-close keydown handler.
     document.addEventListener('keydown', this.#boundDocKeyDown, true);
   }
 
