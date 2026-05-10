@@ -1068,7 +1068,7 @@ export class CoachBoard extends LitElement {
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | null = null;
-  @state() private accessor _sidebarCollapsed: boolean = window.matchMedia('(max-width: 768px)').matches;
+  @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
   #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
@@ -1689,6 +1689,7 @@ export class CoachBoard extends LitElement {
     document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
     this._isMobile = this.#mobileQuery.matches;
+    this._sidebarCollapsed = this.#mobileQuery.matches;
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
