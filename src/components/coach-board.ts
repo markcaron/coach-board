@@ -185,8 +185,9 @@ export class CoachBoard extends LitElement {
         "timeline"
         "botbar";
       grid-template-rows: 60px 1fr auto 60px;
-      overflow: hidden;    }
-
+      overflow: hidden;
+      position: relative; /* contains the absolute .menu-backdrop */
+    }
     .menu-backdrop {
       /* Covers the entire .app-board so any click outside the panel closes the menu */
       position: absolute;
@@ -482,16 +483,12 @@ export class CoachBoard extends LitElement {
       /* overflow:visible so dropdowns inside cb-toolbar are not clipped */
     }
 
-    /* White field theme — context bar flips to match */
-    .context-bar.field-theme-white {
-      background: var(--pt-field-area-white, #f8f8f6);
-      border-bottom-color: rgba(0, 0, 0, 0.1);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-      color: var(--pt-color-navy-800, #16213e);
-    }
-    .context-bar.field-theme-white .context-board-name,
-    .context-bar.field-theme-white .context-hamburger {
-      color: var(--pt-color-navy-800, #16213e);
+    /* White field theme — app background switches via --app-canvas-bg
+       so board-area, field-wrap and the host itself all show the same
+       seamless surface behind the floating sidebar and field */
+    .board-area,
+    .field-wrap {
+      background: var(--app-canvas-bg, transparent);
     }
 
     .context-board-name {
@@ -1577,6 +1574,12 @@ export class CoachBoard extends LitElement {
     if (changedProperties.has('selectedIds') && this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
       this._rotateHandleId = null;
     }
+    if (changedProperties.has('fieldTheme')) {
+      this.style.setProperty(
+        '--app-canvas-bg',
+        this.fieldTheme === 'white' ? 'var(--pt-field-area-white)' : 'transparent'
+      );
+    }
   }
 
   #renderMenuPanel() {
@@ -1722,7 +1725,7 @@ export class CoachBoard extends LitElement {
         ${this._menuOpen ? html`
           <div class="menu-backdrop" @click="${this.#toggleMenu}" aria-hidden="true"></div>
         ` : nothing}
-        <div class="context-bar ${this.fieldTheme === 'white' ? 'field-theme-white' : ''}">
+        <div class="context-bar">
           <button class="context-hamburger"
                   aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
                   aria-haspopup="true"
