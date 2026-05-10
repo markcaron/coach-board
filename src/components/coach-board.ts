@@ -548,6 +548,15 @@ export class CoachBoard extends LitElement {
       /* overflow:visible so dropdowns inside cb-toolbar are not clipped */
     }
 
+    .context-bar-right {
+      margin-left: auto;
+      padding-right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
     /* White field theme — no background needed here; the sidebar floats
        absolutely over .field-area which provides the seamless canvas */
 
@@ -1763,7 +1772,7 @@ export class CoachBoard extends LitElement {
       <div class="app-board"><!-- grid col 2 -->
 
       ${isReadonly ? html`
-        <!-- Readonly mode: no sidebar, context bar + field + bottom bar fill grid col 2 -->
+        <!-- Readonly mode: no sidebar, context bar + field fill grid col 2 -->
         <div class="context-bar" style="padding-top: env(safe-area-inset-top)">
           <a href="/" class="branding-link" title="Open CoachingBoard">
             <svg class="branding-icon" viewBox="0 0 1600 1600" aria-hidden="true">
@@ -1779,6 +1788,14 @@ export class CoachBoard extends LitElement {
             <span class="context-divider" role="separator" aria-hidden="true"></span>
             <div class="context-board-name" title="${this._boardName}">${this._boardName}</div>
           ` : nothing}
+          <div class="context-bar-right">
+            <label class="visually-hidden" for="ctx-theme-select">Pitch theme</label>
+            <select id="ctx-theme-select" class="theme-select"
+                    @change="${this.#onThemeChange}">
+              <option value="green" ?selected="${this.fieldTheme === 'green'}">Grass</option>
+              <option value="white" ?selected="${this.fieldTheme === 'white'}">Whiteboard</option>
+            </select>
+          </div>
         </div>
         <div class="board-area">
 
@@ -1821,18 +1838,6 @@ export class CoachBoard extends LitElement {
           ></cb-field>
 
         </div><!-- .board-area readonly -->
-        <div class="bottom-bar readonly">
-          <div class="bottom-left"></div>
-          <div class="bottom-center">
-            <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
-            <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
-                    @change="${this.#onThemeChange}">
-              <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
-              <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
-            </select>
-          </div>
-          <div class="bottom-right"></div>
-        </div>
 
       ` : html`
         <!-- Normal / shared-edit mode -->
@@ -1879,6 +1884,14 @@ export class CoachBoard extends LitElement {
               @auto-number-toggle="${this.#onAutoNumberToggle}">
             </cb-toolbar>
           ` : nothing}
+          <div class="context-bar-right">
+            <label class="visually-hidden" for="ctx-theme-select">Pitch theme</label>
+            <select id="ctx-theme-select" class="theme-select"
+                    @change="${this.#onThemeChange}">
+              <option value="green" ?selected="${this.fieldTheme === 'green'}">Grass</option>
+              <option value="white" ?selected="${this.fieldTheme === 'white'}">Whiteboard</option>
+            </select>
+          </div>
         </div><!-- .context-bar -->
 
         <div class="board-area">
@@ -2269,12 +2282,6 @@ export class CoachBoard extends LitElement {
                   <span class="btn-text">Animate</span>
                 </button>
               ` : nothing}
-              <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
-              <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
-                      @change="${this.#onThemeChange}">
-                <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
-                <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
-              </select>
               ${!this._isMobile ? html`
                 <div class="dropdown-wrap">
                   <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
