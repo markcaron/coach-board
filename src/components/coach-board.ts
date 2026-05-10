@@ -667,8 +667,10 @@ export class CoachBoard extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
+      margin: 0 4px 0 12px;
       text-decoration: none;
       color: inherit;
+      flex-shrink: 0;
     }
 
     .branding-text {
