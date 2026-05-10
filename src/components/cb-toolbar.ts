@@ -843,6 +843,7 @@ export class CbToolbar extends LitElement {
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      padding-left: 8px;
     }
 
     .ctx-panel-title {
