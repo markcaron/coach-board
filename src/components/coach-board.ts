@@ -306,6 +306,44 @@ export class CoachBoard extends LitElement {
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       z-index: 5;
+      transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Collapsed: slide left until only the grab handle strip is visible */
+    .sidebar.sidebar--collapsed {
+      transform: translateX(calc(-100% + 14px)) translateY(-50%);
+    }
+
+    /* Grab handle — anchored to the right edge of the sidebar card */
+    .sidebar-handle {
+      position: absolute;
+      right: -11px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 44px;
+      background: var(--pt-bg-toolbar);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      color: var(--pt-text-muted);
+      z-index: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .sidebar-handle:hover {
+      background: var(--pt-border);
+      color: var(--pt-text);
+    }
+
+    .sidebar-handle:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
     }
 
     /* Hamburger in context bar */
@@ -993,6 +1031,8 @@ export class CoachBoard extends LitElement {
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | null = null;
+  @state() private accessor _sidebarCollapsed: boolean = window.matchMedia('(max-width: 768px)').matches;
+  #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
@@ -1128,6 +1168,18 @@ export class CoachBoard extends LitElement {
         });
         break;
     }
+  };
+
+  #onSidebarPointerEnter = () => {
+    if (!window.matchMedia('(hover: hover)').matches) return;
+    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
+    this._sidebarCollapsed = false;
+  };
+
+  #onSidebarPointerLeave = () => {
+    if (!window.matchMedia('(hover: hover)').matches) return;
+    if (this._sidebarMenu !== null) return;
+    this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
@@ -1632,6 +1684,9 @@ export class CoachBoard extends LitElement {
     if (changedProperties.has('selectedIds') && this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
       this._rotateHandleId = null;
     }
+    if (changedProperties.has('activeTool')) {
+      this._sidebarCollapsed = false;
+    }
   }
 
   #renderMenuPanel() {
@@ -1809,7 +1864,18 @@ export class CoachBoard extends LitElement {
         </div><!-- .context-bar -->
 
         <div class="board-area">
-          <nav class="sidebar" aria-label="Tool palette">
+          <nav class="sidebar ${this._sidebarCollapsed ? 'sidebar--collapsed' : ''}"
+               aria-label="Tool palette"
+               @pointerenter="${this.#onSidebarPointerEnter}"
+               @pointerleave="${this.#onSidebarPointerLeave}">
+            <button class="sidebar-handle"
+                    aria-label="${this._sidebarCollapsed ? 'Show tools' : 'Hide tools'}"
+                    aria-expanded="${!this._sidebarCollapsed}"
+                    @click="${() => { this._sidebarCollapsed = !this._sidebarCollapsed; }}">
+              ${this._sidebarCollapsed
+                ? svg`<svg viewBox="0 0 8 14" width="8" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"/></svg>`
+                : svg`<svg viewBox="0 0 8 14" width="8" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1L1 7l6 6"/></svg>`}
+            </button>
 
           <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
                @keydown="${this.#onSidebarToolKeyDown}">
@@ -3315,6 +3381,7 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
+    if (!this._sidebarCollapsed) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
