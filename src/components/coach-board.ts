@@ -286,6 +286,7 @@ export class CoachBoard extends LitElement {
 
     @media (prefers-reduced-motion: reduce) {
       .app-wrap { transition: transform 150ms ease; }
+      .sidebar  { transition: none; }
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
@@ -306,6 +307,47 @@ export class CoachBoard extends LitElement {
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       z-index: 5;
+      transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Collapsed: slide left until only the grab handle strip is visible */
+    .sidebar.sidebar--collapsed {
+      transform: translateX(calc(-100% + 14px)) translateY(-50%);
+    }
+
+    /* Grab handle — anchored to the right edge of the sidebar card */
+    .sidebar-handle {
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 44px;
+      background: var(--pt-bg-toolbar);
+      border: 0;
+      border-radius: 0 8px 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      color: var(--pt-text-muted);
+      z-index: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .sidebar-handle svg {
+      transform: rotate(90deg);
+    }
+
+    .sidebar-handle:hover {
+      background: linear-gradient(to right, transparent, var(--pt-border) 8px);
+      color: var(--pt-text);
+    }
+
+    .sidebar-handle:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
     }
 
     /* Hamburger in context bar */
@@ -995,6 +1037,8 @@ export class CoachBoard extends LitElement {
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | null = null;
+  @state() private accessor _sidebarCollapsed: boolean = window.matchMedia('(max-width: 768px)').matches;
+  #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
@@ -1130,6 +1174,18 @@ export class CoachBoard extends LitElement {
         });
         break;
     }
+  };
+
+  #onSidebarPointerEnter = () => {
+    if (!window.matchMedia('(hover: hover)').matches) return;
+    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
+    this._sidebarCollapsed = false;
+  };
+
+  #onSidebarPointerLeave = () => {
+    if (!window.matchMedia('(hover: hover)').matches) return;
+    if (this._sidebarMenu !== null) return;
+    this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
@@ -1621,6 +1677,7 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
 
@@ -1633,6 +1690,9 @@ export class CoachBoard extends LitElement {
     }
     if (changedProperties.has('selectedIds') && this._rotateHandleId && !this.selectedIds.has(this._rotateHandleId)) {
       this._rotateHandleId = null;
+    }
+    if (changedProperties.has('activeTool')) {
+      this._sidebarCollapsed = false;
     }
   }
 
@@ -1822,9 +1882,26 @@ export class CoachBoard extends LitElement {
         </div><!-- .context-bar -->
 
         <div class="board-area">
-          <nav class="sidebar" aria-label="Tool palette">
+          <nav class="sidebar ${this._sidebarCollapsed ? 'sidebar--collapsed' : ''}"
+               aria-label="Tool palette"
+               @pointerenter="${this.#onSidebarPointerEnter}"
+               @pointerleave="${this.#onSidebarPointerLeave}">
+            <button class="sidebar-handle"
+                    aria-label="${this._sidebarCollapsed ? 'Show tools' : 'Hide tools'}"
+                    aria-expanded="${!this._sidebarCollapsed}"
+                    @click="${() => { this._sidebarCollapsed = !this._sidebarCollapsed; }}">
+              ${svg`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+                <path d="m272.48 676.5c-66.984 0-121.5 54.516-121.5 121.5 0 66.516 54.516 120.98 121.5 120.98 66.516 0 120.98-54.516 120.98-120.98 0.046875-66.984-54.469-121.5-120.98-121.5z"/>
+                <path d="m600 676.5c-66.984 0-121.5 54.516-121.5 121.5 0 66.516 54.516 120.98 121.5 120.98s121.5-54.516 121.5-120.98c0-66.984-54.516-121.5-121.5-121.5z"/>
+                <path d="m927.52 676.5c-66.516 0-120.98 54.516-120.98 121.5 0 66.516 54.516 120.98 120.98 120.98 66.984 0 121.5-54.516 121.5-120.98 0-66.984-54.516-121.5-121.5-121.5z"/>
+                <path d="m272.48 281.02c-66.984 0-121.5 54.516-121.5 120.98 0 66.984 54.516 121.5 121.5 121.5 66.516 0 120.98-54.516 120.98-121.5 0.046875-66.516-54.469-120.98-120.98-120.98z"/>
+                <path d="m600 281.02c-66.984 0-121.5 54.516-121.5 120.98 0 66.984 54.516 121.5 121.5 121.5s121.5-54.516 121.5-121.5c0-66.516-54.516-120.98-121.5-120.98z"/>
+                <path d="m927.52 281.02c-66.516 0-120.98 54.516-120.98 120.98 0 66.984 54.516 121.5 120.98 121.5 66.984 0 121.5-54.516 121.5-120.98 0-66.516-54.516-120.98-121.5-120.98z"/>
+              </svg>`}
+            </button>
 
           <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
+               ?inert="${this._sidebarCollapsed}"
                @keydown="${this.#onSidebarToolKeyDown}">
 
           <!-- Select (with submenu: Select / Multi-select) -->
@@ -3328,6 +3405,7 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
+    if (!this._sidebarCollapsed) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
