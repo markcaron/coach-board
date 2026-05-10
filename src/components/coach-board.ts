@@ -948,7 +948,7 @@ export class CoachBoard extends LitElement {
         display: block !important;
       }
       .toolbar-area, .context-bar, .sidebar, .bottom-bar, cb-board-bar,
-      .rotate-overlay, cb-dialogs, cb-timeline {        display: none !important;
+      .rotate-overlay, cb-dialogs, cb-timeline, .update-toast { display: none !important;
       }
       cb-field {
         flex: none !important;
