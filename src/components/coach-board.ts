@@ -184,7 +184,7 @@ export class CoachBoard extends LitElement {
         "board"
         "timeline"
         "botbar";
-      grid-template-rows: auto 1fr auto 60px;
+      grid-template-rows: auto 1fr auto auto;
       overflow: hidden;
       position: relative; /* contains the absolute .menu-backdrop */
     }
