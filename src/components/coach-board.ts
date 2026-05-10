@@ -287,6 +287,9 @@ export class CoachBoard extends LitElement {
     @media (prefers-reduced-motion: reduce) {
       .app-wrap { transition: transform 150ms ease; }
       .sidebar  { transition: none; }
+      /* Neutralise toast animations; JS dismiss delay is also skipped (see handler) */
+      .update-toast,
+      .update-toast.toast-dismissing { animation: none; }
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
@@ -615,11 +618,16 @@ export class CoachBoard extends LitElement {
       padding-top: env(safe-area-inset-top);
     }
 
+    /* translateX(-50%) must be present in every stop — the toast uses
+       left:50% + translateX(-50%) for centering; omitting it from a
+       keyframe would override the centering and cause a horizontal jump */
     @keyframes toast-in {
       from { opacity: 0; transform: translateX(-50%) translateY(12px); }
       to   { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
+    /* Exit drops 8px (vs entry's 12px) — smaller offset so the
+       dismissal feels deliberate rather than falling away dramatically */
     @keyframes toast-out {
       from { opacity: 1; transform: translateX(-50%) translateY(0); }
       to   { opacity: 0; transform: translateX(-50%) translateY(8px); }
@@ -2397,10 +2405,12 @@ export class CoachBoard extends LitElement {
             <path d="m1080.5 300.98c-132.3-29.875-150.88-48.449-180.75-180.73-2.6016-11.398-12.699-19.477-24.398-19.477s-21.801 8.0742-24.398 19.477c-29.875 132.27-48.449 150.85-180.73 180.73-11.398 2.6016-19.477 12.699-19.477 24.398s8.0742 21.801 19.477 24.398c132.27 29.875 150.85 48.449 180.73 180.75 2.6016 11.375 12.699 19.477 24.398 19.477s21.801-8.1016 24.398-19.477c29.875-132.3 48.449-150.88 180.75-180.75 11.375-2.6016 19.477-12.699 19.477-24.398s-8.1016-21.801-19.477-24.398z"/>
           </svg>
           <span>A new version of CoachingBoard is available.</span>
-          <button class="dismiss-btn" @click="${() => {
-            this._toastDismissing = true;
-            setTimeout(() => { this._updateAvailable = false; this._toastDismissing = false; }, 180);
-          }}">Dismiss</button>
+          <button class="dismiss-btn" ?disabled="${this._toastDismissing}"
+                  @click="${() => {
+                    this._toastDismissing = true;
+                    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
+                    setTimeout(() => { this._updateAvailable = false; this._toastDismissing = false; }, delay);
+                  }}">Dismiss</button>
           <button class="refresh-btn" @click="${() => this.#updateSW?.(true)}">Refresh</button>
         </div>
       ` : nothing}
