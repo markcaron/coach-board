@@ -1888,8 +1888,8 @@ export class CoachBoard extends LitElement {
             <label class="visually-hidden" for="ctx-theme-select">Pitch theme</label>
             <select id="ctx-theme-select" class="theme-select" aria-label="Pitch theme"
                     @change="${this.#onThemeChange}">
-              <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
-              <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
+              <option value="green" ?selected="${this.fieldTheme === 'green'}">Grass</option>
+              <option value="white" ?selected="${this.fieldTheme === 'white'}">Whiteboard</option>
             </select>
           </div>
         </div><!-- .context-bar -->
