@@ -179,9 +179,11 @@ export class CoachBoard extends LitElement {
       grid-column: 2;
       height: 100dvh;
       display: grid;
-      grid-template-columns: auto 1fr;
-      grid-template-rows: 60px 1fr 60px;      position: relative;
-      overflow: hidden;
+      grid-template-areas:
+        "topbar"
+        "board"
+        "botbar";
+      grid-template-rows: 60px 1fr 60px;      overflow: hidden;
     }
 
     .menu-backdrop {
@@ -285,14 +287,12 @@ export class CoachBoard extends LitElement {
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
-    /* Sits in grid col 1, row 2 (board row) — visually floats off
-       the left edge with border-radius + shadow, centered vertically */
+    /* Flex child inside .board-area — visually floats at the left
+       edge with border-radius + shadow, centered vertically */
 
     .sidebar {
-      grid-column: 1;
-      grid-row: 2;
+      flex-shrink: 0;
       align-self: center;
-      justify-self: start;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -449,13 +449,20 @@ export class CoachBoard extends LitElement {
     /* ── Board area (field + backdrop) ────────────────────────── */
 
     .board-area {
-      grid-column: 2;
-      grid-row: 2;
+      grid-area: board;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .field-wrap {
+      flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       position: relative;
-      min-height: 0;
     }
 
     /* ── Context bar (always-visible edit/context strip) ─────── */
@@ -463,8 +470,7 @@ export class CoachBoard extends LitElement {
        Min-height keeps the bar visible even when nothing is selected. */
 
     .context-bar {
-      grid-column: 2;
-      grid-row: 1;
+      grid-area: topbar;
       display: flex;
       align-items: center;
       height: 60px;
@@ -625,8 +631,7 @@ export class CoachBoard extends LitElement {
     }
 
     .bottom-bar {
-      grid-column: 2;
-      grid-row: 3;
+      grid-area: botbar;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
@@ -1678,8 +1683,49 @@ export class CoachBoard extends LitElement {
         </div>
 
       ` : html`
-        <!-- Normal / shared-edit mode: floating sidebar + grid col-2 content -->
-        <nav class="sidebar" aria-label="Tool palette">
+        <!-- Normal / shared-edit mode -->
+        <div class="context-bar">
+          <button class="context-hamburger"
+                  aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
+                  aria-haspopup="true"
+                  aria-expanded="${this._menuOpen}"
+                  title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
+                  @click="${this.#toggleMenu}">
+            ${this._menuOpen
+              ? svg`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`
+              : svg`<svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z"/></svg>`}
+          </button>
+          <div class="context-board-name" title="${this._boardName}">
+            ${this._boardName}
+            ${!this.#isBoardSaved ? html`<span class="cb-unsaved">(unsaved)</span>` : nothing}
+          </div>
+          <span class="context-divider" role="separator" aria-hidden="true"></span>
+          <cb-toolbar
+            hide-tool-selector
+            icon-only
+            .activeTool="${this.activeTool}"
+            .selectedItems="${this.#selectedItems}"
+            .fieldTheme="${this.fieldTheme}"
+            .multiSelect="${this._multiSelect}"
+            .autoNumber="${this.autoNumber}"
+            @tool-changed="${this.#onToolChanged}"
+            @multi-select-toggle="${this.#onMultiSelectToggle}"
+            @player-update="${this.#onPlayerUpdate}"
+            @equipment-update="${this.#onEquipmentUpdate}"
+            @line-update="${this.#onLineUpdate}"
+            @shape-update="${this.#onShapeUpdate}"
+            @text-update="${this.#onTextUpdate}"
+            @align-items="${this.#onAlignItems}"
+            @group-items="${this.#onGroupItems}"
+            @ungroup-items="${this.#onUngroupItems}"
+            @delete-items="${this.#onDeleteItems}"
+            @rotate-items="${this.#onRotateItems}"
+            @auto-number-toggle="${this.#onAutoNumberToggle}">
+          </cb-toolbar>
+        </div><!-- .context-bar -->
+
+        <div class="board-area">
+          <nav class="sidebar" aria-label="Tool palette">
 
           <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
                @keydown="${this.#onSidebarToolKeyDown}">
@@ -1908,90 +1954,47 @@ export class CoachBoard extends LitElement {
 
           </div><!-- .sidebar-tools -->
         </nav><!-- .sidebar -->
-
-        <div class="context-bar">
-          <button class="context-hamburger"
-                  aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
-                  aria-haspopup="true"
-                  aria-expanded="${this._menuOpen}"
-                  title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
-                  @click="${this.#toggleMenu}">
-            ${this._menuOpen
-              ? svg`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`
-              : svg`<svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z"/></svg>`}
-          </button>
-          <div class="context-board-name" title="${this._boardName}">
-            ${this._boardName}
-            ${!this.#isBoardSaved ? html`<span class="cb-unsaved">(unsaved)</span>` : nothing}
-          </div>
-          <span class="context-divider" role="separator" aria-hidden="true"></span>
-            <cb-toolbar
-              hide-tool-selector
-              icon-only
+          <div class="field-wrap">
+            ${this._menuOpen ? html`
+              <div class="menu-backdrop" @click="${this.#toggleMenu}" aria-hidden="true"></div>
+            ` : nothing}
+            <cb-field
+              .players="${this.players}"
+              .lines="${this.lines}"
+              .equipment="${this.equipment}"
+              .shapes="${this.shapes}"
+              .textItems="${this.textItems}"
+              .selectedIds="${this.selectedIds}"
+              .ghost="${this.ghost}"
+              .draw="${this._draw}"
+              .shapeDraw="${this._shapeDraw}"
+              .marquee="${this._marquee}"
               .activeTool="${this.activeTool}"
-              .selectedItems="${this.#selectedItems}"
+              .playerColor="${this.playerColor}"
+              .playerTeam="${this.playerTeam}"
+              .lineStyle="${this.lineStyle}"
+              .equipmentKind="${this.equipmentKind}"
+              .shapeKind="${this.shapeKind}"
+              .fieldOrientation="${this.fieldOrientation}"
               .fieldTheme="${this.fieldTheme}"
-              .multiSelect="${this._multiSelect}"
-              .autoNumber="${this.autoNumber}"
-              @tool-changed="${this.#onToolChanged}"
-              @multi-select-toggle="${this.#onMultiSelectToggle}"
-              @player-update="${this.#onPlayerUpdate}"
-              @equipment-update="${this.#onEquipmentUpdate}"
-              @line-update="${this.#onLineUpdate}"
-              @shape-update="${this.#onShapeUpdate}"
-              @text-update="${this.#onTextUpdate}"
-              @align-items="${this.#onAlignItems}"
-              @group-items="${this.#onGroupItems}"
-              @ungroup-items="${this.#onUngroupItems}"
-              @delete-items="${this.#onDeleteItems}"
-              @rotate-items="${this.#onRotateItems}"
-              @auto-number-toggle="${this.#onAutoNumberToggle}">
-            </cb-toolbar>
-        </div><!-- .context-bar -->
-
-        <div class="board-area">
-          ${this._menuOpen ? html`
-            <div class="menu-backdrop"
-                 @click="${this.#toggleMenu}"
-                 aria-hidden="true"></div>
-          ` : nothing}
-          <cb-field
-            .players="${this.players}"
-            .lines="${this.lines}"
-            .equipment="${this.equipment}"
-            .shapes="${this.shapes}"
-            .textItems="${this.textItems}"
-            .selectedIds="${this.selectedIds}"
-            .ghost="${this.ghost}"
-            .draw="${this._draw}"
-            .shapeDraw="${this._shapeDraw}"
-            .marquee="${this._marquee}"
-            .activeTool="${this.activeTool}"
-            .playerColor="${this.playerColor}"
-            .playerTeam="${this.playerTeam}"
-            .lineStyle="${this.lineStyle}"
-            .equipmentKind="${this.equipmentKind}"
-            .shapeKind="${this.shapeKind}"
-            .fieldOrientation="${this.fieldOrientation}"
-            .fieldTheme="${this.fieldTheme}"
-            .pitchType="${this.pitchType}"
-            .viewMode="${this._viewMode}"
-            .isMobile="${this._isMobile}"
-            .rotateHandleId="${this._rotateHandleId}"
-            .animationMode="${this._animationMode}"
-            .animationFrames="${this.animationFrames}"
-            .activeFrameIndex="${this.activeFrameIndex}"
-            .isPlaying="${this.isPlaying}"
-            .playbackProgress="${this._playbackProgress}"
-            .showPlayOverlay="${this._showPlayOverlay}"
-            .pauseFlash="${this._pauseFlash}"
-            .playBtnAnim="${this._playBtnAnim}"
-            @pointerdown="${this.#onPointerDown}"
-            @pointermove="${this.#onPointerMove}"
-            @pointerup="${this.#onPointerUp}"
-            @pointerleave="${this.#onPointerLeave}"
-            @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
-          ></cb-field>
+              .pitchType="${this.pitchType}"
+              .viewMode="${this._viewMode}"
+              .isMobile="${this._isMobile}"
+              .rotateHandleId="${this._rotateHandleId}"
+              .animationMode="${this._animationMode}"
+              .animationFrames="${this.animationFrames}"
+              .activeFrameIndex="${this.activeFrameIndex}"
+              .isPlaying="${this.isPlaying}"
+              .playbackProgress="${this._playbackProgress}"
+              .showPlayOverlay="${this._showPlayOverlay}"
+              .pauseFlash="${this._pauseFlash}"
+              .playBtnAnim="${this._playBtnAnim}"
+              @pointerdown="${this.#onPointerDown}"
+              @pointermove="${this.#onPointerMove}"
+              @pointerup="${this.#onPointerUp}"
+              @pointerleave="${this.#onPointerLeave}"
+              @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
+            ></cb-field>
 
           ${this._animationMode && !this._isMobile ? html`
             <cb-timeline
@@ -2036,6 +2039,7 @@ export class CoachBoard extends LitElement {
               ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
             ` : nothing}
           </div>
+          </div><!-- .field-wrap -->
         </div><!-- .board-area -->
 
         <div class="bottom-bar">
