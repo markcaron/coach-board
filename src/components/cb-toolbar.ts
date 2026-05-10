@@ -778,17 +778,18 @@ export class CbToolbar extends LitElement {
 
     .ctx-icon-btn.danger {
       color: var(--pt-danger-lightest);
-      border-color: var(--pt-danger-lightest);
+      border-color: transparent;
     }
 
     .ctx-icon-btn.danger:hover {
       background: rgba(251, 138, 138, 0.1);
+      border-color: transparent;
     }
 
     .ctx-sep {
-      width: 32px;
+      width: 40px;
       border: none;
-      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      border-top: 1px solid rgba(255, 255, 255, 0.35);
       margin: 4px 0;
     }
 

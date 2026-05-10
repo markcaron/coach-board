@@ -525,9 +525,9 @@ export class CoachBoard extends LitElement {
     }
 
     .sidebar-divider {
-      width: 32px;
+      width: 40px;
       border: none;
-      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      border-top: 1px solid rgba(255, 255, 255, 0.35);
       margin: 4px 0;
     }
 
