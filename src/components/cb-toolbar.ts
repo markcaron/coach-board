@@ -472,6 +472,22 @@ export class CbToolbar extends LitElement {
       border-color: var(--pt-text-white);
     }
 
+    /* ── hideToolSelector mode ───────────────────────────────── */
+    /* When the host attribute is set, the tool-selector row is hidden and
+       the edit-bar becomes the sole content rendered by this component.
+       min-height ensures the context bar always occupies visible space. */
+
+    :host([hide-tool-selector]) {
+      padding: 0;
+      min-height: 52px;
+    }
+
+    :host([hide-tool-selector]) .edit-bar {
+      margin: 0;
+      border-top: none;
+      min-height: 52px;
+    }
+
     .selection-info {
       font-size: 0.85rem;
       color: var(--pt-text-muted);
@@ -715,6 +731,11 @@ export class CbToolbar extends LitElement {
   @property({ type: Boolean })
   accessor multiSelect: boolean = false;
 
+  /** When true, hides the primary tool-selector row. Only the contextual
+   *  edit bar is rendered (color pickers, alignment, etc. for selected items). */
+  @property({ type: Boolean, reflect: true, attribute: 'hide-tool-selector' })
+  accessor hideToolSelector: boolean = false;
+
   @state() private accessor _openMenu: MenuId | null = null;
 
   @query('#delete-dialog') accessor _deleteDialog!: HTMLDialogElement;
@@ -876,6 +897,7 @@ export class CbToolbar extends LitElement {
     const t = this.activeTool;
     const selType = this.#selectionType;
     return html`
+      ${!this.hideToolSelector ? html`
       <div class="tools-left">
       <button
         title="Select"
@@ -1078,6 +1100,7 @@ export class CbToolbar extends LitElement {
         Text
       </button>
       </div>
+      ` : nothing}
 
       <div class="edit-bar">
         ${selType !== 'none' ? html`

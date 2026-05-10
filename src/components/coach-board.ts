@@ -156,28 +156,31 @@ export class CoachBoard extends LitElement {
       --field-stripe-dark: var(--pt-field-stripe-dark);
     }
 
-    /* ── Push-drawer layout ───────────────────────────────────── */
-    /* --panel-w is defined once and shared by the grid, transform,
-       and the panel element to guarantee they all use the same value. */
+    /* ── Push-drawer layout (panel slides in from the LEFT) ──────
+       The grid has the panel in column-1 and the board in column-2.
+       At rest the whole container is translated left by --panel-w so the
+       panel is off-screen; .menu-open resets the translation revealing the
+       panel and pushing the board to the right. */
 
     .app-wrap {
       display: grid;
-      grid-template-columns: 100dvw var(--panel-w);
+      grid-template-columns: var(--panel-w) 100dvw;
       height: 100dvh;
-      transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translateX(calc(var(--panel-w) * -1));
+      transition: transform 420ms cubic-bezier(0.33, 1, 0.68, 1);
+      will-change: transform;
     }
 
     .app-wrap.menu-open {
-      transform: translateX(calc(var(--panel-w) * -1));
+      transform: translateX(0);
     }
 
     .app-board {
-      grid-column: 1;
-      min-width: 0;
+      grid-column: 2;
+      width: 100dvw;
       height: 100dvh;
       display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      flex-direction: row;      overflow: hidden;
       position: relative;
     }
 
@@ -193,8 +196,7 @@ export class CoachBoard extends LitElement {
     /* ── Menu panel ───────────────────────────────────────────── */
 
     .menu-panel {
-      grid-column: 2;
-      width: var(--panel-w);
+      grid-column: 1;      width: var(--panel-w);
       height: 100dvh;
       background: white;
       color: var(--pt-color-navy-800, #16213e);
@@ -203,9 +205,8 @@ export class CoachBoard extends LitElement {
       flex-direction: column;
       overflow-y: auto;
       overflow-x: hidden;
-      /* Left border gives a subtle edge separating panel from board */
-      border-left: 1px solid rgba(0, 0, 0, 0.08);
-      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.03);
+      /* Right border gives a subtle edge separating panel from board */
+      border-right: 1px solid rgba(0, 0, 0, 0.08);      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.03);
     }
 
     .menu-header {
@@ -280,20 +281,122 @@ export class CoachBoard extends LitElement {
     .menu-spacer { flex: 1; }
 
     @media (prefers-reduced-motion: reduce) {
-      /* Use a short duration instead of none so the slide is still
-         perceptible but instant for users who prefer reduced motion */
       .app-wrap { transition: transform 150ms ease; }
     }
 
-    .toolbar-area {
+    /* ── Left sidebar (tool palette) ─────────────────────────── */
+
+    .sidebar {
+      flex: none;
+      width: 48px;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: env(safe-area-inset-top);
+      background: var(--pt-bg-toolbar);
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      z-index: 5;
+      flex-shrink: 0;
+    }
+
+    .sidebar-hamburger {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 52px;
+      background: transparent;
+      border: none;
+      color: var(--pt-text);
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .sidebar-hamburger:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .sidebar-hamburger:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
+    }
+
+    .sidebar-divider {
+      width: 28px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 2px 0 6px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-tool {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      margin: 2px 0;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--pt-text);
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s, border-color 0.12s;
+    }
+
+    .sidebar-tool:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-tool:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .sidebar-tool[aria-pressed="true"] {
+      background: rgba(78, 168, 222, 0.18);
+      border-color: var(--pt-accent);
+      color: var(--pt-accent);
+    }
+
+    /* ── Main area (context bar + field + bottom bar) ─────────── */
+
+    .main-area {
+      flex: 1;
+      min-width: 0;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Context bar (always-visible edit/context strip) ─────── */
+    /* cb-toolbar inside gets hide-tool-selector, so the bar only shows
+       the edit strip when items are selected. Min-height keeps the bar
+       visible even when nothing is selected. */
+
+    .context-bar {
+      flex-shrink: 0;
+      z-index: 10;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .context-bar cb-toolbar {
+      display: block;
+      width: 100%;
+    }
+
+    /* In readonly mode we keep the old single-column toolbar layout */    .toolbar-area {
       flex-shrink: 0;
       z-index: 10;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
       padding-top: env(safe-area-inset-top);
-    }
-
-    cb-board-bar {
-      flex-shrink: 0;
     }
 
     .update-toast {
@@ -654,21 +757,7 @@ export class CoachBoard extends LitElement {
         overflow: visible !important;
         background: white !important;
       }
-      /* Collapse the push-drawer grid so the panel and board print correctly */
-      .app-wrap {
-        display: block !important;
-        transform: none !important;
-      }
-      .menu-panel {
-        display: none !important;
-      }
-      .app-board {
-        height: auto !important;
-        overflow: visible !important;
-        display: block !important;
-      }
-      .toolbar-area, .bottom-bar, cb-board-bar,
-      .rotate-overlay, cb-dialogs {
+      .toolbar-area, .context-bar, .sidebar, .bottom-bar, cb-board-bar,      .rotate-overlay, cb-dialogs {
         display: none !important;
       }
       cb-field {
@@ -1306,9 +1395,12 @@ export class CoachBoard extends LitElement {
   }
 
   render() {
+    const t = this.activeTool;
+    const isReadonly = this._viewMode === 'readonly';
     return html`
       <div class="app-wrap ${this._menuOpen ? 'menu-open' : ''}">
-      <div class="app-board">
+      ${this.#renderMenuPanel()}<!-- grid col 1: left panel -->
+      <div class="app-board"><!-- grid col 2 -->
       ${this._updateAvailable ? html`
         <div class="update-toast">
           <svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" style="flex-shrink:0">
@@ -1320,222 +1412,332 @@ export class CoachBoard extends LitElement {
           <button class="refresh-btn" @click="${() => this.#updateSW?.(true)}">Refresh</button>
         </div>
       ` : nothing}
-      ${this._viewMode === 'readonly' ? html`
-        <div class="toolbar-area readonly-branding">
-          <a href="/" class="branding-link" title="Open CoachingBoard">
-            <svg class="branding-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/><path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/><path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/><path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/></svg>
-            <span class="branding-text">CoachingBoard</span>
-          </a>
-          ${this._boardName && this._boardName !== 'Untitled Board' ? html`
-            <span class="readonly-board-name">${this._boardName}</span>
-          ` : nothing}
-        </div>
-      ` : html`
-        <div class="toolbar-area">
-          <cb-toolbar
-            .activeTool="${this.activeTool}"
-            .selectedItems="${this.#selectedItems}"
-            .fieldTheme="${this.fieldTheme}"
-            .multiSelect="${this._multiSelect}"
-            .autoNumber="${this.autoNumber}"
-            @tool-changed="${this.#onToolChanged}"
-            @multi-select-toggle="${this.#onMultiSelectToggle}"
-            @player-update="${this.#onPlayerUpdate}"
-            @equipment-update="${this.#onEquipmentUpdate}"
-            @line-update="${this.#onLineUpdate}"
-            @shape-update="${this.#onShapeUpdate}"
-            @text-update="${this.#onTextUpdate}"
-            @align-items="${this.#onAlignItems}"
-            @group-items="${this.#onGroupItems}"
-            @ungroup-items="${this.#onUngroupItems}"
-            @delete-items="${this.#onDeleteItems}"
-            @rotate-items="${this.#onRotateItems}"
-            @auto-number-toggle="${this.#onAutoNumberToggle}">
-          </cb-toolbar>
-        </div>
-      `}
 
-      ${this._viewMode !== 'readonly' ? html`
-        <cb-board-bar
-          .boardName="${this._boardName}"
-          .isSaved="${this.#isBoardSaved}"
-          .isWhiteTheme="${this.fieldTheme === 'white'}"
-        ></cb-board-bar>
-      ` : nothing}
-
-      <cb-field
-        .players="${this.players}"
-        .lines="${this.lines}"
-        .equipment="${this.equipment}"
-        .shapes="${this.shapes}"
-        .textItems="${this.textItems}"
-        .selectedIds="${this.selectedIds}"
-        .ghost="${this.ghost}"
-        .draw="${this._draw}"
-        .shapeDraw="${this._shapeDraw}"
-        .marquee="${this._marquee}"
-        .activeTool="${this.activeTool}"
-        .playerColor="${this.playerColor}"
-        .playerTeam="${this.playerTeam}"
-        .lineStyle="${this.lineStyle}"
-        .equipmentKind="${this.equipmentKind}"
-        .shapeKind="${this.shapeKind}"
-        .fieldOrientation="${this.fieldOrientation}"
-        .fieldTheme="${this.fieldTheme}"
-        .pitchType="${this.pitchType}"
-        .viewMode="${this._viewMode}"
-        .isMobile="${this._isMobile}"
-        .rotateHandleId="${this._rotateHandleId}"
-        .animationMode="${this._animationMode}"
-        .animationFrames="${this.animationFrames}"
-        .activeFrameIndex="${this.activeFrameIndex}"
-        .isPlaying="${this.isPlaying}"
-        .playbackProgress="${this._playbackProgress}"
-        .showPlayOverlay="${this._showPlayOverlay}"
-        .pauseFlash="${this._pauseFlash}"
-        .playBtnAnim="${this._playBtnAnim}"
-        @pointerdown="${this.#onPointerDown}"
-        @pointermove="${this.#onPointerMove}"
-        @pointerup="${this.#onPointerUp}"
-        @pointerleave="${this.#onPointerLeave}"
-        @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
-      ></cb-field>
-      ${this._animationMode && !this._isMobile && this._viewMode !== 'readonly' ? html`
-        <cb-timeline
-          .frameCount="${this.animationFrames.length}"
-          .activeFrame="${this.activeFrameIndex}"
-          .isPlaying="${this.isPlaying}"
-          .playbackProgress="${this._playbackProgress}"
-          .speed="${this._playbackSpeed}"
-          @frame-select="${this.#onFrameSelect}"
-          @frame-add="${this.#onFrameAdd}"
-          @frame-delete="${this.#onFrameDelete}"
-          @play-toggle="${this.#onPlayToggle}"
-          @speed-change="${this.#onSpeedChange}"
-          @loop-toggle="${this.#onLoopToggle}"
-          .loop="${this._playbackLoop}">
-        </cb-timeline>
-      ` : nothing}
-
-      <div class="print-summary-block">
-        ${this.#cachedSummary ? html`
-          <div class="summary-board-name">${this.#cachedSummary.name}</div>
-          <div class="summary-section">
-            <h3>Pitch</h3><p>${this.#cachedSummary.pitchLabel} · ${this.#cachedSummary.orientation}</p>
+      ${isReadonly ? html`
+        <!-- Readonly mode: simplified header, no sidebar -->
+        <div class="main-area">
+          <div class="toolbar-area readonly-branding">
+            <a href="/" class="branding-link" title="Open CoachingBoard">
+              <svg class="branding-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/><path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/><path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/><path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/></svg>
+              <span class="branding-text">CoachingBoard</span>
+            </a>
+            ${this._boardName && this._boardName !== 'Untitled Board' ? html`
+              <span class="readonly-board-name">${this._boardName}</span>
+            ` : nothing}
           </div>
-          ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
-            <div class="summary-section"><h3>Players</h3><p>${[...this.#cachedSummary.playersByColor.entries()].map(([c, n]) => `${n} ${c}`).join(', ')}${this.#cachedSummary.coachCount > 0 ? `${this.#cachedSummary.playersByColor.size > 0 ? ', ' : ''}${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}` : ''}</p></div>
-          ` : nothing}
-          ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 || this.#cachedSummary.dummiesByColor.size > 0 || this.#cachedSummary.polesByColor.size > 0 ? html`
-            <div class="summary-section"><h3>Equipment</h3><p>${[
-              ...this.#cachedSummary.equipByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).concat(
-              this.#cachedSummary.conesByColor.size > 0 ? [`${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []).concat(
-              this.#cachedSummary.dummiesByColor.size > 0 ? [`${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'}`] : []).concat(
-              this.#cachedSummary.polesByColor.size > 0 ? [`${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []
-            ).join(', ')}</p></div>
-          ` : nothing}
-          ${this.#cachedSummary.linesByStyle.size > 0 ? html`
-            <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
-          ` : nothing}
-          ${this.#cachedSummary.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
-          ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
-          ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
-          ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
-        ` : nothing}
-      </div>
 
-      <div class="bottom-bar${this._viewMode === 'readonly' ? ' readonly' : ''}">
-        ${this._viewMode !== 'readonly' ? html`
-        <div class="bottom-left">
-          <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
-                  ?disabled="${this.#undoStack.length === 0}"
-                  @click="${this.#undo}">
-            <svg viewBox="0 0 16 16" width="14" height="14">
-              <path d="M 5,3 L 2,6 L 5,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M 2,6 L 10,6 A 4,4 0 0 1 10,14 L 7,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            </svg>
-          </button>
-          <button class="icon-btn" title="Redo (Cmd+Shift+Z)" aria-label="Redo"
-                  ?disabled="${this.#redoStack.length === 0}"
-                  @click="${this.#redo}">
-            <svg viewBox="0 0 16 16" width="14" height="14">
-              <path d="M 11,3 L 14,6 L 11,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            </svg>
-          </button>
-        </div>
-        ` : html`<div class="bottom-left"></div>`}
-        <div class="bottom-center">
-          ${this._viewMode !== 'readonly' && !this._isMobile ? html`
-            <button aria-pressed="${this._animationMode}"
-                    title="Animate" aria-label="Animate"
-                    @click="${this.#toggleAnimationMode}">
-              <svg viewBox="0 0 1200 1200" width="24" height="24" style="flex-shrink:0">
-                <path d="m846.12 420.12c-59.641-2.6406-113.88 35.16-131.88 92.039l-2.0391 6.6016-6.7188 1.4414c-81.84 18-141.24 91.922-141.24 175.68v93.84c0 31.68-23.762 58.922-54 61.801-16.801 1.6797-33.719-3.9609-46.199-15.238-12.48-11.398-19.68-27.602-19.68-44.398v-336c0-99.238-80.762-180-180-180-19.801 0-36 16.199-36 36s16.199 36 36 36c59.52 0 108 48.48 108 108v331.8c0 69.719 52.32 129.36 119.28 135.6 37.559 3.6016 73.68-8.3984 101.52-33.84 27.48-24.961 43.199-60.602 43.199-97.559v-96c0-43.68 26.039-82.801 66.48-99.719l11.039-4.6797 4.6797 11.039c20.641 49.32 68.52 81.238 121.8 81.238 36.238 0 69.961-14.398 95.16-40.559 25.078-26.16 38.16-60.48 36.719-96.719-2.6406-67.922-57.961-123.48-125.76-126.6zm-6.1211 191.88c-33.121 0-60-26.879-60-60s26.879-60 60-60 60 26.879 60 60-26.879 60-60 60z" fill="currentColor"/>
-              </svg>
-              <span class="btn-text">Animate</span>
-            </button>
-          ` : nothing}
-          <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
-          <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
-                  @change="${this.#onThemeChange}">
-            <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
-            <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
-          </select>
-          ${this._viewMode !== 'readonly' && !this._isMobile ? html`
-            <div class="dropdown-wrap">
-              <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
-                      title="Pitch orientation"
-                      @click="${this.#toggleFieldMenu}">
-                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
-                  ${this.fieldOrientation === 'horizontal'
-                    ? svg`<path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>`
-                    : svg`<path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>`}
-                </svg>
-                <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Pitch</span>
-                <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
-              </button>
-              ${this._fieldMenuOpen ? html`
-                <div role="menu" aria-label="Pitch orientation">
-                  <button role="menuitem"
-                          @click="${() => this.#requestOrientation('horizontal')}">
-                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
-                      <path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>
-                    </svg>
-                    Horizontal Pitch
-                  </button>
-                  <button role="menuitem"
-                          @click="${() => this.#requestOrientation('vertical')}">
-                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
-                      <path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>
-                    </svg>
-                    Vertical Pitch
-                  </button>
-                </div>
-              ` : nothing}
+          <cb-field
+            .players="${this.players}"
+            .lines="${this.lines}"
+            .equipment="${this.equipment}"
+            .shapes="${this.shapes}"
+            .textItems="${this.textItems}"
+            .selectedIds="${this.selectedIds}"
+            .ghost="${this.ghost}"
+            .draw="${this._draw}"
+            .shapeDraw="${this._shapeDraw}"
+            .marquee="${this._marquee}"
+            .activeTool="${this.activeTool}"
+            .playerColor="${this.playerColor}"
+            .playerTeam="${this.playerTeam}"
+            .lineStyle="${this.lineStyle}"
+            .equipmentKind="${this.equipmentKind}"
+            .shapeKind="${this.shapeKind}"
+            .fieldOrientation="${this.fieldOrientation}"
+            .fieldTheme="${this.fieldTheme}"
+            .pitchType="${this.pitchType}"
+            .viewMode="${this._viewMode}"
+            .isMobile="${this._isMobile}"
+            .rotateHandleId="${this._rotateHandleId}"
+            .animationMode="${this._animationMode}"
+            .animationFrames="${this.animationFrames}"
+            .activeFrameIndex="${this.activeFrameIndex}"
+            .isPlaying="${this.isPlaying}"
+            .playbackProgress="${this._playbackProgress}"
+            .showPlayOverlay="${this._showPlayOverlay}"
+            .pauseFlash="${this._pauseFlash}"
+            .playBtnAnim="${this._playBtnAnim}"
+            @pointerdown="${this.#onPointerDown}"
+            @pointermove="${this.#onPointerMove}"
+            @pointerup="${this.#onPointerUp}"
+            @pointerleave="${this.#onPointerLeave}"
+            @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
+          ></cb-field>
+
+          <div class="bottom-bar readonly">
+            <div class="bottom-left"></div>
+            <div class="bottom-center">
+              <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
+              <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
+                      @change="${this.#onThemeChange}">
+                <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
+                <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
+              </select>
             </div>
-          ` : nothing}
-        </div>
-        <div class="bottom-right">
-          ${this._viewMode !== 'readonly' ? html`
-          <button class="icon-btn" aria-label="Share Board" title="Share Board"
-                  @click="${() => this._share.triggerShare()}">
-            <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0" fill="currentColor">
-              <path d="m12.141 1065.2c24.141-696.05 564.37-780.94 692.44-791.29l0.09375-140.06c0.09375-6.2344 2.1562-12.469 6.5156-17.672 9.75-11.578 27.094-13.078 38.672-3.3281l428.06 360.14c1.3125 1.0781 2.5312 2.25 3.6562 3.6094 9.75 11.578 8.25 28.922-3.3281 38.672l-426.32 358.69c-5.0156 5.1094-12 8.2969-19.688 8.2969-15.234 0-27.562-12.328-27.562-27.562v-157.26c-509.53-48.328-632.9 356.81-638.39 375.56-3.1406 12.141-14.344 20.953-27.422 20.531-15.141-0.46875-27.094-13.125-26.625-28.312z" fill-rule="evenodd"/>
-            </svg>
-          </button>
-          ` : nothing}
-          <button aria-label="Menu" title="Menu"
+            <div class="bottom-right"></div>
+          </div>
+        </div><!-- .main-area readonly -->
+
+      ` : html`
+        <!-- Normal / shared-edit mode: sidebar + main area -->
+        <nav class="sidebar" aria-label="Tool palette">
+          <button class="sidebar-hamburger"
+                  aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
                   aria-haspopup="true"
                   aria-expanded="${this._menuOpen}"
+                  title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
                   @click="${this.#toggleMenu}">
-            <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
+            <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0">
               <path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z" fill="currentColor" fill-rule="evenodd"/>
             </svg>
           </button>
-        </div>
-      </div>
+          <div class="sidebar-divider" role="separator"></div>
 
+          <!-- Select -->
+          <button class="sidebar-tool"
+                  title="Select"
+                  aria-label="Select"
+                  aria-pressed="${t === 'select'}"
+                  @click="${() => { this.activeTool = 'select'; this.selectedIds = new Set(); }}">
+            <svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor" /></svg>
+          </button>
+
+          <!-- Player -->
+          <button class="sidebar-tool"
+                  title="Player (P)"
+                  aria-label="Player"
+                  aria-pressed="${t === 'add-player'}"
+                  @click="${() => { this.activeTool = 'add-player'; }}">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+          </button>
+
+          <!-- Equipment -->
+          <button class="sidebar-tool"
+                  title="Equipment (E)"
+                  aria-label="Equipment"
+                  aria-pressed="${t === 'add-equipment'}"
+                  @click="${() => { this.activeTool = 'add-equipment'; }}">
+            <svg viewBox="0 0 1200 1200" width="18" height="18"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor" /></svg>
+          </button>
+
+          <!-- Draw -->
+          <button class="sidebar-tool"
+                  title="Draw (D)"
+                  aria-label="Draw"
+                  aria-pressed="${t === 'draw-line' || t === 'draw-shape'}"
+                  @click="${() => { this.activeTool = 'draw-line'; }}">
+            <svg viewBox="0 0 12 12" width="18" height="18"><line x1="2" y1="10" x2="10" y2="2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
+          </button>
+
+          <!-- Text -->
+          <button class="sidebar-tool"
+                  title="Text (T)"
+                  aria-label="Text"
+                  aria-pressed="${t === 'add-text'}"
+                  @click="${() => { this.activeTool = 'add-text'; }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M5 4v3h5.5v12h3V7H19V4z"/>
+            </svg>
+          </button>
+        </nav><!-- .sidebar -->
+
+        <div class="main-area">
+          <cb-board-bar
+            .boardName="${this._boardName}"
+            .isSaved="${this.#isBoardSaved}"
+            .isWhiteTheme="${this.fieldTheme === 'white'}"
+          ></cb-board-bar>
+
+          <div class="context-bar">
+            <cb-toolbar
+              hide-tool-selector
+              .activeTool="${this.activeTool}"
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              .multiSelect="${this._multiSelect}"
+              .autoNumber="${this.autoNumber}"
+              @tool-changed="${this.#onToolChanged}"
+              @multi-select-toggle="${this.#onMultiSelectToggle}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}"
+              @auto-number-toggle="${this.#onAutoNumberToggle}">
+            </cb-toolbar>
+          </div><!-- .context-bar -->
+
+          <cb-field
+            .players="${this.players}"
+            .lines="${this.lines}"
+            .equipment="${this.equipment}"
+            .shapes="${this.shapes}"
+            .textItems="${this.textItems}"
+            .selectedIds="${this.selectedIds}"
+            .ghost="${this.ghost}"
+            .draw="${this._draw}"
+            .shapeDraw="${this._shapeDraw}"
+            .marquee="${this._marquee}"
+            .activeTool="${this.activeTool}"
+            .playerColor="${this.playerColor}"
+            .playerTeam="${this.playerTeam}"
+            .lineStyle="${this.lineStyle}"
+            .equipmentKind="${this.equipmentKind}"
+            .shapeKind="${this.shapeKind}"
+            .fieldOrientation="${this.fieldOrientation}"
+            .fieldTheme="${this.fieldTheme}"
+            .pitchType="${this.pitchType}"
+            .viewMode="${this._viewMode}"
+            .isMobile="${this._isMobile}"
+            .rotateHandleId="${this._rotateHandleId}"
+            .animationMode="${this._animationMode}"
+            .animationFrames="${this.animationFrames}"
+            .activeFrameIndex="${this.activeFrameIndex}"
+            .isPlaying="${this.isPlaying}"
+            .playbackProgress="${this._playbackProgress}"
+            .showPlayOverlay="${this._showPlayOverlay}"
+            .pauseFlash="${this._pauseFlash}"
+            .playBtnAnim="${this._playBtnAnim}"
+            @pointerdown="${this.#onPointerDown}"
+            @pointermove="${this.#onPointerMove}"
+            @pointerup="${this.#onPointerUp}"
+            @pointerleave="${this.#onPointerLeave}"
+            @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
+          ></cb-field>
+
+          ${this._animationMode && !this._isMobile ? html`
+            <cb-timeline
+              .frameCount="${this.animationFrames.length}"
+              .activeFrame="${this.activeFrameIndex}"
+              .isPlaying="${this.isPlaying}"
+              .playbackProgress="${this._playbackProgress}"
+              .speed="${this._playbackSpeed}"
+              @frame-select="${this.#onFrameSelect}"
+              @frame-add="${this.#onFrameAdd}"
+              @frame-delete="${this.#onFrameDelete}"
+              @play-toggle="${this.#onPlayToggle}"
+              @speed-change="${this.#onSpeedChange}"
+              @loop-toggle="${this.#onLoopToggle}"
+              .loop="${this._playbackLoop}">
+            </cb-timeline>
+          ` : nothing}
+
+          <div class="print-summary-block">
+            ${this.#cachedSummary ? html`
+              <div class="summary-board-name">${this.#cachedSummary.name}</div>
+              <div class="summary-section">
+                <h3>Pitch</h3><p>${this.#cachedSummary.pitchLabel} · ${this.#cachedSummary.orientation}</p>
+              </div>
+              ${this.#cachedSummary.playersByColor.size > 0 || this.#cachedSummary.coachCount > 0 ? html`
+                <div class="summary-section"><h3>Players</h3><p>${[...this.#cachedSummary.playersByColor.entries()].map(([c, n]) => `${n} ${c}`).join(', ')}${this.#cachedSummary.coachCount > 0 ? `${this.#cachedSummary.playersByColor.size > 0 ? ', ' : ''}${this.#cachedSummary.coachCount} Coach${this.#cachedSummary.coachCount > 1 ? 'es' : ''}` : ''}</p></div>
+              ` : nothing}
+              ${this.#cachedSummary.equipByKind.size > 0 || this.#cachedSummary.conesByColor.size > 0 || this.#cachedSummary.dummiesByColor.size > 0 || this.#cachedSummary.polesByColor.size > 0 ? html`
+                <div class="summary-section"><h3>Equipment</h3><p>${[
+                  ...this.#cachedSummary.equipByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).concat(
+                  this.#cachedSummary.conesByColor.size > 0 ? [`${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0)} Cone${[...this.#cachedSummary.conesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []).concat(
+                  this.#cachedSummary.dummiesByColor.size > 0 ? [`${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0)} Dumm${[...this.#cachedSummary.dummiesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 'ies' : 'y'}`] : []).concat(
+                  this.#cachedSummary.polesByColor.size > 0 ? [`${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0)} Pole${[...this.#cachedSummary.polesByColor.values()].reduce((a, b) => a + b, 0) > 1 ? 's' : ''}`] : []
+                ).join(', ')}</p></div>
+              ` : nothing}
+              ${this.#cachedSummary.linesByStyle.size > 0 ? html`
+                <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
+              ` : nothing}
+              ${this.#cachedSummary.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
+              ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
+              ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
+              ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
+            ` : nothing}
+          </div>
+
+          <div class="bottom-bar">
+            <div class="bottom-left">
+              <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
+                      ?disabled="${this.#undoStack.length === 0}"
+                      @click="${this.#undo}">
+                <svg viewBox="0 0 16 16" width="14" height="14">
+                  <path d="M 5,3 L 2,6 L 5,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M 2,6 L 10,6 A 4,4 0 0 1 10,14 L 7,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+              <button class="icon-btn" title="Redo (Cmd+Shift+Z)" aria-label="Redo"
+                      ?disabled="${this.#redoStack.length === 0}"
+                      @click="${this.#redo}">
+                <svg viewBox="0 0 16 16" width="14" height="14">
+                  <path d="M 11,3 L 14,6 L 11,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div class="bottom-center">
+              ${!this._isMobile ? html`
+                <button aria-pressed="${this._animationMode}"
+                        title="Animate" aria-label="Animate"
+                        @click="${this.#toggleAnimationMode}">
+                  <svg viewBox="0 0 1200 1200" width="24" height="24" style="flex-shrink:0">
+                    <path d="m846.12 420.12c-59.641-2.6406-113.88 35.16-131.88 92.039l-2.0391 6.6016-6.7188 1.4414c-81.84 18-141.24 91.922-141.24 175.68v93.84c0 31.68-23.762 58.922-54 61.801-16.801 1.6797-33.719-3.9609-46.199-15.238-12.48-11.398-19.68-27.602-19.68-44.398v-336c0-99.238-80.762-180-180-180-19.801 0-36 16.199-36 36s16.199 36 36 36c59.52 0 108 48.48 108 108v331.8c0 69.719 52.32 129.36 119.28 135.6 37.559 3.6016 73.68-8.3984 101.52-33.84 27.48-24.961 43.199-60.602 43.199-97.559v-96c0-43.68 26.039-82.801 66.48-99.719l11.039-4.6797 4.6797 11.039c20.641 49.32 68.52 81.238 121.8 81.238 36.238 0 69.961-14.398 95.16-40.559 25.078-26.16 38.16-60.48 36.719-96.719-2.6406-67.922-57.961-123.48-125.76-126.6zm-6.1211 191.88c-33.121 0-60-26.879-60-60s26.879-60 60-60 60 26.879 60 60-26.879 60-60 60z" fill="currentColor"/>
+                  </svg>
+                  <span class="btn-text">Animate</span>
+                </button>
+              ` : nothing}
+              <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
+              <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
+                      @change="${this.#onThemeChange}">
+                <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
+                <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
+              </select>
+              ${!this._isMobile ? html`
+                <div class="dropdown-wrap">
+                  <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
+                          title="Pitch orientation"
+                          @click="${this.#toggleFieldMenu}">
+                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                      ${this.fieldOrientation === 'horizontal'
+                        ? svg`<path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>`
+                        : svg`<path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>`}
+                    </svg>
+                    <span class="btn-text">${this.fieldOrientation === 'horizontal' ? 'Horizontal' : 'Vertical'} Pitch</span>
+                    <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
+                  </button>
+                  ${this._fieldMenuOpen ? html`
+                    <div role="menu" aria-label="Pitch orientation">
+                      <button role="menuitem"
+                              @click="${() => this.#requestOrientation('horizontal')}">
+                        <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                          <path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>
+                        </svg>
+                        Horizontal Pitch
+                      </button>
+                      <button role="menuitem"
+                              @click="${() => this.#requestOrientation('vertical')}">
+                        <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                          <path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>
+                        </svg>
+                        Vertical Pitch
+                      </button>
+                    </div>
+                  ` : nothing}
+                </div>
+              ` : nothing}
+            </div>
+            <div class="bottom-right">
+              <button class="icon-btn" aria-label="Share Board" title="Share Board"
+                      @click="${() => this._share.triggerShare()}">
+                <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0" fill="currentColor">
+                  <path d="m12.141 1065.2c24.141-696.05 564.37-780.94 692.44-791.29l0.09375-140.06c0.09375-6.2344 2.1562-12.469 6.5156-17.672 9.75-11.578 27.094-13.078 38.672-3.3281l428.06 360.14c1.3125 1.0781 2.5312 2.25 3.6562 3.6094 9.75 11.578 8.25 28.922-3.3281 38.672l-426.32 358.69c-5.0156 5.1094-12 8.2969-19.688 8.2969-15.234 0-27.562-12.328-27.562-27.562v-157.26c-509.53-48.328-632.9 356.81-638.39 375.56-3.1406 12.141-14.344 20.953-27.422 20.531-15.141-0.46875-27.094-13.125-26.625-28.312z" fill-rule="evenodd"/>
+                </svg>
+              </button>
+            </div>
+          </div><!-- .bottom-bar -->
+        </div><!-- .main-area -->
+      `}
       <input type="file" accept=".svg,image/svg+xml" class="visually-hidden" id="svg-import-input"
              tabindex="-1" aria-label="Import SVG file"
              @change="${this.#onFileSelected}" />
@@ -1587,7 +1789,6 @@ export class CoachBoard extends LitElement {
              aria-hidden="true"></div>
       ` : nothing}
       </div><!-- .app-board -->
-      ${this.#renderMenuPanel()}
       </div><!-- .app-wrap -->
     `;
   }
