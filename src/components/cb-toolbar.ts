@@ -479,17 +479,19 @@ export class CbToolbar extends LitElement {
 
     :host([hide-tool-selector]) {
       padding: 0;
-      height: 52px;
-      min-height: 52px;
-      overflow: hidden;
+      height: 60px;
+      min-height: 60px;
+      /* no overflow:hidden — dropdowns must render outside the host */
       background: transparent;
     }
 
     :host([hide-tool-selector]) .edit-bar {
       margin: 0;
+      padding: 8px 12px;
       border-top: none;
-      height: 52px;
-      min-height: 52px;
+      height: 60px;
+      min-height: 60px;
+      box-sizing: border-box;
       background: transparent;
       box-shadow: none;
     }

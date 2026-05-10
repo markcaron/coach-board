@@ -182,16 +182,17 @@ export class CoachBoard extends LitElement {
       grid-template-areas:
         "topbar"
         "board"
+        "timeline"
         "botbar";
-      grid-template-rows: 60px 1fr 60px;      overflow: hidden;
-    }
+      grid-template-rows: 60px 1fr auto 60px;
+      overflow: hidden;    }
 
     .menu-backdrop {
+      /* Covers the entire .app-board so any click outside the panel closes the menu */
       position: absolute;
       inset: 0;
-      z-index: 20;
+      z-index: 25;
       cursor: pointer;
-      background: rgba(0, 0, 0, 0.15);
       -webkit-tap-highlight-color: transparent;
     }
 
@@ -478,7 +479,7 @@ export class CoachBoard extends LitElement {
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       z-index: 10;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
+      /* overflow:visible so dropdowns inside cb-toolbar are not clipped */
     }
 
     /* White field theme — context bar flips to match */
@@ -528,7 +529,7 @@ export class CoachBoard extends LitElement {
       flex: 1;
       min-width: 0;
       height: 60px;
-      overflow: hidden;
+      /* no overflow:hidden — allows dropdowns to render outside the bar */
     }
 
     /* In readonly mode we keep the old single-column toolbar layout */    .toolbar-area {
@@ -640,6 +641,10 @@ export class CoachBoard extends LitElement {
       font-size: 1rem;
       font-weight: bold;
       color: var(--pt-text);
+    }
+
+    cb-timeline {
+      grid-area: timeline;
     }
 
     .bottom-bar {
@@ -1714,6 +1719,9 @@ export class CoachBoard extends LitElement {
 
       ` : html`
         <!-- Normal / shared-edit mode -->
+        ${this._menuOpen ? html`
+          <div class="menu-backdrop" @click="${this.#toggleMenu}" aria-hidden="true"></div>
+        ` : nothing}
         <div class="context-bar ${this.fieldTheme === 'white' ? 'field-theme-white' : ''}">
           <button class="context-hamburger"
                   aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
@@ -1777,7 +1785,7 @@ export class CoachBoard extends LitElement {
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'select'; this._multiSelect = false; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg viewBox="0 0 1600 1600" width="16" height="16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor"/></svg>
-                  Select
+                  Select <span style="opacity:0.5;font-size:0.8em">(V)</span>
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'select'; this._multiSelect = true; this.ghost = null; this._sidebarMenu = null; }}">
@@ -1985,9 +1993,6 @@ export class CoachBoard extends LitElement {
           </div><!-- .sidebar-tools -->
         </nav><!-- .sidebar -->
           <div class="field-wrap">
-            ${this._menuOpen ? html`
-              <div class="menu-backdrop" @click="${this.#toggleMenu}" aria-hidden="true"></div>
-            ` : nothing}
             <cb-field
               .players="${this.players}"
               .lines="${this.lines}"
@@ -2026,23 +2031,6 @@ export class CoachBoard extends LitElement {
               @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
             ></cb-field>
 
-          ${this._animationMode && !this._isMobile ? html`
-            <cb-timeline
-              .frameCount="${this.animationFrames.length}"
-              .activeFrame="${this.activeFrameIndex}"
-              .isPlaying="${this.isPlaying}"
-              .playbackProgress="${this._playbackProgress}"
-              .speed="${this._playbackSpeed}"
-              @frame-select="${this.#onFrameSelect}"
-              @frame-add="${this.#onFrameAdd}"
-              @frame-delete="${this.#onFrameDelete}"
-              @play-toggle="${this.#onPlayToggle}"
-              @speed-change="${this.#onSpeedChange}"
-              @loop-toggle="${this.#onLoopToggle}"
-              .loop="${this._playbackLoop}">
-            </cb-timeline>
-          ` : nothing}
-
           <div class="print-summary-block">
             ${this.#cachedSummary ? html`
               <div class="summary-board-name">${this.#cachedSummary.name}</div>
@@ -2071,6 +2059,23 @@ export class CoachBoard extends LitElement {
           </div>
           </div><!-- .field-wrap -->
         </div><!-- .board-area -->
+
+        ${this._animationMode && !this._isMobile ? html`
+          <cb-timeline
+            .frameCount="${this.animationFrames.length}"
+            .activeFrame="${this.activeFrameIndex}"
+            .isPlaying="${this.isPlaying}"
+            .playbackProgress="${this._playbackProgress}"
+            .speed="${this._playbackSpeed}"
+            @frame-select="${this.#onFrameSelect}"
+            @frame-add="${this.#onFrameAdd}"
+            @frame-delete="${this.#onFrameDelete}"
+            @play-toggle="${this.#onPlayToggle}"
+            @speed-change="${this.#onSpeedChange}"
+            @loop-toggle="${this.#onLoopToggle}"
+            .loop="${this._playbackLoop}">
+          </cb-timeline>
+        ` : nothing}
 
         <div class="bottom-bar">
             <div class="bottom-left">
