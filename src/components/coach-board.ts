@@ -134,6 +134,9 @@ export class CoachBoard extends LitElement {
       height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
+      /* Colors the bottom safe area (home indicator region) to match the
+         bottom bar rather than showing the body/field background */
+      background: var(--pt-bg-toolbar);
       --panel-w: min(280px, 85vw);
       touch-action: manipulation;
       --color-blue: var(--pt-color-blue-400);
@@ -184,7 +187,7 @@ export class CoachBoard extends LitElement {
         "board"
         "timeline"
         "botbar";
-      grid-template-rows: auto 1fr auto auto;
+      grid-template-rows: auto 1fr auto 60px;
       overflow: hidden;
       position: relative; /* contains the absolute .menu-backdrop */
     }
@@ -543,7 +546,7 @@ export class CoachBoard extends LitElement {
       grid-area: topbar;
       display: flex;
       align-items: center;
-      min-height: 60px;
+      min-height: calc(60px + env(safe-area-inset-top, 0px));
       padding-top: env(safe-area-inset-top, 0px);
       background: var(--pt-bg-toolbar);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
