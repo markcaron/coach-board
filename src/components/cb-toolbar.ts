@@ -899,6 +899,40 @@ export class CbToolbar extends LitElement {
       margin: 4px 0;
     }
 
+    .ctx-panel-input {
+      flex: 1;
+      min-width: 0;
+      background: var(--pt-bg-primary);
+      color: var(--pt-text);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font: inherit;
+      font-size: 0.85rem;
+    }
+
+    .ctx-panel-input:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 1px;
+    }
+
+    .ctx-font-select {
+      flex: 1;
+      background: var(--pt-bg-primary);
+      color: var(--pt-text);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .ctx-font-select:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 1px;
+    }
+
     .ctx-color-grid {
       display: flex;
       flex-wrap: wrap;
@@ -1261,8 +1295,7 @@ export class CbToolbar extends LitElement {
     const selType = this.#selectionType;
 
     if (this.hideToolSelector) {
-      if (selType !== 'single-text' && selType !== 'texts') return html``;
-      return html`<div class="edit-bar">${this.#renderTextEditor()}</div>`;
+      return html``;
     }
 
     const t = this.activeTool;
@@ -2227,10 +2260,7 @@ export class CbToolbar extends LitElement {
       return html`<span style="display:inline-block;width:14px;height:10px;background:${s === 'fill-blue' ? '#60a5fa' : s === 'fill-red' ? '#f87171' : '#facc15'};border-radius:1px;opacity:0.7;"></span>`;
     }
     if (selType === 'single-text' || selType === 'texts') {
-      const ref = this.#selectedTexts[0];
-      const sz = ref?.fontSize ?? 2;
-      const lbl = ['XS', 'S', 'M', 'L', 'XL'][sz] ?? 'Aa';
-      return html`<span style="font-size:0.7rem;font-weight:bold;line-height:1;">${lbl}</span>`;
+      return html`<svg viewBox="280 280 680 680" width="18" height="18" fill="currentColor"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>`;
     }
     return html`<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
   }
@@ -2437,16 +2467,33 @@ export class CbToolbar extends LitElement {
     const currentSize = ref?.fontSize ?? 2;
     const ids = texts.map(t => t.id);
     return html`
-      <div class="ctx-row" style="flex-wrap:wrap;gap:4px;">
-        ${TEXT_SIZES.map(s => html`
-          <button class="ctx-text-size-btn"
-                  aria-pressed="${currentSize === s.value}"
-                  aria-label="Font size ${s.label}"
-                  title="Font size ${s.label}"
-                  @click="${() => this.#changeTextSize(ids, s.value)}">
-            ${s.label}
+      ${texts.length === 1 ? html`
+        <div class="ctx-row">
+          <input class="ctx-panel-input"
+                 type="text"
+                 aria-label="Text content"
+                 .value="${ref.text}"
+                 @blur="${this.#onTextBlur}"
+                 @keydown="${this.#onTextKeyDown}"
+                 @pointerdown="${(e: Event) => e.stopPropagation()}" />
+          <button class="save-btn icon-btn" title="Save text" aria-label="Save text" @click="${this.#onTextSave}">
+            <svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor">
+              <path d="m112.5 200v800c0.027344 36.461 14.523 71.418 40.301 97.199 25.781 25.777 60.738 40.273 97.199 40.301h700c36.461-0.027344 71.418-14.523 97.199-40.301 25.777-25.781 40.273-60.738 40.301-97.199v-615c0.027344-31.207-10.551-61.496-30-85.898l-148.05-185c-26.07-32.719-65.664-51.723-107.5-51.602h-551.95c-36.461 0.027344-71.418 14.523-97.199 40.301-25.777 25.781-40.273 60.738-40.301 97.199zm225 862.5v-362.5c0-6.9023 5.5977-12.5 12.5-12.5h500c3.3164 0 6.4961 1.3164 8.8398 3.6602s3.6602 5.5234 3.6602 8.8398v362.5zm375-925v112.5c0 3.3164-1.3164 6.4961-3.6602 8.8398s-5.5234 3.6602-8.8398 3.6602h-300c-6.9023 0-12.5-5.5977-12.5-12.5v-112.5zm-525 62.5c0.027344-16.566 6.6211-32.449 18.336-44.164 11.715-11.715 27.598-18.309 44.164-18.336h62.5v112.5c0.027344 23.199 9.2539 45.438 25.656 61.844 16.406 16.402 38.645 25.629 61.844 25.656h300c23.199-0.027344 45.438-9.2539 61.844-25.656 16.402-16.406 25.629-38.645 25.656-61.844v-112.5h62.5c16.566 0.027344 32.449 6.6211 44.164 18.336 11.715 11.715 18.309 27.598 18.336 44.164v612.5l148.05 185h-748.15z"/>
+            </svg>
           </button>
-        `)}
+        </div>
+        <hr class="ctx-panel-divider" />
+      ` : nothing}
+      <div class="ctx-row">
+        <label class="ctx-label" for="ctx-font-size">Size</label>
+        <select id="ctx-font-size"
+                class="ctx-font-select"
+                aria-label="Font size"
+                @change="${(e: Event) => this.#changeTextSize(ids, Number((e.target as HTMLSelectElement).value))}">
+          ${TEXT_SIZES.map(s => html`
+            <option value="${s.value}" ?selected="${currentSize === s.value}">${s.label}</option>
+          `)}
+        </select>
       </div>
     `;
   }
