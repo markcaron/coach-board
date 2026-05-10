@@ -1191,7 +1191,8 @@ export class CbToolbar extends LitElement {
 
   get #hasRotatable(): boolean {
     return this.selectedItems.some(i => {
-      if ('team' in i) return true;
+      if ('team' in i) return true;               // players
+      if (isShape(i) || isTextItem(i)) return true; // shapes + text
       if ('kind' in i) {
         const k = (i as Equipment).kind;
         return k === 'goal' || k === 'mini-goal' || k === 'popup-goal' || k === 'dummy';
@@ -2185,6 +2186,7 @@ export class CbToolbar extends LitElement {
     const selType = this.#selectionType;
     const hasGroupA = selType !== 'none' && selType !== 'mixed';
     const isPanelOpen = this._openMenu === 'ctx-panel';
+    const hasControlsAboveDelete = hasGroupA || this.#hasRotatable || this.selectedItems.length >= 2;
 
     return html`
       ${hasGroupA ? html`
@@ -2216,7 +2218,7 @@ export class CbToolbar extends LitElement {
       ` : nothing}
 
       ${selType !== 'none' ? html`
-        <hr class="ctx-sep" />
+        ${hasControlsAboveDelete ? html`<hr class="ctx-sep" />` : nothing}
         <button class="ctx-icon-btn danger"
                 title="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)"
                 aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)"
@@ -2261,7 +2263,7 @@ export class CbToolbar extends LitElement {
     if (selType === 'single-dummy' || selType === 'dummies') {
       const ref = this.#selectedDummies[0];
       const c = ref?.color ?? '#a3e635';
-      return html`<svg viewBox="0 0 16 16" width="16" height="16"><rect x="4.5" y="1.5" width="7" height="13" rx="3.5" fill="none" stroke="${c}" stroke-width="1.8"/></svg>`;
+      return html`<svg viewBox="0 0 16 16" width="20" height="20"><rect x="4.5" y="1.5" width="7" height="13" rx="3.5" fill="none" stroke="${c}" stroke-width="1.8"/></svg>`;
     }
     if (selType === 'single-pole' || selType === 'poles') {
       const ref = this.#selectedPoles[0];

@@ -3248,6 +3248,12 @@ export class CoachBoard extends LitElement {
       }
       return eq;
     });
+    this.shapes = this.shapes.map(s =>
+      ids.has(s.id) ? { ...s, angle: ((s.angle ?? 0) + delta + 360) % 360 } : s
+    );
+    this.textItems = this.textItems.map(t =>
+      ids.has(t.id) ? { ...t, angle: ((t.angle ?? 0) + delta + 360) % 360 } : t
+    );
   }
 
   #onDeleteItems(_e: DeleteItemsEvent) {
