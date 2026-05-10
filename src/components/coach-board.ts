@@ -565,17 +565,15 @@ export class CoachBoard extends LitElement {
 
     .context-board-name {
       padding: 0 14px;
-      flex-shrink: 0;
+      flex-shrink: 1;
+      min-width: 0;
       font-size: 0.95rem;
       font-weight: 600;
       color: var(--pt-text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 200px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      max-width: min(40%, 30em);
       user-select: none;
     }
 
