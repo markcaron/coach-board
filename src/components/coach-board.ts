@@ -318,14 +318,13 @@ export class CoachBoard extends LitElement {
     /* Grab handle — anchored to the right edge of the sidebar card */
     .sidebar-handle {
       position: absolute;
-      right: -11px;
+      right: -14px;
       top: 50%;
       transform: translateY(-50%);
       width: 22px;
       height: 44px;
       background: var(--pt-bg-toolbar);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-left: none;
+      border: 0;
       border-radius: 0 8px 8px 0;
       display: flex;
       align-items: center;
@@ -337,8 +336,12 @@ export class CoachBoard extends LitElement {
       -webkit-tap-highlight-color: transparent;
     }
 
+    .sidebar-handle svg {
+      transform: rotate(90deg);
+    }
+
     .sidebar-handle:hover {
-      background: var(--pt-border);
+      background: linear-gradient(to right, transparent, var(--pt-border) 8px);
       color: var(--pt-text);
     }
 
@@ -1874,9 +1877,14 @@ export class CoachBoard extends LitElement {
                     aria-label="${this._sidebarCollapsed ? 'Show tools' : 'Hide tools'}"
                     aria-expanded="${!this._sidebarCollapsed}"
                     @click="${() => { this._sidebarCollapsed = !this._sidebarCollapsed; }}">
-              ${this._sidebarCollapsed
-                ? svg`<svg viewBox="0 0 8 14" width="8" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"/></svg>`
-                : svg`<svg viewBox="0 0 8 14" width="8" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1L1 7l6 6"/></svg>`}
+              ${svg`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+                <path d="m272.48 676.5c-66.984 0-121.5 54.516-121.5 121.5 0 66.516 54.516 120.98 121.5 120.98 66.516 0 120.98-54.516 120.98-120.98 0.046875-66.984-54.469-121.5-120.98-121.5z"/>
+                <path d="m600 676.5c-66.984 0-121.5 54.516-121.5 121.5 0 66.516 54.516 120.98 121.5 120.98s121.5-54.516 121.5-120.98c0-66.984-54.516-121.5-121.5-121.5z"/>
+                <path d="m927.52 676.5c-66.516 0-120.98 54.516-120.98 121.5 0 66.516 54.516 120.98 120.98 120.98 66.984 0 121.5-54.516 121.5-120.98 0-66.984-54.516-121.5-121.5-121.5z"/>
+                <path d="m272.48 281.02c-66.984 0-121.5 54.516-121.5 120.98 0 66.984 54.516 121.5 121.5 121.5 66.516 0 120.98-54.516 120.98-121.5 0.046875-66.516-54.469-120.98-120.98-120.98z"/>
+                <path d="m600 281.02c-66.984 0-121.5 54.516-121.5 120.98 0 66.984 54.516 121.5 121.5 121.5s121.5-54.516 121.5-121.5c0-66.516-54.516-120.98-121.5-120.98z"/>
+                <path d="m927.52 281.02c-66.516 0-120.98 54.516-120.98 120.98 0 66.984 54.516 121.5 120.98 121.5 66.984 0 121.5-54.516 121.5-120.98 0-66.516-54.516-120.98-121.5-120.98z"/>
+              </svg>`}
             </button>
 
           <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
