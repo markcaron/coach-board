@@ -304,24 +304,31 @@ export class CoachBoard extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 48px;
-      height: 52px;
+      width: 40px;
+      height: 40px;
+      margin: 6px 0 2px;
       background: transparent;
-      border: none;
+      border: 1px solid transparent;
+      border-radius: 8px;
       color: var(--pt-text);
       cursor: pointer;
       padding: 0;
       flex-shrink: 0;
       -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s;
     }
 
     .sidebar-hamburger:hover {
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--pt-border);
     }
 
     .sidebar-hamburger:focus-visible {
       outline: 2px solid var(--pt-accent);
-      outline-offset: -2px;
+      outline-offset: 2px;
+    }
+
+    .sidebar-hamburger svg {
+      transition: opacity 0.15s;
     }
 
     .sidebar-divider {
@@ -346,12 +353,13 @@ export class CoachBoard extends LitElement {
       cursor: pointer;
       padding: 0;
       flex-shrink: 0;
+      position: relative;
       -webkit-tap-highlight-color: transparent;
       transition: background 0.12s, border-color 0.12s;
     }
 
     .sidebar-tool:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--pt-border);
     }
 
     .sidebar-tool:focus-visible {
@@ -360,9 +368,83 @@ export class CoachBoard extends LitElement {
     }
 
     .sidebar-tool[aria-pressed="true"] {
-      background: rgba(78, 168, 222, 0.18);
-      border-color: var(--pt-accent);
-      color: var(--pt-accent);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
+      color: var(--pt-text-white);
+    }
+
+    /* Adobe-style corner triangle for buttons with submenus */
+    .sidebar .has-submenu::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 0 0 6px 6px;
+      border-color: transparent transparent currentColor transparent;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* Sidebar dropdown wrapper: fills sidebar width so menu opens flush-right */
+    .sidebar-dropdown-wrap {
+      position: relative;
+      width: 48px;
+      display: flex;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .sidebar-dropdown-wrap [role="menu"] {
+      position: absolute;
+      top: 0;
+      left: 100%;
+      margin-left: 4px;
+      z-index: 100;
+      min-width: 160px;
+      width: max-content;
+      background: var(--pt-bg-surface);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .sidebar-dropdown-wrap [role="menuitem"],
+    .sidebar-dropdown-wrap [role="menuitemradio"] {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: var(--pt-text);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      outline: none;
+    }
+
+    .sidebar-dropdown-wrap [role="menuitem"]:hover,
+    .sidebar-dropdown-wrap [role="menuitemradio"]:hover,
+    .sidebar-dropdown-wrap [role="menuitem"]:focus-visible,
+    .sidebar-dropdown-wrap [role="menuitemradio"]:focus-visible {
+      background: var(--pt-border);
+    }
+
+    .sidebar-dropdown-wrap .sb-menu-separator {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.12);
+      margin: 4px 0;
     }
 
     /* ── Main area (context bar + field + bottom bar) ─────────── */
@@ -377,19 +459,55 @@ export class CoachBoard extends LitElement {
     }
 
     /* ── Context bar (always-visible edit/context strip) ─────── */
-    /* cb-toolbar inside gets hide-tool-selector, so the bar only shows
-       the edit strip when items are selected. Min-height keeps the bar
-       visible even when nothing is selected. */
+    /* Board name (left) → divider → contextual edit tools (right).
+       Min-height keeps the bar visible even when nothing is selected. */
 
     .context-bar {
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      min-height: 52px;
+      background: var(--pt-bg-toolbar);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       z-index: 10;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .context-board-name {
+      padding: 0 14px;
+      flex-shrink: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--pt-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+
+    .context-board-name .cb-unsaved {
+      font-size: 0.72rem;
+      color: var(--pt-text-muted);
+      font-weight: normal;
+      font-style: italic;
+    }
+
+    .context-divider {
+      width: 1px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.15);
+      margin: 0 4px;
+      flex-shrink: 0;
     }
 
     .context-bar cb-toolbar {
-      display: block;
-      width: 100%;
+      flex: 1;
+      min-width: 0;
     }
 
     /* In readonly mode we keep the old single-column toolbar layout */    .toolbar-area {
@@ -793,6 +911,7 @@ export class CoachBoard extends LitElement {
   @state() accessor pitchType: PitchType = 'full';
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
+  @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | null = null;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
@@ -834,6 +953,43 @@ export class CoachBoard extends LitElement {
     // Field orientation dropdown still uses a popup, close it on outside click
     if (this._fieldMenuOpen && !path.includes(this.renderRoot.querySelector('.bottom-center .dropdown-wrap') as EventTarget)) {
       this._fieldMenuOpen = false;
+    }
+    // Close sidebar tool dropdown when clicking outside the sidebar
+    if (this._sidebarMenu && !path.includes(this.renderRoot.querySelector('.sidebar') as EventTarget)) {
+      this._sidebarMenu = null;
+    }
+  };
+
+  #onSidebarMenuKeyDown = (e: KeyboardEvent) => {
+    const menu = e.currentTarget as HTMLElement;
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]')) as HTMLElement[];
+    const current = items.indexOf(e.target as HTMLElement);
+    switch (e.key) {
+      case 'ArrowDown':
+      case 'ArrowRight':
+        e.preventDefault();
+        items[(current + 1) % items.length]?.focus();
+        break;
+      case 'ArrowUp':
+      case 'ArrowLeft':
+        e.preventDefault();
+        items[(current - 1 + items.length) % items.length]?.focus();
+        break;
+      case 'Home':
+        e.preventDefault();
+        items[0]?.focus();
+        break;
+      case 'End':
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        this._sidebarMenu = null;
+        break;
+      case 'Tab':
+        this._sidebarMenu = null;
+        break;
     }
   };
   #mobileQuery = window.matchMedia('(max-width: 768px)');
@@ -1363,6 +1519,10 @@ export class CoachBoard extends LitElement {
         </div>
 
         <nav class="menu-nav">
+          ${menuItem('Home', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m600 112.5-562.5 487.5h112.5v487.5h337.5v-300h225v300h337.5v-487.5h112.5zm0 112.5 450 390v435h-225v-300h-450v300h-225v-435z"/></svg>`,
+            () => { this.#toggleMenu(); })}
+          <div class="menu-nav-divider"></div>
+
           ${this._viewMode !== 'readonly' ? html`
             ${menuItem('My Boards', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m250 1087.5h700c49.707-0.066406 97.359-19.84 132.51-54.992 35.152-35.148 54.926-82.801 54.992-132.51v-450c-0.066406-49.707-19.84-97.359-54.992-132.51-35.148-35.152-82.801-54.926-132.51-54.992h-287.9c-29.824-0.074219-58.41-11.918-79.551-32.949l-62.102-62.102c-35.199-35.098-82.84-54.863-132.55-55h-137.9c-49.715 0.066406-97.375 19.848-132.53 55.008-35.148 35.16-54.918 82.828-54.973 132.54v600c0.066406 49.707 19.84 97.359 54.992 132.51 35.148 35.152 82.801 54.926 132.51 54.992zm-112.5-787.5c0.039062-29.824 11.906-58.418 32.996-79.504 21.086-21.09 49.68-32.957 79.504-32.996h137.9c29.824 0.074219 58.41 11.918 79.551 32.949l62.102 62.102c35.199 35.098 82.84 54.863 132.55 55h287.9c29.816 0.039063 58.398 11.898 79.488 32.977 21.086 21.078 32.957 49.656 33.012 79.473v450c-0.039062 29.824-11.906 58.418-32.996 79.504-21.086 21.09-49.68 32.957-79.504 32.996h-700c-29.824-0.039062-58.418-11.906-79.504-32.996-21.09-21.086-32.957-49.68-32.996-79.504z"/></svg>`,
               this.#showMyBoards)}
@@ -1414,16 +1574,12 @@ export class CoachBoard extends LitElement {
       ` : nothing}
 
       ${isReadonly ? html`
-        <!-- Readonly mode: simplified header, no sidebar -->
+        <!-- Readonly mode: simplified header with board name, no sidebar -->
         <div class="main-area">
-          <div class="toolbar-area readonly-branding">
-            <a href="/" class="branding-link" title="Open CoachingBoard">
-              <svg class="branding-icon" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/><path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/><path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/><path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/></svg>
-              <span class="branding-text">CoachingBoard</span>
-            </a>
-            ${this._boardName && this._boardName !== 'Untitled Board' ? html`
-              <span class="readonly-board-name">${this._boardName}</span>
-            ` : nothing}
+          <div class="context-bar" style="padding-top: env(safe-area-inset-top)">
+            <div class="context-board-name" title="${this._boardName}">
+              ${this._boardName}
+            </div>
           </div>
 
           <cb-field
@@ -1487,68 +1643,168 @@ export class CoachBoard extends LitElement {
                   aria-expanded="${this._menuOpen}"
                   title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
                   @click="${this.#toggleMenu}">
-            <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0">
-              <path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z" fill="currentColor" fill-rule="evenodd"/>
-            </svg>
+            ${this._menuOpen
+              ? svg`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`
+              : svg`<svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z"/></svg>`}
           </button>
           <div class="sidebar-divider" role="separator"></div>
 
-          <!-- Select -->
-          <button class="sidebar-tool"
-                  title="Select"
-                  aria-label="Select"
-                  aria-pressed="${t === 'select'}"
-                  @click="${() => { this.activeTool = 'select'; this.selectedIds = new Set(); }}">
-            <svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor" /></svg>
-          </button>
+          <!-- Select (with submenu: Select / Multi-select) -->
+          <div class="sidebar-dropdown-wrap">
+            <button class="sidebar-tool has-submenu"
+                    title="Select"
+                    aria-label="Select"
+                    aria-pressed="${t === 'select'}"
+                    aria-haspopup="menu"
+                    aria-expanded="${this._sidebarMenu === 'select'}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'select' ? null : 'select'; }}">
+              <svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor" /></svg>
+            </button>
+            ${this._sidebarMenu === 'select' ? html`
+              <div role="menu" aria-label="Select tool" @keydown="${this.#onSidebarMenuKeyDown}">
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'select'; this._multiSelect = false; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 1600 1600" width="16" height="16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor"/></svg>
+                  Select
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'select'; this._multiSelect = true; this.ghost = null; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 1600 1600" width="16" height="16">
+                    <path d="M87.5712 346.734C84.8837 339.234 92.1337 331.796 99.8212 334.608L469.249 467.508L647.075 961.824L471.447 1365.05C468.322 1372.3 456.822 1373.61 453.385 1363.61L87.5712 346.734Z" fill="currentColor"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M1506.44 616.688C1514.62 619.625 1514.87 631.063 1507.06 634.437L1056.63 830.624L860.447 1281.05C857.322 1288.3 845.822 1289.61 842.384 1279.61L476.571 262.733C473.884 255.233 481.134 247.796 488.821 250.608L1506.44 616.688Z" fill="currentColor"/>
+                  </svg>
+                  Multi-select
+                </button>
+              </div>
+            ` : nothing}
+          </div>
 
-          <!-- Player -->
-          <button class="sidebar-tool"
-                  title="Player (P)"
-                  aria-label="Player"
-                  aria-pressed="${t === 'add-player'}"
-                  @click="${() => { this.activeTool = 'add-player'; }}">
-            <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor" style="vertical-align:middle"><path d="m0 431.26 225 168.74v-200.16l-120.14-165.19z"/><path d="m1095.1 234.66-120.14 165.19v198.56l225-167.16z"/><path d="m1065.7 179.39c-9.9844-18.703-27.422-32.344-48-37.453l-267.71-66.938c0 82.828-67.172 150-150 150s-150-67.172-150-150l-267.71 66.938c-20.578 5.1562-38.016 18.75-48 37.453l-9.8438 18.469 134.44 184.87c2.3438 3.1875 3.5625 7.0781 3.5625 11.062v731.26h675l0.09375-731.29c0-3.9844 1.2656-7.8281 3.5625-11.062l134.44-184.87-9.8438-18.469zm-615.66 870.61h-112.5v-75h112.5zm318.74-581.26c-31.078 0-56.25-25.172-56.25-56.25 0-31.078 25.172-56.25 56.25-56.25 31.078 0 56.25 25.172 56.25 56.25 0 31.078-25.172 56.25-56.25 56.25z"/></svg>
-          </button>
+          <!-- Player (with submenu: Team A / Team B / Neutral) -->
+          <div class="sidebar-dropdown-wrap">
+            <button class="sidebar-tool has-submenu"
+                    title="Player (P)"
+                    aria-label="Player"
+                    aria-pressed="${t === 'add-player'}"
+                    aria-haspopup="menu"
+                    aria-expanded="${this._sidebarMenu === 'player'}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'player' ? null : 'player'; }}">
+              <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m0 431.26 225 168.74v-200.16l-120.14-165.19z"/><path d="m1095.1 234.66-120.14 165.19v198.56l225-167.16z"/><path d="m1065.7 179.39c-9.9844-18.703-27.422-32.344-48-37.453l-267.71-66.938c0 82.828-67.172 150-150 150s-150-67.172-150-150l-267.71 66.938c-20.578 5.1562-38.016 18.75-48 37.453l-9.8438 18.469 134.44 184.87c2.3438 3.1875 3.5625 7.0781 3.5625 11.062v731.26h675l0.09375-731.29c0-3.9844 1.2656-7.8281 3.5625-11.062l134.44-184.87-9.8438-18.469zm-615.66 870.61h-112.5v-75h112.5zm318.74-581.26c-31.078 0-56.25-25.172-56.25-56.25 0-31.078 25.172-56.25 56.25-56.25 31.078 0 56.25 25.172 56.25 56.25 0 31.078-25.172 56.25-56.25 56.25z"/></svg>
+            </button>
+            ${this._sidebarMenu === 'player' ? html`
+              <div role="menu" aria-label="Add Player" @keydown="${this.#onSidebarMenuKeyDown}">
+                ${(this.fieldTheme === 'white'
+                  ? [{ label: 'Team A', color: COLORS.playerBlueW, team: 'a' as const }, { label: 'Team B', color: COLORS.playerRedW, team: 'b' as const }, { label: 'Neutral', color: COLORS.playerYellowW, team: 'neutral' as const }]
+                  : [{ label: 'Team A', color: COLORS.playerBlue, team: 'a' as const }, { label: 'Team B', color: COLORS.playerRed, team: 'b' as const }, { label: 'Neutral', color: COLORS.playerYellow, team: 'neutral' as const }]
+                ).map(tm => html`
+                  <button role="menuitem" tabindex="-1"
+                          @click="${() => { this.activeTool = 'add-player'; this.playerColor = tm.color; this.playerTeam = tm.team; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                    ${tm.team === 'a' ? html`<svg viewBox="0 0 14 14" width="12" height="12"><polygon points="7,1 13,13 1,13" fill="${tm.color}" stroke="white" stroke-width="1" stroke-linejoin="round"/></svg>`
+                    : tm.team === 'neutral' ? html`<svg viewBox="0 0 14 14" width="12" height="12"><rect x="2" y="2" width="10" height="10" rx="1" fill="${tm.color}" stroke="white" stroke-width="1" transform="rotate(45 7 7)"/></svg>`
+                    : html`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${tm.color};border:1px solid white;flex-shrink:0"></span>`}
+                    ${tm.label}
+                  </button>
+                `)}
+                <div class="sb-menu-separator"></div>
+                <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:0.85rem;color:var(--pt-text);cursor:pointer;">
+                  <input type="checkbox" .checked="${this.autoNumber}"
+                         @change="${(e: Event) => { this.autoNumber = (e.target as HTMLInputElement).checked; }}"
+                         style="width:16px;height:16px;accent-color:var(--pt-accent);cursor:pointer;">
+                  Auto-number
+                </label>
+              </div>
+            ` : nothing}
+          </div>
 
-          <!-- Equipment -->
-          <button class="sidebar-tool"
-                  title="Equipment (E)"
-                  aria-label="Equipment"
-                  aria-pressed="${t === 'add-equipment'}"
-                  @click="${() => { this.activeTool = 'add-equipment'; }}">
-            <svg viewBox="0 0 1200 1200" width="18" height="18"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor" /></svg>
-          </button>
+          <!-- Equipment (with submenu) -->
+          <div class="sidebar-dropdown-wrap">
+            <button class="sidebar-tool has-submenu"
+                    title="Equipment (E)"
+                    aria-label="Equipment"
+                    aria-pressed="${t === 'add-equipment'}"
+                    aria-haspopup="menu"
+                    aria-expanded="${this._sidebarMenu === 'equipment'}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'equipment' ? null : 'equipment'; }}">
+              <svg viewBox="0 0 1200 1200" width="20" height="20"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor"/></svg>
+            </button>
+            ${this._sidebarMenu === 'equipment' ? html`
+              <div role="menu" aria-label="Add Equipment" @keydown="${this.#onSidebarMenuKeyDown}">
+                ${([
+                  { label: 'Ball', kind: 'ball' as const },
+                  { label: 'Cone', kind: 'cone' as const },
+                  { label: 'Dummy', kind: 'dummy' as const },
+                  { label: 'Pole', kind: 'pole' as const },
+                  { label: 'Goal', kind: 'goal' as const },
+                  { label: 'Mini Goal', kind: 'mini-goal' as const },
+                  { label: 'Pop-up Goal', kind: 'popup-goal' as const },
+                  { label: 'Coach', kind: 'coach' as const },
+                ] as { label: string; kind: import('../lib/types.js').EquipmentKind }[]).map(eq => html`
+                  <button role="menuitem" tabindex="-1"
+                          @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = eq.kind; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                    ${eq.label}
+                  </button>
+                `)}
+              </div>
+            ` : nothing}
+          </div>
 
-          <!-- Draw -->
-          <button class="sidebar-tool"
-                  title="Draw (D)"
-                  aria-label="Draw"
-                  aria-pressed="${t === 'draw-line' || t === 'draw-shape'}"
-                  @click="${() => { this.activeTool = 'draw-line'; }}">
-            <svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" style="vertical-align:middle"><path d="m349.6 604.3-88.301 88.551c-9.75 9.6992-9.75 25.613 0.050781 35.352l17.699 17.699-123.65 123.95c-4.6992 4.6992-7.3008 11.113-7.3008 17.699 0 6.6016 2.6484 12.949 7.3516 17.699l53.102 53-79.602 79.75c-9.75 9.75-9.75 25.602 0.050781 35.352 4.8984 4.8984 11.25 7.3008 17.648 7.3008 6.3984 0 12.801-2.4492 17.699-7.3516l79.602-79.801 53.102 53c4.8984 4.8867 11.25 7.3008 17.648 7.3008s12.801-2.4609 17.699-7.3008l123.6-123.95 17.699 17.699c4.6992 4.6875 11.051 7.3008 17.648 7.3008 6.6484 0 13-2.7109 17.699-7.3008l88.301-88.562z"/><path d="m1060.9 325.05-150.74-150.3c-19.262-19.449-43.211-43.648-70.461-43.648-11.789 0-22.551 4.5-31.051 13.051l-70.637 70.801-88.551-88.301c-4.6992-4.6484-11.051-7.3008-17.648-7.3008-6.6484 0-13 2.6484-17.699 7.3516l-282.42 283.2c-9.6992 9.75-9.6992 25.602 0.050781 35.352 9.8008 9.6992 25.602 9.8008 35.352-0.050781l264.8-265.5 70.801 70.648-317.75 318.55 247.85 247.2 428.15-429.25c9-8.8008 17.488-17.148 17.488-30.898-0.035157-13.754-8.5352-22.102-17.535-30.902z"/></svg>
-          </button>
+          <!-- Draw (with submenu: line styles + shapes) -->
+          <div class="sidebar-dropdown-wrap">
+            <button class="sidebar-tool has-submenu"
+                    title="Draw (D)"
+                    aria-label="Draw"
+                    aria-pressed="${t === 'draw-line' || t === 'draw-shape'}"
+                    aria-haspopup="menu"
+                    aria-expanded="${this._sidebarMenu === 'draw'}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'draw' ? null : 'draw'; }}">
+              <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m349.6 604.3-88.301 88.551c-9.75 9.6992-9.75 25.613 0.050781 35.352l17.699 17.699-123.65 123.95c-4.6992 4.6992-7.3008 11.113-7.3008 17.699 0 6.6016 2.6484 12.949 7.3516 17.699l53.102 53-79.602 79.75c-9.75 9.75-9.75 25.602 0.050781 35.352 4.8984 4.8984 11.25 7.3008 17.648 7.3008 6.3984 0 12.801-2.4492 17.699-7.3516l79.602-79.801 53.102 53c4.8984 4.8867 11.25 7.3008 17.648 7.3008s12.801-2.4609 17.699-7.3008l123.6-123.95 17.699 17.699c4.6992 4.6875 11.051 7.3008 17.648 7.3008 6.6484 0 13-2.7109 17.699-7.3008l88.301-88.562z"/><path d="m1060.9 325.05-150.74-150.3c-19.262-19.449-43.211-43.648-70.461-43.648-11.789 0-22.551 4.5-31.051 13.051l-70.637 70.801-88.551-88.301c-4.6992-4.6484-11.051-7.3008-17.648-7.3008-6.6484 0-13 2.6484-17.699 7.3516l-282.42 283.2c-9.6992 9.75-9.6992 25.602 0.050781 35.352 9.8008 9.6992 25.602 9.8008 35.352-0.050781l264.8-265.5 70.801 70.648-317.75 318.55 247.85 247.2 428.15-429.25c9-8.8008 17.488-17.148 17.488-30.898-0.035157-13.754-8.5352-22.102-17.535-30.902z"/></svg>
+            </button>
+            ${this._sidebarMenu === 'draw' ? html`
+              <div role="menu" aria-label="Draw" @keydown="${this.#onSidebarMenuKeyDown}">
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'solid'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  Pass / Shot
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'dashed'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  Run
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'wavy'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  Dribble
+                </button>
+                <div class="sb-menu-separator"></div>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'draw-shape'; this.shapeKind = 'rect'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  Rectangle
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'draw-shape'; this.shapeKind = 'ellipse'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  Ellipse
+                </button>
+              </div>
+            ` : nothing}
+          </div>
 
           <!-- Text -->
           <button class="sidebar-tool"
                   title="Text (T)"
                   aria-label="Text"
                   aria-pressed="${t === 'add-text'}"
-                  @click="${() => { this.activeTool = 'add-text'; }}">
-            <svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" style="vertical-align:middle"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
+                  @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); }}">
+            <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
           </button>
         </nav><!-- .sidebar -->
 
         <div class="main-area">
-          <cb-board-bar
-            .boardName="${this._boardName}"
-            .isSaved="${this.#isBoardSaved}"
-            .isWhiteTheme="${this.fieldTheme === 'white'}"
-          ></cb-board-bar>
-
           <div class="context-bar">
+            <div class="context-board-name" title="${this._boardName}">
+              ${this._boardName}
+              ${!this.#isBoardSaved ? html`<span class="cb-unsaved">(unsaved)</span>` : nothing}
+            </div>
+            <span class="context-divider" role="separator" aria-hidden="true"></span>
             <cb-toolbar
               hide-tool-selector
+              icon-only
               .activeTool="${this.activeTool}"
               .selectedItems="${this.#selectedItems}"
               .fieldTheme="${this.fieldTheme}"

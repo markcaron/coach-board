@@ -488,6 +488,11 @@ export class CbToolbar extends LitElement {
       min-height: 52px;
     }
 
+    :host([icon-only]) .btn-text,
+    :host([icon-only]) .hide-mobile {
+      display: none;
+    }
+
     .selection-info {
       font-size: 0.85rem;
       color: var(--pt-text-muted);
@@ -735,6 +740,10 @@ export class CbToolbar extends LitElement {
    *  edit bar is rendered (color pickers, alignment, etc. for selected items). */
   @property({ type: Boolean, reflect: true, attribute: 'hide-tool-selector' })
   accessor hideToolSelector: boolean = false;
+
+  /** When true, hides text labels on edit-bar buttons (icon-only mode). */
+  @property({ type: Boolean, reflect: true, attribute: 'icon-only' })
+  accessor iconOnly: boolean = false;
 
   @state() private accessor _openMenu: MenuId | null = null;
 
