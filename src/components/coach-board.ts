@@ -184,7 +184,7 @@ export class CoachBoard extends LitElement {
         "board"
         "timeline"
         "botbar";
-      grid-template-rows: 60px 1fr auto 60px;
+      grid-template-rows: auto 1fr auto 60px;
       overflow: hidden;
       position: relative; /* contains the absolute .menu-backdrop */
     }
@@ -543,7 +543,8 @@ export class CoachBoard extends LitElement {
       grid-area: topbar;
       display: flex;
       align-items: center;
-      height: 60px;
+      min-height: 60px;
+      padding-top: env(safe-area-inset-top, 0px);
       background: var(--pt-bg-toolbar);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       z-index: 10;
@@ -1795,7 +1796,7 @@ export class CoachBoard extends LitElement {
 
       ${isReadonly ? html`
         <!-- Readonly mode: no sidebar, context bar + field fill grid col 2 -->
-        <div class="context-bar" style="padding-top: env(safe-area-inset-top)">
+        <div class="context-bar">
           <a href="/" class="branding-link" title="Open CoachingBoard">
             <svg class="branding-icon" viewBox="0 0 1600 1600" aria-hidden="true">
               <path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/>
