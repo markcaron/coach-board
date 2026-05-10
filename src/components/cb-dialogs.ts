@@ -466,6 +466,10 @@ export class CbDialogs extends LitElement {
       margin-top: 0;
     }
 
+    .import-svg-btn--constrained {
+      max-width: 50%;
+    }
+
     .import-svg-btn {
       display: flex;
       align-items: center;
@@ -578,6 +582,42 @@ export class CbDialogs extends LitElement {
       color: var(--pt-text);
       margin-bottom: 16px;
     }
+
+    .icon {
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
+    .row-gap-sm {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row-gap-md {
+      display: flex;
+      gap: 12px;
+    }
+
+    .flex-1 {
+      flex: 1;
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    .section-label {
+      font-size: 0.8rem;
+      color: var(--pt-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 8px;
+    }
+
+    .board-icon--vertical {
+      transform: rotate(90deg);
+    }
+
   `;
 
   // Passed from parent — these drive both dialog and field/layout rendering
@@ -750,7 +790,7 @@ export class CbDialogs extends LitElement {
                  @keydown="${(e: KeyboardEvent) => { if (e.key === 'Enter' && this._saveBoardName.trim()) this.#emit('cb-save-board-confirm', { name: this._saveBoardName, pendingAction: this._pendingBoardAction }); }}" />
           <div class="confirm-actions">
             <button class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
-            <div style="display: flex; gap: 8px;">
+            <div class="row-gap-sm">
               ${this._pendingBoardAction === 'new' || this._pendingBoardAction === 'open' ? html`
                 <button class="confirm-danger" @click="${() => this.#emit('cb-save-board-skip', { pendingAction: this._pendingBoardAction })}">Don't Save</button>
               ` : nothing}
@@ -772,10 +812,10 @@ export class CbDialogs extends LitElement {
         </div>
         <div class="dialog-body">
           <p>Create a new board.</p>
-          <div style="display: flex; gap: 12px;">
-            <div style="flex: 1;">
+          <div class="row-gap-md">
+            <div class="flex-1">
               <label class="save-board-label" for="new-board-pitch-type">Pitch type</label>
-              <select class="theme-select" id="new-board-pitch-type" style="width: 100%;"
+              <select class="theme-select full-width" id="new-board-pitch-type"
                       @change="${(e: Event) => { this._newBoardPitchType = (e.target as HTMLSelectElement).value as PitchType; this._newBoardTemplate = ''; }}">
                 <option value="full" ?selected="${this._newBoardPitchType === 'full'}">Full Pitch</option>
                 <option value="half" ?selected="${this._newBoardPitchType === 'half'}">Half Pitch (Def.)</option>
@@ -786,9 +826,9 @@ export class CbDialogs extends LitElement {
             ${(() => {
               const templates = getTemplatesForPitch(this._newBoardPitchType);
               return templates.length > 0 ? html`
-                <div style="flex: 1;">
+                <div class="flex-1">
                   <label class="save-board-label" for="new-board-template">Template</label>
-                  <select class="theme-select" id="new-board-template" style="width: 100%;"
+                  <select class="theme-select full-width" id="new-board-template"
                           @change="${(e: Event) => { this._newBoardTemplate = (e.target as HTMLSelectElement).value; }}">
                     <option value="" ?selected="${!this._newBoardTemplate}">Blank</option>
                     ${templates.map(t => html`<option value="${t.id}" ?selected="${this._newBoardTemplate === t.id}">${t.name}</option>`)}
@@ -814,13 +854,13 @@ export class CbDialogs extends LitElement {
         </div>
         <div class="dialog-body">
           ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
-            <h3 style="font-size: 0.8rem; color: var(--pt-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Saved Boards</h3>
+            <h3 class="section-label">Saved Boards</h3>
             <ul class="boards-list">
               ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
                 <li>
                   <button class="board-open-btn" aria-label="Open ${b.name}"
                           @click="${() => this.#emit('cb-open-board', { id: b.id })}">
-                    <svg class="board-icon" viewBox="0 0 1200 1200" width="28" height="28" aria-hidden="true" fill="currentColor" style="transform: rotate(90deg)">
+                    <svg class="board-icon board-icon--vertical" viewBox="0 0 1200 1200" width="28" height="28" aria-hidden="true" fill="currentColor">
                       <path d="m1050.2 206.34h-900.37c-50.016 0-90.703 40.688-90.703 90.703v605.86c0 50.016 40.688 90.703 90.703 90.703h900.42c50.016 0 90.703-40.688 90.703-90.703v-605.81c0-50.062-40.734-90.75-90.75-90.75zm58.875 696.56c0 32.484-26.391 58.875-58.875 58.875h-900.37c-32.484 0-58.875-26.391-58.875-58.875v-605.81c0-32.484 26.391-58.875 58.875-58.875h900.42c32.484 0 58.875 26.391 58.875 58.875v605.81z"/>
                       <path d="m1031.3 300.1h-862.5c-8.8125 0-15.938 7.125-15.938 15.938v568.03c0 8.8125 7.125 15.938 15.938 15.938h862.5c8.8125 0 15.938-7.125 15.938-15.938v-568.03c0-8.8125-7.125-15.938-15.938-15.938zm-447.19 410.48c-54.281-7.8281-96.281-54.188-96.281-110.58s42-102.75 96.281-110.58zm31.875-221.16c54.281 7.8281 96.281 54.188 96.281 110.58s-42 102.75-96.281 110.58zm-431.26 20.719h53.062c11.719 0 21.328 9.5625 21.328 21.328v137.02c0 11.719-9.5625 21.328-21.328 21.328l-53.062 0.046875zm0 211.6h53.062c29.344 0 53.156-23.859 53.156-53.156v-137.02c0-29.344-23.859-53.156-53.156-53.156l-53.062-0.046875v-146.39h399.37v125.63c-71.859 8.0625-128.16 68.484-128.16 142.4 0 73.969 56.25 134.39 128.16 142.4v125.63h-399.37zm431.26 146.29v-125.63c71.859-8.0625 128.16-68.484 128.16-142.4 0-73.969-56.25-134.39-128.16-142.4v-125.63h399.37v146.34l-53.062-0.046875c-29.344 0-53.156 23.859-53.156 53.156v137.02c0 29.344 23.859 53.156 53.156 53.156h53.062v146.34l-399.37 0.046874zm399.37-178.18h-53.062c-11.719 0-21.328-9.5625-21.328-21.328v-137.02c0-11.719 9.5625-21.328 21.328-21.328h53.062z"/>
                     </svg>
@@ -848,7 +888,7 @@ export class CbDialogs extends LitElement {
             </ul>
           ` : html`
             <div class="alert-warning">
-              <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#fdd835">
+              <svg class="icon" viewBox="0 0 1200 1200" width="20" height="20" fill="#fdd835">
                 <path d="m600 431.77c-18.637 0-33.75 15.113-33.75 33.75v233.36c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-233.36c0-18.637-15.113-33.75-33.75-33.75z"/>
                 <path d="m600 789.56c-18.637 0-33.75 15.113-33.75 33.75v20.625c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-20.625c0-18.637-15.113-33.75-33.75-33.75z"/>
                 <path d="m1102.7 847.57-401.81-624.9c-22.164-34.426-59.887-55.012-100.88-55.012s-78.711 20.586-100.88 55.051v0.039062l-401.81 624.82c-24.113 37.461-25.762 83.211-4.3867 122.36 21.336 39.113 60.711 62.477 105.3 62.477h803.62c44.551 0 83.926-23.363 105.3-62.477 21.297-39.188 19.648-84.898-4.4648-122.36zm-54.863 89.965c-9.3359 17.137-26.551 27.336-46.051 27.336h-803.59c-19.5 0-36.711-10.164-46.051-27.336-9.3359-17.102-8.625-37.086 1.9141-53.512l401.81-624.83c19.688-30.523 68.551-30.523 88.273 0l401.81 624.82c10.539 16.426 11.215 36.414 1.875 53.516z"/>
@@ -857,7 +897,7 @@ export class CbDialogs extends LitElement {
             </div>
           `}
           <div class="alert-info">
-            <svg viewBox="0 0 1200 1200" width="20" height="20" style="flex-shrink:0" fill="#b39ddb">
+            <svg class="icon" viewBox="0 0 1200 1200" width="20" height="20" fill="#b39ddb">
               <path d="m600 112.5c-129.29 0-253.29 51.363-344.71 142.79-91.422 91.426-142.79 215.42-142.79 344.71s51.363 253.29 142.79 344.71c91.426 91.422 215.42 142.79 344.71 142.79s253.29-51.363 344.71-142.79c91.422-91.426 142.79-215.42 142.79-344.71-0.14453-129.25-51.555-253.16-142.95-344.55-91.395-91.391-215.3-142.8-344.55-142.95zm0 900c-109.4 0-214.32-43.461-291.68-120.82-77.359-77.355-120.82-182.28-120.82-291.68s43.461-214.32 120.82-291.68c77.355-77.359 182.28-120.82 291.68-120.82s214.32 43.461 291.68 120.82c77.359 77.355 120.82 182.28 120.82 291.68-0.11719 109.37-43.617 214.22-120.95 291.55s-182.18 120.83-291.55 120.95z"/>
               <path d="m675 812.5h-37.5v-312.5c0-9.9453-3.9492-19.484-10.984-26.516-7.0312-7.0352-16.57-10.984-26.516-10.984h-25c-11.887 0.003906-23.066 5.6445-30.137 15.203-7.0664 9.5586-9.1836 21.898-5.707 33.266s12.137 20.414 23.344 24.383v277.15h-37.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h150c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
               <path d="m650 350c0 27.613-22.387 50-50 50s-50-22.387-50-50 22.387-50 50-50 50 22.387 50 50z"/>
@@ -865,9 +905,9 @@ export class CbDialogs extends LitElement {
             <span>All board data is saved to your browser's local storage. Exporting boards as backup SVGs is the best way to keep backups.</span>
           </div>
           <div class="boards-action-row">
-            <button class="import-svg-btn" style="max-width: 50%;"
+            <button class="import-svg-btn import-svg-btn--constrained"
                     @click="${() => this.#emit('cb-import-svg')}">
-              <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+              <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" fill="currentColor">
                 <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
                 <path d="m600 862.5c16.566-0.027344 32.449-6.6211 44.164-18.336 11.715-11.715 18.309-27.598 18.336-44.164v-566.55l197.5 164.55c12.738 10.59 29.156 15.695 45.656 14.199 16.496-1.5 31.727-9.4844 42.344-22.199 10.59-12.738 15.695-29.156 14.199-45.656-1.5-16.496-9.4844-31.727-22.199-42.344l-300-250c-3.1562-2.2227-6.5039-4.1641-10-5.8008-2.2656-1.4922-4.6172-2.8477-7.0508-4.0508-14.562-6.1289-30.984-6.1289-45.551 0-2.5508 1.1875-5.0234 2.5391-7.3984 4.0508-3.5 1.6328-6.8438 3.5742-10 5.8008l-300 250c-13.23 11.031-21.32 27.035-22.359 44.23-1.0391 17.195 5.0664 34.055 16.871 46.602 11.805 12.543 28.262 19.66 45.488 19.668 14.613-0.035156 28.758-5.1641 40-14.5l197.5-164.55v566.55c0.027344 16.566 6.6211 32.449 18.336 44.164 11.715 11.715 27.598 18.309 44.164 18.336z"/>
               </svg>
@@ -875,7 +915,7 @@ export class CbDialogs extends LitElement {
             </button>
             ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
               <button class="import-svg-btn" @click="${() => this.#emit('cb-export-all-boards')}">
-                <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0" fill="currentColor">
+                <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" fill="currentColor">
                   <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
                   <path d="m600 37.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v566.55l-197.5-164.55c-12.738-10.59-29.156-15.695-45.656-14.199-16.496 1.5-31.727 9.4844-42.344 22.199-10.59 12.738-15.695 29.156-14.199 45.656 1.5 16.496 9.4844 31.727 22.199 42.344l300 250c3.1484 2.2344 6.4961 4.1758 10 5.8008 2.2852 1.5312 4.6758 2.9023 7.1484 4.0977 14.566 6.1328 30.988 6.1328 45.551 0 2.4141-1.2031 4.7539-2.5547 7-4.0469 3.5039-1.6289 6.8477-3.5703 10-5.8008l300-250c13.23-11.004 21.336-26.977 22.41-44.148 1.0742-17.176-4.9766-34.031-16.73-46.598-11.758-12.566-28.172-19.73-45.379-19.805-14.613 0.027344-28.762 5.1562-40 14.5l-197.5 164.55v-566.55c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
                 </svg>
@@ -918,7 +958,7 @@ export class CbDialogs extends LitElement {
           <div class="export-options">
             ${this.viewMode !== 'readonly' ? html`
               <button @click="${() => this.#emit('cb-export-svg')}">
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                <svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
                   <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
                   <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">SVG</text>
                 </svg>
@@ -929,7 +969,7 @@ export class CbDialogs extends LitElement {
               </button>
             ` : nothing}
             <button @click="${() => this.#emit('cb-export-png')}">
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+              <svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
                 <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
                 <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">PNG</text>
               </svg>
@@ -940,7 +980,7 @@ export class CbDialogs extends LitElement {
             </button>
             ${this.animationFrameCount > 1 ? html`
               <button @click="${() => this.#emit('cb-export-gif')}">
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex-shrink:0">
+                <svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
                   <rect x="2" y="1" width="12" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
                   <text x="8" y="11" text-anchor="middle" fill="currentColor" font-size="5" font-weight="bold" font-family="system-ui">GIF</text>
                 </svg>
