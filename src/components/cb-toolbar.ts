@@ -928,7 +928,7 @@ export class CbToolbar extends LitElement {
           title="Player (P)"
           @click="${(e: Event) => this.#onTriggerClick('player', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('player', e)}">
-          <span class="icon">●</span> <span class="btn-text">Player</span> <span class="caret"></span>
+          <svg class="icon" viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" style="vertical-align:middle"><path d="m0 431.26 225 168.74v-200.16l-120.14-165.19z"/><path d="m1095.1 234.66-120.14 165.19v198.56l225-167.16z"/><path d="m1065.7 179.39c-9.9844-18.703-27.422-32.344-48-37.453l-267.71-66.938c0 82.828-67.172 150-150 150s-150-67.172-150-150l-267.71 66.938c-20.578 5.1562-38.016 18.75-48 37.453l-9.8438 18.469 134.44 184.87c2.3438 3.1875 3.5625 7.0781 3.5625 11.062v731.26h675l0.09375-731.29c0-3.9844 1.2656-7.8281 3.5625-11.062l134.44-184.87-9.8438-18.469zm-615.66 870.61h-112.5v-75h112.5zm318.74-581.26c-31.078 0-56.25-25.172-56.25-56.25 0-31.078 25.172-56.25 56.25-56.25 31.078 0 56.25 25.172 56.25 56.25 0 31.078-25.172 56.25-56.25 56.25z"/></svg> <span class="btn-text">Player</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'player' ? html`
           <div role="menu" id="menu-player" aria-label="Add Player"
@@ -1054,7 +1054,7 @@ export class CbToolbar extends LitElement {
           title="Draw (D)"
           @click="${(e: Event) => this.#onTriggerClick('line', e)}"
           @keydown="${(e: KeyboardEvent) => this.#onTriggerKeyDown('line', e)}">
-          <svg class="icon" viewBox="0 0 12 12" width="12" height="12" style="vertical-align: middle"><line x1="2" y1="10" x2="10" y2="2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
+          <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" fill="currentColor" style="vertical-align:middle"><path d="m349.6 604.3-88.301 88.551c-9.75 9.6992-9.75 25.613 0.050781 35.352l17.699 17.699-123.65 123.95c-4.6992 4.6992-7.3008 11.113-7.3008 17.699 0 6.6016 2.6484 12.949 7.3516 17.699l53.102 53-79.602 79.75c-9.75 9.75-9.75 25.602 0.050781 35.352 4.8984 4.8984 11.25 7.3008 17.648 7.3008 6.3984 0 12.801-2.4492 17.699-7.3516l79.602-79.801 53.102 53c4.8984 4.8867 11.25 7.3008 17.648 7.3008s12.801-2.4609 17.699-7.3008l123.6-123.95 17.699 17.699c4.6992 4.6875 11.051 7.3008 17.648 7.3008 6.6484 0 13-2.7109 17.699-7.3008l88.301-88.562z"/><path d="m1060.9 325.05-150.74-150.3c-19.262-19.449-43.211-43.648-70.461-43.648-11.789 0-22.551 4.5-31.051 13.051l-70.637 70.801-88.551-88.301c-4.6992-4.6484-11.051-7.3008-17.648-7.3008-6.6484 0-13 2.6484-17.699 7.3516l-282.42 283.2c-9.6992 9.75-9.6992 25.602 0.050781 35.352 9.8008 9.6992 25.602 9.8008 35.352-0.050781l264.8-265.5 70.801 70.648-317.75 318.55 247.85 247.2 428.15-429.25c9-8.8008 17.488-17.148 17.488-30.898-0.035157-13.754-8.5352-22.102-17.535-30.902z"/></svg>
           <span class="btn-text">Draw</span> <span class="caret"></span>
         </button>
         ${this._openMenu === 'line' ? html`
@@ -1097,7 +1097,7 @@ export class CbToolbar extends LitElement {
         aria-pressed="${t === 'add-text'}"
         aria-label="Text (T)"
         @click="${() => this.#pick('add-text')}">
-        Text
+        <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14" fill="currentColor" style="vertical-align:middle"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
       </button>
       </div>
       ` : nothing}
