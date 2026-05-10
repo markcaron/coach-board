@@ -174,6 +174,12 @@ export class CbShare extends LitElement {
       outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
     }
+
+    .icon {
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
   `;
 
   // ── Board data for serialization (plain fields — not reactive) ──
@@ -365,7 +371,7 @@ export class CbShare extends LitElement {
             <button class="cancel-btn" @click="${() => this._dialog?.close()}">Close</button>
             ${this._shareUrl ? html`
               <button class="confirm-success" @click="${this.#copyAndClose}">
-                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="flex-shrink:0">
+                <svg class="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
                   <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
                   <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                 </svg>

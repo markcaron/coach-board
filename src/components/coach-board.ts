@@ -963,6 +963,15 @@ export class CoachBoard extends LitElement {
       }
     }
 
+    .icon {
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
+    .notes-body {
+      white-space: pre-wrap;
+    }
+
   `;
 
   @state() accessor activeTool: Tool = 'select';
@@ -1892,7 +1901,7 @@ export class CoachBoard extends LitElement {
               <div role="menu" aria-label="Add Equipment" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'ball'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 1200 1200" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 1200 1200" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="600" cy="600" r="560" fill="white" />
                     <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
                   </svg>
@@ -1900,7 +1909,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'cone'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="8" cy="8" r="5" fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="3.5" />
                     <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
                   </svg>
@@ -1908,7 +1917,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'dummy'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <rect x="4.5" y="1.5" width="7" height="13" rx="3.5"
                           fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="1.8" />
                     <rect x="6.5" y="3.5" width="3" height="9" rx="1.5"
@@ -1918,7 +1927,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'pole'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
                     <circle cx="8" cy="8" r="3" fill="${COLORS.coneChartreuse}" />
                   </svg>
@@ -1926,7 +1935,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'goal'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <rect x="3" y="1" width="7" height="14" fill="none" stroke="white" stroke-width="1.3"
                           stroke-dasharray="1.8,1" />
                     <line x1="3" y1="1" x2="3" y2="15" stroke="white" stroke-width="1.3" stroke-dasharray="none" />
@@ -1935,7 +1944,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'mini-goal'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <rect x="3" y="3" width="5" height="10" fill="none" stroke="white" stroke-width="1.3"
                           stroke-dasharray="1.8,1" />
                     <line x1="3" y1="3" x2="3" y2="13" stroke="white" stroke-width="1.3" stroke-dasharray="none" />
@@ -1944,7 +1953,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'popup-goal'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <path d="M 5,1.5 A 6.5,6.5 0 0 1 5,14.5" fill="none" stroke="${COLORS.popupGoal}" stroke-width="1.3"
                           stroke-dasharray="1.8,1" />
                     <line x1="5" y1="1.5" x2="5" y2="14.5" stroke="${COLORS.popupGoal}" stroke-width="1.3" stroke-dasharray="none" />
@@ -1953,7 +1962,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'coach'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="8" cy="8" r="7" fill="${COLORS.coachBg}" stroke="white" stroke-width="0.8" />
                     <text x="8" y="8" text-anchor="middle" dominant-baseline="central"
                           fill="white" font-size="8" font-weight="bold" font-family="system-ui, sans-serif">C</text>
@@ -1980,7 +1989,7 @@ export class CoachBoard extends LitElement {
               <div role="menu" aria-label="Draw" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'solid'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 32 12" width="32" height="12" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 32 12" width="32" height="12">
                     <line x1="2" y1="6" x2="22" y2="6" stroke="${COLORS.previewStroke}" stroke-width="2" />
                     <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
                   </svg>
@@ -1988,7 +1997,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'dashed'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 32 12" width="32" height="12" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 32 12" width="32" height="12">
                     <line x1="2" y1="6" x2="22" y2="6" stroke="${COLORS.previewStroke}" stroke-width="2" stroke-dasharray="4,3" />
                     <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
                   </svg>
@@ -1996,7 +2005,7 @@ export class CoachBoard extends LitElement {
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'wavy'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 32 12" width="32" height="12" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 32 12" width="32" height="12">
                     <path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />
                   </svg>
                   Dribble
@@ -2004,14 +2013,14 @@ export class CoachBoard extends LitElement {
                 <div class="sb-menu-separator"></div>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-shape'; this.shapeKind = 'rect'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <rect x="2" y="3" width="12" height="10" fill="none" stroke="${COLORS.previewStroke}" stroke-width="1.2" rx="0.5" />
                   </svg>
                   Rectangle
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-shape'; this.shapeKind = 'ellipse'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
-                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
                     <ellipse cx="8" cy="8" rx="7" ry="5" fill="none" stroke="${COLORS.previewStroke}" stroke-width="1.2" />
                   </svg>
                   Ellipse
@@ -2117,7 +2126,7 @@ export class CoachBoard extends LitElement {
               ${this.#cachedSummary.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
-              ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
+              ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p class="notes-body">${this._boardNotes}</p></div>` : nothing}
             ` : nothing}
           </div>
           </div><!-- .field-wrap -->
@@ -2164,7 +2173,7 @@ export class CoachBoard extends LitElement {
                 <button aria-pressed="${this._animationMode}"
                         title="Animate" aria-label="Animate"
                         @click="${this.#toggleAnimationMode}">
-                  <svg viewBox="0 0 1200 1200" width="24" height="24" style="flex-shrink:0">
+                  <svg class="icon" viewBox="0 0 1200 1200" width="24" height="24">
                     <path d="m846.12 420.12c-59.641-2.6406-113.88 35.16-131.88 92.039l-2.0391 6.6016-6.7188 1.4414c-81.84 18-141.24 91.922-141.24 175.68v93.84c0 31.68-23.762 58.922-54 61.801-16.801 1.6797-33.719-3.9609-46.199-15.238-12.48-11.398-19.68-27.602-19.68-44.398v-336c0-99.238-80.762-180-180-180-19.801 0-36 16.199-36 36s16.199 36 36 36c59.52 0 108 48.48 108 108v331.8c0 69.719 52.32 129.36 119.28 135.6 37.559 3.6016 73.68-8.3984 101.52-33.84 27.48-24.961 43.199-60.602 43.199-97.559v-96c0-43.68 26.039-82.801 66.48-99.719l11.039-4.6797 4.6797 11.039c20.641 49.32 68.52 81.238 121.8 81.238 36.238 0 69.961-14.398 95.16-40.559 25.078-26.16 38.16-60.48 36.719-96.719-2.6406-67.922-57.961-123.48-125.76-126.6zm-6.1211 191.88c-33.121 0-60-26.879-60-60s26.879-60 60-60 60 26.879 60 60-26.879 60-60 60z" fill="currentColor"/>
                   </svg>
                   <span class="btn-text">Animate</span>
@@ -2181,7 +2190,7 @@ export class CoachBoard extends LitElement {
                   <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
                           title="Pitch orientation"
                           @click="${this.#toggleFieldMenu}">
-                    <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                    <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14">
                       ${this.fieldOrientation === 'horizontal'
                         ? svg`<path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>`
                         : svg`<path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>`}
@@ -2193,14 +2202,14 @@ export class CoachBoard extends LitElement {
                     <div role="menu" aria-label="Pitch orientation">
                       <button role="menuitem"
                               @click="${() => this.#requestOrientation('horizontal')}">
-                        <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                        <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14">
                           <path d="m1152 555.6-168-168c-24-24-63.602-24-87.602 0s-24 63.602 0 87.602l62.398 62.398h-716.4l62.398-62.398c24-24 24-63.602 0-87.602s-63.602-24-87.602 0l-168 168c-24 24-24 63.602 0 87.602l168 168c12 12 27.602 18 44.398 18 15.602 0 31.199-6 44.398-18 24-24 24-63.602 0-87.602l-62.398-62.398h716.4l-62.398 62.398c-24 24-24 63.602 0 87.602 12 12 27.602 18 44.398 18 16.801 0 31.199-6 44.398-18l168-168c21.609-24.004 21.609-62.402-2.3906-87.602z" fill="currentColor"/>
                         </svg>
                         Horizontal Pitch
                       </button>
                       <button role="menuitem"
                               @click="${() => this.#requestOrientation('vertical')}">
-                        <svg viewBox="0 0 1200 1200" width="14" height="14" style="flex-shrink:0">
+                        <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14">
                           <path d="m732 878.4-66 66v-690l66 66c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199c26.398-26.398 26.398-67.199 0-93.602l-178.8-178.8c-25.199-24-68.402-24-93.602 0l-178.8 180c-26.398 26.398-26.398 67.199 0 93.602 26.398 26.398 67.199 25.199 93.602 0l66-66v690l-66-67.203c-26.398-26.398-67.199-26.398-93.602 0-26.398 26.398-26.398 67.199 0 93.602l178.8 178.8c13.199 13.199 30 19.199 46.801 19.199s33.602-6 46.801-19.199l178.8-178.8c26.398-26.398 26.398-67.199 0-93.602-25.203-26.398-67.203-26.398-93.602 0z" fill="currentColor"/>
                         </svg>
                         Vertical Pitch
@@ -2213,7 +2222,7 @@ export class CoachBoard extends LitElement {
             <div class="bottom-right">
               <button class="icon-btn" aria-label="Share Board" title="Share Board"
                       @click="${() => this._share.triggerShare()}">
-                <svg viewBox="0 0 1200 1200" width="18" height="18" style="flex-shrink:0" fill="currentColor">
+                <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
                   <path d="m12.141 1065.2c24.141-696.05 564.37-780.94 692.44-791.29l0.09375-140.06c0.09375-6.2344 2.1562-12.469 6.5156-17.672 9.75-11.578 27.094-13.078 38.672-3.3281l428.06 360.14c1.3125 1.0781 2.5312 2.25 3.6562 3.6094 9.75 11.578 8.25 28.922-3.3281 38.672l-426.32 358.69c-5.0156 5.1094-12 8.2969-19.688 8.2969-15.234 0-27.562-12.328-27.562-27.562v-157.26c-509.53-48.328-632.9 356.81-638.39 375.56-3.1406 12.141-14.344 20.953-27.422 20.531-15.141-0.46875-27.094-13.125-26.625-28.312z" fill-rule="evenodd"/>
                 </svg>
               </button>

@@ -157,7 +157,7 @@ function renderRotateHandle(hx: number, hy: number, id: string, color = 'white')
   return svg`
     <g transform="translate(${hx}, ${hy})"
        data-kind="rotate" data-id="${id}"
-       style="cursor: grab">
+       class="cursor-grab">
       <circle r="${r + 0.6}" fill="transparent" />
       <path d="M ${-r * 0.5},${-r * 0.866} A ${r},${r} 0 0 1 ${r * 0.866},${r * 0.5}"
             fill="none" stroke="${color}" stroke-width="0.275" stroke-opacity="0.85" />
@@ -268,6 +268,11 @@ export class CbField extends LitElement {
     .svg-wrap > svg.tool-draw-shape {
       cursor: crosshair;
     }
+
+
+    .no-events { pointer-events: none; }
+    .cursor-pointer { cursor: pointer; }
+    .cursor-grab { cursor: grab; }
 
     @media print {
       .field-area {
@@ -612,15 +617,15 @@ export class CbField extends LitElement {
                    fill="${p.color}" stroke="white" stroke-width="0.15"
                    stroke-linejoin="round"
                    filter="url(#player-shadow)"
-                   style="cursor: pointer" />
+                   class="cursor-pointer" />
           <path d="${triHeadPath(PLAYER_RADIUS)}"
-                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
+                fill="rgba(0,0,0,0.35)" class="no-events" />
           ${p.label ? svg`
             <text x="0" y="${textOff}"
                   text-anchor="middle" dominant-baseline="central"
                   fill="${textColor}" font-size="${(p.label?.length ?? 0) > 2 ? '1.4' : '1.9'}" font-weight="bold"
                   font-family="system-ui, sans-serif"
-                  style="pointer-events: none">${p.label}</text>
+                  class="no-events">${p.label}</text>
           ` : nothing}
           ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS) : nothing}
         </g>
@@ -640,15 +645,15 @@ export class CbField extends LitElement {
                    fill="${p.color}" stroke="white" stroke-width="0.15"
                    stroke-linejoin="round"
                    filter="url(#player-shadow)"
-                   style="cursor: pointer" />
+                   class="cursor-pointer" />
           <path d="${diamondHeadPath()}"
-                fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
+                fill="rgba(0,0,0,0.35)" class="no-events" />
           ${p.label ? svg`
             <text x="0" y="0.3"
                   text-anchor="middle" dominant-baseline="central"
                   fill="${textColor}" font-size="${(p.label?.length ?? 0) > 2 ? '1.4' : '1.9'}" font-weight="bold"
                   font-family="system-ui, sans-serif"
-                  style="pointer-events: none">${p.label}</text>
+                  class="no-events">${p.label}</text>
           ` : nothing}
         </g>
       `;
@@ -667,15 +672,15 @@ export class CbField extends LitElement {
         <circle r="${PLAYER_RADIUS}"
                 fill="${p.color}" stroke="white" stroke-width="0.15"
                 filter="url(#player-shadow)"
-                style="cursor: pointer" />
+                class="cursor-pointer" />
         <path d="${circleHeadPath(PLAYER_RADIUS)}"
-              fill="rgba(0,0,0,0.35)" style="pointer-events: none" />
+              fill="rgba(0,0,0,0.35)" class="no-events" />
         ${p.label ? svg`
           <text x="0" y="0.15"
                 text-anchor="middle" dominant-baseline="central"
                 fill="${textColor}" font-size="${(p.label?.length ?? 0) > 2 ? '1.4' : '1.9'}" font-weight="bold"
                 font-family="system-ui, sans-serif"
-                style="pointer-events: none">${p.label}</text>
+                class="no-events">${p.label}</text>
         ` : nothing}
         ${this.#shouldShowRotate(p.id, singleSelected) ? this.#renderCircleRotateHandles(p.id, PLAYER_RADIUS) : nothing}
       </g>
@@ -712,36 +717,36 @@ export class CbField extends LitElement {
               stroke-dasharray="${l.style === 'dashed' ? '1,0.6' : 'none'}"
               marker-start="${l.arrowStart ? `url(#arrow-start-${markerColor})` : ''}"
               marker-end="${l.arrowEnd ? `url(#arrow-end-${markerColor})` : ''}"
-              style="pointer-events: none" />
+              class="no-events" />
 
         ${singleSelected ? svg`
           <circle cx="${l.x1}" cy="${l.y1}" r="${CONTROL_HANDLE_R + 1}"
                   fill="transparent"
                   data-id="${l.id}" data-kind="line-start"
-                  style="cursor: grab" />
+                  class="cursor-grab" />
           <circle cx="${l.x1}" cy="${l.y1}" r="${CONTROL_HANDLE_R}"
                   fill="${this.#selColor}" fill-opacity="0.5" stroke="${this.#selColor}" stroke-width="0.1"
-                  style="pointer-events: none" />
+                  class="no-events" />
           <circle cx="${l.x2}" cy="${l.y2}" r="${CONTROL_HANDLE_R + 1}"
                   fill="transparent"
                   data-id="${l.id}" data-kind="line-end"
-                  style="cursor: grab" />
+                  class="cursor-grab" />
           <circle cx="${l.x2}" cy="${l.y2}" r="${CONTROL_HANDLE_R}"
                   fill="${this.#selColor}" fill-opacity="0.5" stroke="${this.#selColor}" stroke-width="0.1"
-                  style="pointer-events: none" />
+                  class="no-events" />
           <circle cx="${l.cx}" cy="${l.cy}" r="${CONTROL_HANDLE_R + 1}"
                   fill="transparent"
                   data-id="${l.id}" data-kind="line-control"
-                  style="cursor: grab" />
+                  class="cursor-grab" />
           <circle cx="${l.cx}" cy="${l.cy}" r="${CONTROL_HANDLE_R}"
                   fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
-                  style="pointer-events: none" />
+                  class="no-events" />
           <line x1="${l.x1}" y1="${l.y1}" x2="${l.cx}" y2="${l.cy}"
                 stroke="${COLORS.annotation}" stroke-width="0.1" stroke-dasharray="0.4,0.3"
-                style="pointer-events: none" />
+                class="no-events" />
           <line x1="${l.x2}" y1="${l.y2}" x2="${l.cx}" y2="${l.cy}"
                 stroke="${COLORS.annotation}" stroke-width="0.1" stroke-dasharray="0.4,0.3"
-                style="pointer-events: none" />
+                class="no-events" />
         ` : nothing}
       </g>
     `;
@@ -759,7 +764,7 @@ export class CbField extends LitElement {
         <path d="${pathD}"
               fill="none" stroke="${previewColor}" stroke-width="0.25"
               marker-end="url(#arrow-end-${previewMarkerId})"
-              style="pointer-events: none" />
+              class="no-events" />
       `;
     }
     const dashAttr = this.lineStyle === 'dashed' ? '0.8,0.4' : 'none';
@@ -767,7 +772,7 @@ export class CbField extends LitElement {
       <line x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}"
             stroke="${previewColor}" stroke-width="0.25" stroke-dasharray="${dashAttr}"
             marker-end="url(#arrow-end-${previewMarkerId})"
-            style="pointer-events: none" />
+            class="no-events" />
     `;
   }
 
@@ -787,8 +792,8 @@ export class CbField extends LitElement {
           <circle r="${BALL_RADIUS}" fill="white"
                   stroke="white" stroke-width="0.225"
                   filter="url(#player-shadow)"
-                  style="cursor: pointer" />
-          <g transform="scale(${s}) translate(-600, -600)" style="pointer-events: none">
+                  class="cursor-pointer" />
+          <g transform="scale(${s}) translate(-600, -600)" class="no-events">
             <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
           </g>
         </g>
@@ -805,9 +810,9 @@ export class CbField extends LitElement {
           ` : nothing}
           <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_OUTER_R}"
                   fill="none" stroke="${coneColor}" stroke-width="${CONE_OUTER_STROKE}"
-                  style="cursor: pointer" />
+                  class="cursor-pointer" />
           <circle cx="${eq.x}" cy="${eq.y}" r="${CONE_INNER_R}"
-                  fill="${SILVER_CENTER}" style="cursor: pointer" />
+                  fill="${SILVER_CENTER}" class="cursor-pointer" />
         </g>
       `;
     }
@@ -832,11 +837,11 @@ export class CbField extends LitElement {
                 width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
                 rx="${DUMMY_OUTER_RX}" fill="none"
                 stroke="${dummyColor}" stroke-width="${DUMMY_OUTER_STROKE}"
-                style="cursor: pointer" />
+                class="cursor-pointer" />
           <rect x="${-DUMMY_INNER_HW}" y="${-DUMMY_INNER_HH}"
                 width="${DUMMY_INNER_HW * 2}" height="${DUMMY_INNER_HH * 2}"
                 rx="${DUMMY_INNER_RX}" fill="${lightenHex(dummyColor)}"
-                style="cursor: pointer" />
+                class="cursor-pointer" />
           ${this.#shouldShowRotate(eq.id, singleSelected)
             ? this.#renderRectRotateHandles(eq.id, rx1, ry1, rx2, ry2)
             : nothing}
@@ -854,9 +859,9 @@ export class CbField extends LitElement {
           ` : nothing}
           <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_BASE_RADIUS}"
                   fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3"
-                  style="cursor: pointer" />
+                  class="cursor-pointer" />
           <circle cx="${eq.x}" cy="${eq.y}" r="${POLE_RADIUS}"
-                  fill="${poleColor}" style="cursor: pointer" />
+                  fill="${poleColor}" class="cursor-pointer" />
         </g>
       `;
     }
@@ -878,12 +883,12 @@ export class CbField extends LitElement {
                   stroke-dasharray="0.5,0.3" rx="0.2" />
           ` : nothing}
           <rect x="${-1}" y="${-hw - 1}" width="${d + 2}" height="${POPUP_GOAL_W + 2}"
-                fill="transparent" style="cursor: pointer" />
+                fill="transparent" class="cursor-pointer" />
           <path d="M 0,${-hw} A ${hw},${hw} 0 0 1 0,${hw}"
                 fill="url(#goal-net)" stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25"
-                style="pointer-events: none" />
+                class="no-events" />
           <line x1="0" y1="${-hw}" x2="0" y2="${hw}"
-                stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" style="pointer-events: none" />
+                stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" class="no-events" />
           ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
         </g>
       `;
@@ -908,14 +913,14 @@ export class CbField extends LitElement {
                   stroke-dasharray="0.5,0.3" rx="0.2" />
           ` : nothing}
           <rect x="${-1}" y="${-hw - 1}" width="${d + 2}" height="${w + 2}"
-                fill="transparent" style="cursor: pointer" />
+                fill="transparent" class="cursor-pointer" />
           <rect x="0" y="${-hw}" width="${d}" height="${w}"
                 fill="url(#goal-net)" stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}"
-                style="pointer-events: none" />
+                class="no-events" />
           <line x1="0" y1="${-hw}" x2="0" y2="${-hw - post}"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" class="no-events" />
           <line x1="0" y1="${hw}" x2="0" y2="${hw + post}"
-                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" style="pointer-events: none" />
+                stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" class="no-events" />
           ${this.#shouldShowRotate(eq.id, singleSelected) ? this.#renderRectRotateHandles(eq.id, rx1 - 0.3, ry1 - 0.3, rx2 + 0.3, ry2 + 0.3) : nothing}
         </g>
       `;
@@ -930,12 +935,12 @@ export class CbField extends LitElement {
         <circle cx="${eq.x}" cy="${eq.y}" r="${PLAYER_RADIUS}"
                 fill="${COLORS.coachBg}" stroke="white" stroke-width="0.15"
                 filter="url(#player-shadow)"
-                style="cursor: pointer" />
+                class="cursor-pointer" />
         <text x="${eq.x}" y="${eq.y}"
               text-anchor="middle" dominant-baseline="central"
               fill="white" font-size="1.9" font-weight="bold"
               font-family="system-ui, sans-serif"
-              style="pointer-events: none">C</text>
+              class="no-events">C</text>
       </g>
     `;
   }
@@ -947,7 +952,7 @@ export class CbField extends LitElement {
       const s = BALL_RADIUS / 480;
       return svg`
         <g transform="translate(${x}, ${y})" opacity="0.5"
-           style="pointer-events: none">
+           class="no-events">
           <circle r="${BALL_RADIUS}" fill="white"
                   stroke="white" stroke-width="0.225" />
           <g transform="scale(${s}) translate(-600, -600)">
@@ -959,7 +964,7 @@ export class CbField extends LitElement {
     if (this.equipmentKind === 'cone') {
       const coneColor = COLORS.coneNeonOrange;
       return svg`
-        <g opacity="0.5" style="pointer-events: none">
+        <g opacity="0.5" class="no-events">
           <circle cx="${x}" cy="${y}" r="${CONE_OUTER_R}"
                   fill="none" stroke="${coneColor}" stroke-width="${CONE_OUTER_STROKE}" />
           <circle cx="${x}" cy="${y}" r="${CONE_INNER_R}" fill="${SILVER_CENTER}" />
@@ -968,7 +973,7 @@ export class CbField extends LitElement {
     }
     if (this.equipmentKind === 'dummy') {
       return svg`
-        <g transform="translate(${x}, ${y})" opacity="0.5" style="pointer-events: none">
+        <g transform="translate(${x}, ${y})" opacity="0.5" class="no-events">
           <rect x="${-DUMMY_OUTER_HW}" y="${-DUMMY_OUTER_HH}"
                 width="${DUMMY_OUTER_HW * 2}" height="${DUMMY_OUTER_HH * 2}"
                 rx="${DUMMY_OUTER_RX}" fill="none"
@@ -978,7 +983,7 @@ export class CbField extends LitElement {
     }
     if (this.equipmentKind === 'pole') {
       return svg`
-        <g opacity="0.5" style="pointer-events: none">
+        <g opacity="0.5" class="no-events">
           <circle cx="${x}" cy="${y}" r="${POLE_BASE_RADIUS}" fill="none" stroke="${SILVER_CENTER}" stroke-width="0.3" />
           <circle cx="${x}" cy="${y}" r="${POLE_RADIUS}" fill="${COLORS.coneChartreuse}" />
         </g>
@@ -989,7 +994,7 @@ export class CbField extends LitElement {
       const d = this.equipmentKind === 'goal' ? GOAL_D : MINI_GOAL_D;
       const hw = w / 2;
       return svg`
-        <g transform="translate(${x}, ${y})" opacity="0.5" style="pointer-events: none">
+        <g transform="translate(${x}, ${y})" opacity="0.5" class="no-events">
           <rect x="0" y="${-hw}" width="${d}" height="${w}"
                 fill="url(#goal-net)" stroke="${this.fieldTheme === 'white' ? WHITE_THEME.fieldLine : 'white'}" stroke-width="${GOAL_LINE_W}" />
         </g>
@@ -998,7 +1003,7 @@ export class CbField extends LitElement {
     if (this.equipmentKind === 'popup-goal') {
       const hw = POPUP_GOAL_W / 2;
       return svg`
-        <g transform="translate(${x}, ${y})" opacity="0.5" style="pointer-events: none">
+        <g transform="translate(${x}, ${y})" opacity="0.5" class="no-events">
           <path d="M 0,${-hw} A ${hw},${hw} 0 0 1 0,${hw}"
                 fill="url(#goal-net)" stroke="${POPUP_GOAL_COLOR}" stroke-width="0.25" />
         </g>
@@ -1006,7 +1011,7 @@ export class CbField extends LitElement {
     }
     // Coach
     return svg`
-      <g opacity="0.5" style="pointer-events: none">
+      <g opacity="0.5" class="no-events">
         <circle cx="${x}" cy="${y}" r="${PLAYER_RADIUS}"
                 fill="${COLORS.coachBg}" stroke="white" stroke-width="0.15" />
         <text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central"
@@ -1042,12 +1047,12 @@ export class CbField extends LitElement {
                       fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
                       stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
                       stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
-                      style="cursor: pointer" />`
+                      class="cursor-pointer" />`
           : svg`<ellipse rx="${s.hw}" ry="${s.hh}"
                          fill="${vis.fill}" fill-opacity="${vis.fillOpacity}"
                          stroke="${vis.stroke}" stroke-width="${vis.strokeWidth}"
                          stroke-dasharray="${vis.strokeDasharray ?? 'none'}"
-                         style="cursor: pointer" />`
+                         class="cursor-pointer" />`
         }
         ${selected ? svg`
           <rect x="${-s.hw - pad}" y="${-s.hh - pad}"
@@ -1088,7 +1093,7 @@ export class CbField extends LitElement {
               style="cursor: nwse-resize" />
         <rect x="${c.x - hr}" y="${c.y - hr}" width="${hr * 2}" height="${hr * 2}"
               fill="${this.#selColor}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
-              style="pointer-events: none" />
+              class="no-events" />
       `)}
       ${sides.map(c => svg`
         <rect x="${c.x - hitR}" y="${c.y - hitR}" width="${hitR * 2}" height="${hitR * 2}"
@@ -1097,7 +1102,7 @@ export class CbField extends LitElement {
               style="cursor: ${c.h === 'n' || c.h === 's' ? 'ns-resize' : 'ew-resize'}" />
         <rect x="${c.x - hr * 0.7}" y="${c.y - hr * 0.7}" width="${hr * 1.4}" height="${hr * 1.4}"
               fill="${COLORS.accent}" fill-opacity="0.7" stroke="${this.#selColor}" stroke-width="0.08"
-              style="pointer-events: none" />
+              class="no-events" />
       `)}
     `;
   }
@@ -1110,7 +1115,7 @@ export class CbField extends LitElement {
     const cy = (d.startY + d.curY) / 2;
     const previewColor = this.fieldTheme === 'white' ? COLORS.shapeStrokeGray : 'white';
     return svg`
-      <g transform="translate(${cx}, ${cy})" style="pointer-events: none">
+      <g transform="translate(${cx}, ${cy})" class="no-events">
         ${d.kind === 'rect'
           ? svg`<rect x="${-hw}" y="${-hh}" width="${hw * 2}" height="${hh * 2}"
                       fill="none" stroke="${previewColor}" stroke-width="0.15"
@@ -1139,7 +1144,7 @@ export class CbField extends LitElement {
         <rect x="${-hw - pad}" y="${-hh - pad}"
               width="${(hw + pad) * 2}" height="${(hh + pad) * 2}"
               fill="transparent"
-              style="cursor: pointer" />
+              class="cursor-pointer" />
         ${selected ? svg`
           <rect x="${-hw - pad}" y="${-hh - pad}"
                 width="${(hw + pad) * 2}" height="${(hh + pad) * 2}"
@@ -1151,7 +1156,7 @@ export class CbField extends LitElement {
               fill="${this.fieldTheme === 'white' ? WHITE_THEME.text : 'white'}" font-size="${fs}"
               font-family="system-ui, sans-serif"
               filter="${this.fieldTheme === 'white' ? '' : 'url(#text-shadow)'}"
-              style="pointer-events: none">
+              class="no-events">
           ${t.text}
         </text>
         ${this.#shouldShowRotate(t.id, singleSelected) ? this.#renderRectRotateHandles(t.id,
@@ -1184,33 +1189,33 @@ export class CbField extends LitElement {
       trails.push(svg`
         <g opacity="0.3">
           ${p.team === 'a'
-            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" style="pointer-events:none">
+            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" class="no-events">
                     <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
                              fill="${p.color}" stroke="white" stroke-width="0.15"
                              stroke-linejoin="round" />
                   </g>`
             : p.team === 'neutral'
-            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" style="pointer-events:none">
+            ? svg`<g transform="translate(${prev.x}, ${prev.y}) rotate(${prevAngle})" class="no-events">
                     <polygon points="0,${-DIAMOND_HH} ${DIAMOND_HW},0 0,${DIAMOND_HH} ${-DIAMOND_HW},0"
                              fill="${p.color}" stroke="white" stroke-width="0.15"
                              stroke-linejoin="round" />
                   </g>`
             : svg`<circle cx="${prev.x}" cy="${prev.y}" r="${PLAYER_RADIUS}"
                           fill="${p.color}" stroke="white" stroke-width="0.15"
-                          style="pointer-events:none" />`
+                          class="no-events" />`
           }
         </g>
         <path d="M ${prev.x},${prev.y} C ${cp1x},${cp1y} ${cp2x},${cp2y} ${curr.x},${curr.y}"
               fill="none" stroke="${p.color}" stroke-width="0.25" stroke-opacity="0.5"
-              stroke-dasharray="1,0.6" style="pointer-events:none" />
+              stroke-dasharray="1,0.6" class="no-events" />
         <circle cx="${cp1x}" cy="${cp1y}" r="${CONTROL_HANDLE_R}"
                 fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
                 data-id="${p.id}" data-kind="trail-cp1"
-                style="cursor:grab" />
+                class="cursor-grab" />
         <circle cx="${cp2x}" cy="${cp2y}" r="${CONTROL_HANDLE_R}"
                 fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
                 data-id="${p.id}" data-kind="trail-cp2"
-                style="cursor:grab" />
+                class="cursor-grab" />
       `);
     }
 
@@ -1231,19 +1236,19 @@ export class CbField extends LitElement {
         <g opacity="0.3">
           <circle cx="${prev.x}" cy="${prev.y}" r="${BALL_RADIUS}"
                   fill="white" stroke="white" stroke-width="0.15"
-                  style="pointer-events:none" />
+                  class="no-events" />
         </g>
         <path d="M ${prev.x},${prev.y} C ${cp1x},${cp1y} ${cp2x},${cp2y} ${curr.x},${curr.y}"
               fill="none" stroke="${color}" stroke-width="0.25" stroke-opacity="0.5"
-              stroke-dasharray="1,0.6" style="pointer-events:none" />
+              stroke-dasharray="1,0.6" class="no-events" />
         <circle cx="${cp1x}" cy="${cp1y}" r="${CONTROL_HANDLE_R}"
                 fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
                 data-id="${eq.id}" data-kind="trail-cp1"
-                style="cursor:grab" />
+                class="cursor-grab" />
         <circle cx="${cp2x}" cy="${cp2y}" r="${CONTROL_HANDLE_R}"
                 fill="${COLORS.annotation}" fill-opacity="0.7" stroke="${COLORS.annotation}" stroke-width="0.1"
                 data-id="${eq.id}" data-kind="trail-cp2"
-                style="cursor:grab" />
+                class="cursor-grab" />
       `);
     }
 
@@ -1305,7 +1310,7 @@ export class CbField extends LitElement {
                 stroke="rgba(59, 130, 246, 0.6)"
                 stroke-width="0.15"
                 stroke-dasharray="0.5,0.3"
-                style="pointer-events: none" />
+                class="no-events" />
             ` : nothing}
 
             <g class="lines-layer">
@@ -1342,7 +1347,7 @@ export class CbField extends LitElement {
                     : (this.fieldOrientation === 'horizontal' ? 90 : 0);
                   return this.playerTeam === 'a'
                     ? svg`
-                      <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" class="no-events">
                         <polygon points="${triPoints(0, 0, PLAYER_RADIUS)}"
                                  fill="${this.playerColor}" fill-opacity="0.5"
                                  stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
@@ -1350,14 +1355,14 @@ export class CbField extends LitElement {
                       </g>`
                     : this.playerTeam === 'neutral'
                     ? svg`
-                      <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" class="no-events">
                         <polygon points="0,${-DIAMOND_HH} ${DIAMOND_HW},0 0,${DIAMOND_HH} ${-DIAMOND_HW},0"
                                  fill="${this.playerColor}" fill-opacity="0.5"
                                  stroke="${this.#selColor}" stroke-width="0.15" stroke-linejoin="round"
                                  stroke-dasharray="0.4,0.3" />
                       </g>`
                     : svg`
-                      <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" style="pointer-events: none">
+                      <g transform="translate(${this.ghost.x}, ${this.ghost.y}) rotate(${ga})" class="no-events">
                         <circle cx="0" cy="0" r="${PLAYER_RADIUS}"
                                 fill="${this.playerColor}" fill-opacity="0.5"
                                 stroke="${this.#selColor}" stroke-width="0.15" stroke-dasharray="0.4,0.3" />
@@ -1373,7 +1378,7 @@ export class CbField extends LitElement {
                       text-anchor="middle" dominant-baseline="central"
                       fill="${this.fieldTheme === 'white' ? WHITE_THEME.text : 'white'}" fill-opacity="0.5" font-size="${TEXT_FONT_SIZE}"
                       font-family="system-ui, sans-serif"
-                      style="pointer-events: none">
+                      class="no-events">
                   T
                 </text>`
               : nothing}
