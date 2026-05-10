@@ -3481,7 +3481,8 @@ export class CoachBoard extends LitElement {
         }
       } else {
         this.selectedIds = new Set();
-        this._multiSelect = false;
+        // _multiSelect intentionally preserved — a miss should not exit
+        // the mode; user can exit explicitly via the toolbar or Escape
       }
       return;
     }
