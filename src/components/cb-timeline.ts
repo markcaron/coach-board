@@ -244,12 +244,12 @@ export class CbTimeline extends LitElement {
       height: 44px;
       flex-shrink: 0;
       background: transparent;
-      color: var(--pt-danger-light);
-      border-color: var(--pt-danger-light);
+      color: var(--pt-danger-lightest);
+      border-color: var(--pt-danger-lightest);
     }
 
     .delete-btn:hover {
-      background: rgba(248, 113, 113, 0.1);
+      background: rgba(251, 138, 138, 0.1);
     }
 
     .delete-btn:disabled {

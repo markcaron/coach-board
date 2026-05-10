@@ -1150,9 +1150,8 @@ export class CbToolbar extends LitElement {
             ${this.#hasRotatable || this.selectedItems.length >= 2 ? html`<span class="divider"></span>` : nothing}
             <button class="danger" title="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)" aria-label="Delete item${this.selectedItems.length > 1 ? 's' : ''} (Del)"
                     @click="${this.#requestDelete}">
-              <svg viewBox="0 0 1200 1200" width="16" height="16" style="flex-shrink:0">
-                <path d="m300 393.61 55.172 618.74h489.74l55.078-618.74zm123.14 117.33h75.094v374.76h-75.094zm139.22 0h75.094v374.76h-75.094zm139.55 0h75.094v374.76h-75.094z" fill="currentColor"/>
-                <path d="m410.44 149.95v112.41h-147.89v75h674.9v-75h-147.89v-112.41zm75 75h229.18v37.406h-229.18z" fill="currentColor"/>
+              <svg viewBox="0 0 16 16" width="14" height="14" style="flex-shrink:0">
+                <path d="M5 2V1h6v1h4v2H1V2h4zm1 4v7h1V6H6zm3 0v7h1V6H9zM2 5l1 10h10l1-10H2z" fill="currentColor"/>
               </svg>
               <span class="btn-text">Delete</span>
             </button>
