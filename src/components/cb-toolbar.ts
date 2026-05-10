@@ -909,7 +909,7 @@ export class CbToolbar extends LitElement {
     .ctx-panel-input {
       flex: 1;
       min-width: 0;
-      min-height: 36px;
+      min-height: 44px;
       text-align: left;
       font: bold 0.85rem system-ui, sans-serif;
       color: var(--pt-text-white);
@@ -920,8 +920,8 @@ export class CbToolbar extends LitElement {
     }
 
     .ctx-panel .save-btn {
-      min-height: 36px;
-      height: 36px;
+      min-height: 44px;
+      height: 44px;
       padding: 0 10px;
     }
 
@@ -932,7 +932,7 @@ export class CbToolbar extends LitElement {
 
     .ctx-font-select {
       width: 80px;
-      min-height: 36px;
+      min-height: 44px;
       font: bold 0.85rem system-ui, sans-serif;
       color: var(--pt-text-white);
       background: var(--pt-bg-primary);
