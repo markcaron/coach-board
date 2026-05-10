@@ -508,10 +508,12 @@ export class CoachBoard extends LitElement {
     }
 
     .context-board-name .cb-unsaved {
-      font-size: 0.72rem;
+      font-size: 0.9em;
       color: var(--pt-text-muted);
       font-weight: normal;
       font-style: italic;
+      opacity: 0.7;
+      margin-left: 2px;
     }
 
     .context-divider {
@@ -520,6 +522,13 @@ export class CoachBoard extends LitElement {
       background: rgba(255, 255, 255, 0.15);
       margin: 0 4px;
       flex-shrink: 0;
+    }
+
+    .sidebar-divider {
+      width: 32px;
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      margin: 4px 0;
     }
 
     .context-bar cb-toolbar {
@@ -1750,31 +1759,33 @@ export class CoachBoard extends LitElement {
           </button>
           <div class="context-board-name" title="${this._boardName}">
             ${this._boardName}
-            ${!this.#isBoardSaved ? html`<span class="cb-unsaved">(unsaved)</span>` : nothing}
+            ${!this.#isBoardSaved ? html`<span class="cb-unsaved">*</span>` : nothing}
           </div>
-          ${this.selectedIds.size > 0 ? html`<span class="context-divider" role="separator" aria-hidden="true"></span>` : nothing}
-          <cb-toolbar
-            hide-tool-selector
-            icon-only
-            .activeTool="${this.activeTool}"
-            .selectedItems="${this.#selectedItems}"
-            .fieldTheme="${this.fieldTheme}"
-            .multiSelect="${this._multiSelect}"
-            .autoNumber="${this.autoNumber}"
-            @tool-changed="${this.#onToolChanged}"
-            @multi-select-toggle="${this.#onMultiSelectToggle}"
-            @player-update="${this.#onPlayerUpdate}"
-            @equipment-update="${this.#onEquipmentUpdate}"
-            @line-update="${this.#onLineUpdate}"
-            @shape-update="${this.#onShapeUpdate}"
-            @text-update="${this.#onTextUpdate}"
-            @align-items="${this.#onAlignItems}"
-            @group-items="${this.#onGroupItems}"
-            @ungroup-items="${this.#onUngroupItems}"
-            @delete-items="${this.#onDeleteItems}"
-            @rotate-items="${this.#onRotateItems}"
-            @auto-number-toggle="${this.#onAutoNumberToggle}">
-          </cb-toolbar>
+          ${this.#selectedItems.length > 0 && this.#selectedItems.every(i => 'text' in i) ? html`
+            <span class="context-divider" role="separator" aria-hidden="true"></span>
+            <cb-toolbar
+              hide-tool-selector
+              icon-only
+              .activeTool="${this.activeTool}"
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              .multiSelect="${this._multiSelect}"
+              .autoNumber="${this.autoNumber}"
+              @tool-changed="${this.#onToolChanged}"
+              @multi-select-toggle="${this.#onMultiSelectToggle}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}"
+              @auto-number-toggle="${this.#onAutoNumberToggle}">
+            </cb-toolbar>
+          ` : nothing}
         </div><!-- .context-bar -->
 
         <div class="board-area">
@@ -2006,6 +2017,26 @@ export class CoachBoard extends LitElement {
           </button>
 
           </div><!-- .sidebar-tools -->
+
+          ${this.selectedIds.size > 0 ? html`
+            <hr class="sidebar-divider" />
+            <cb-toolbar
+              sidebar-context
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}">
+            </cb-toolbar>
+          ` : nothing}
+
         </nav><!-- .sidebar -->
           <div class="field-wrap">
             <cb-field
