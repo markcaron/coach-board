@@ -367,6 +367,27 @@ export class CoachBoard extends LitElement {
       color: var(--pt-text-white);
     }
 
+    .sidebar-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      min-width: 16px;
+      height: 16px;
+      background: var(--pt-color-yellow-400);
+      border: 1.5px solid rgba(0, 0, 0, 0.7);
+      color: var(--pt-color-navy-900);
+      border-radius: 8px;
+      font-size: 0.6rem;
+      font-weight: bold;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 3px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
     /* Adobe-style corner triangle for buttons with submenus */
     .sidebar .has-submenu::after {
       content: '';
@@ -508,10 +529,12 @@ export class CoachBoard extends LitElement {
     }
 
     .context-board-name .cb-unsaved {
-      font-size: 0.72rem;
+      font-size: 0.9em;
       color: var(--pt-text-muted);
       font-weight: normal;
       font-style: italic;
+      opacity: 0.7;
+      margin-left: 2px;
     }
 
     .context-divider {
@@ -520,6 +543,14 @@ export class CoachBoard extends LitElement {
       background: rgba(255, 255, 255, 0.15);
       margin: 0 4px;
       flex-shrink: 0;
+    }
+
+    .sidebar-divider {
+      width: 40px;
+      border: none;
+      border-top: 1px solid rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      margin: 4px 0;
     }
 
     .context-bar cb-toolbar {
@@ -1750,31 +1781,33 @@ export class CoachBoard extends LitElement {
           </button>
           <div class="context-board-name" title="${this._boardName}">
             ${this._boardName}
-            ${!this.#isBoardSaved ? html`<span class="cb-unsaved">(unsaved)</span>` : nothing}
+            ${!this.#isBoardSaved ? html`<span class="cb-unsaved">*</span>` : nothing}
           </div>
-          ${this.selectedIds.size > 0 ? html`<span class="context-divider" role="separator" aria-hidden="true"></span>` : nothing}
-          <cb-toolbar
-            hide-tool-selector
-            icon-only
-            .activeTool="${this.activeTool}"
-            .selectedItems="${this.#selectedItems}"
-            .fieldTheme="${this.fieldTheme}"
-            .multiSelect="${this._multiSelect}"
-            .autoNumber="${this.autoNumber}"
-            @tool-changed="${this.#onToolChanged}"
-            @multi-select-toggle="${this.#onMultiSelectToggle}"
-            @player-update="${this.#onPlayerUpdate}"
-            @equipment-update="${this.#onEquipmentUpdate}"
-            @line-update="${this.#onLineUpdate}"
-            @shape-update="${this.#onShapeUpdate}"
-            @text-update="${this.#onTextUpdate}"
-            @align-items="${this.#onAlignItems}"
-            @group-items="${this.#onGroupItems}"
-            @ungroup-items="${this.#onUngroupItems}"
-            @delete-items="${this.#onDeleteItems}"
-            @rotate-items="${this.#onRotateItems}"
-            @auto-number-toggle="${this.#onAutoNumberToggle}">
-          </cb-toolbar>
+          ${this.#selectedItems.length > 0 && this.#selectedItems.every(i => 'text' in i) ? html`
+            <span class="context-divider" role="separator" aria-hidden="true"></span>
+            <cb-toolbar
+              hide-tool-selector
+              icon-only
+              .activeTool="${this.activeTool}"
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              .multiSelect="${this._multiSelect}"
+              .autoNumber="${this.autoNumber}"
+              @tool-changed="${this.#onToolChanged}"
+              @multi-select-toggle="${this.#onMultiSelectToggle}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}"
+              @auto-number-toggle="${this.#onAutoNumberToggle}">
+            </cb-toolbar>
+          ` : nothing}
         </div><!-- .context-bar -->
 
         <div class="board-area">
@@ -1786,14 +1819,17 @@ export class CoachBoard extends LitElement {
           <!-- Select (with submenu: Select / Multi-select) -->
           <div class="sidebar-dropdown-wrap">
             <button class="sidebar-tool has-submenu"
-                    title="Select"
-                    aria-label="Select"
+                    title="${this._multiSelect ? 'Multi-select' : 'Select'}"
+                    aria-label="${this._multiSelect ? 'Multi-select' : 'Select'}"
                     aria-pressed="${t === 'select'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'select'}"
                     tabindex="${this._sidebarFocusIndex === 0 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('select', 0); }}">
-              <svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor" /></svg>
+              ${this._multiSelect
+                ? svg`<svg viewBox="0 0 1600 1600" width="20" height="20"><path d="M87.5712 346.734C84.8837 339.234 92.1337 331.796 99.8212 334.608L469.249 467.508L647.075 961.824L471.447 1365.05C468.322 1372.3 456.822 1373.61 453.385 1363.61L87.5712 346.734Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M1506.44 616.688C1514.62 619.625 1514.87 631.063 1507.06 634.437L1056.63 830.624L860.447 1281.05C857.322 1288.3 845.822 1289.61 842.384 1279.61L476.571 262.733C473.884 255.233 481.134 247.796 488.821 250.608L1506.44 616.688Z" fill="currentColor"/></svg>`
+                : svg`<svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor"/></svg>`}
+              ${this.selectedIds.size > 0 ? html`<span class="sidebar-badge">${this.selectedIds.size}</span>` : nothing}
             </button>
             ${this._sidebarMenu === 'select' ? html`
               <div role="menu" aria-label="Select tool" @keydown="${this.#onSidebarMenuKeyDown}">
@@ -2002,10 +2038,33 @@ export class CoachBoard extends LitElement {
                   aria-pressed="${t === 'add-text'}"
                   tabindex="${this._sidebarFocusIndex === 4 ? 0 : -1}"
                   @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); this._sidebarFocusIndex = 4; }}">
-            <svg viewBox="280 280 680 680" width="20" height="20" fill="currentColor"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
+            <svg viewBox="0 0 1200 1200" width="26" height="26" fill="currentColor">
+              <path d="m1010.5 347.39c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26h-31.594c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-31.594l-0.046874-505.26zm-94.734-126.32h63.141v63.141h-63.141zm-694.74 0h63.141v63.141h-63.141zm63.141 757.87h-63.141v-63.141h63.141zm694.74 0h-63.141v-63.141h63.141zm-63.141-126.32h-31.594c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-31.594v-505.22h31.594c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26z"/>
+              <path d="m789.47 378.94h-378.94c-17.438 0-31.594 14.156-31.594 31.594v63.141c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-31.594h126.32v378.94c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-378.94h126.32v31.594c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-63.141c0-17.438-14.156-31.594-31.594-31.594z"/>
+            </svg>
           </button>
 
           </div><!-- .sidebar-tools -->
+
+          ${this.selectedIds.size > 0 ? html`
+            <hr class="sidebar-divider" />
+            <cb-toolbar
+              sidebar-context
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}">
+            </cb-toolbar>
+          ` : nothing}
+
         </nav><!-- .sidebar -->
           <div class="field-wrap">
             <cb-field
@@ -3190,6 +3249,12 @@ export class CoachBoard extends LitElement {
       }
       return eq;
     });
+    this.shapes = this.shapes.map(s =>
+      ids.has(s.id) ? { ...s, angle: ((s.angle ?? 0) + delta + 360) % 360 } : s
+    );
+    this.textItems = this.textItems.map(t =>
+      ids.has(t.id) ? { ...t, angle: ((t.angle ?? 0) + delta + 360) % 360 } : t
+    );
   }
 
   #onDeleteItems(_e: DeleteItemsEvent) {
