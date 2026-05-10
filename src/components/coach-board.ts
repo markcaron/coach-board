@@ -177,11 +177,11 @@ export class CoachBoard extends LitElement {
 
     .app-board {
       grid-column: 2;
-      width: 100dvw;
       height: 100dvh;
-      display: flex;
-      flex-direction: row;      overflow: hidden;
-      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-rows: 60px 1fr 60px;      position: relative;
+      overflow: hidden;
     }
 
     .menu-backdrop {
@@ -284,42 +284,52 @@ export class CoachBoard extends LitElement {
       .app-wrap { transition: transform 150ms ease; }
     }
 
-    /* ── Left sidebar (tool palette) ─────────────────────────── */
+    /* ── Floating left sidebar (tool palette) ─────────────────── */
+    /* Sits in grid col 1, row 2 (board row) — visually floats off
+       the left edge with border-radius + shadow, centered vertically */
 
     .sidebar {
-      flex: none;
-      width: 48px;
-      height: 100dvh;
+      grid-column: 1;
+      grid-row: 2;
+      align-self: center;
+      justify-self: start;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: env(safe-area-inset-top);
+      padding: 6px 4px;
+      margin: 0 4px 0 8px;
+      gap: 2px;
       background: var(--pt-bg-toolbar);
-      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       z-index: 5;
-      flex-shrink: 0;
     }
 
-    .sidebar-header {
-      height: 52px;
+    /* Hamburger in context bar */
+    .context-hamburger {
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 44px;
+      height: 44px;
       flex-shrink: 0;
+      margin: 0 4px 0 8px;
+      padding: 0;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--pt-text);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.12s;
     }
 
-    /* Hamburger uses sidebar-tool for all sizing/interaction — only the SVG transition is unique */
-    .sidebar-hamburger svg {
-      transition: opacity 0.15s;
+    .context-hamburger:hover { background: var(--pt-border); }
+    .context-hamburger:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
-
-    .sidebar-divider {
-      width: 28px;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.1);
-      margin: 2px 0 6px;
-      flex-shrink: 0;
-    }
+    .context-hamburger svg { transition: opacity 0.15s; }
 
     .sidebar-tool {
       display: flex;
@@ -374,8 +384,7 @@ export class CoachBoard extends LitElement {
       display: flex;
       flex-direction: column;
       align-items: center;
-      flex: 1;
-      width: 100%;
+      gap: 2px;
     }
 
     /* Sidebar dropdown wrapper: fills sidebar width so menu opens flush-right */
@@ -437,15 +446,16 @@ export class CoachBoard extends LitElement {
       margin: 4px 0;
     }
 
-    /* ── Main area (context bar + field + bottom bar) ─────────── */
+    /* ── Board area (field + backdrop) ────────────────────────── */
 
-    .main-area {
-      flex: 1;
-      min-width: 0;
-      height: 100dvh;
+    .board-area {
+      grid-column: 2;
+      grid-row: 2;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      position: relative;
+      min-height: 0;
     }
 
     /* ── Context bar (always-visible edit/context strip) ─────── */
@@ -453,11 +463,11 @@ export class CoachBoard extends LitElement {
        Min-height keeps the bar visible even when nothing is selected. */
 
     .context-bar {
-      flex-shrink: 0;
+      grid-column: 2;
+      grid-row: 1;
       display: flex;
       align-items: center;
-      height: 52px;
-      min-height: 52px;
+      height: 60px;
       background: var(--pt-bg-toolbar);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       z-index: 10;
@@ -499,7 +509,7 @@ export class CoachBoard extends LitElement {
     .context-bar cb-toolbar {
       flex: 1;
       min-width: 0;
-      height: 52px;
+      height: 60px;
       overflow: hidden;
     }
 
@@ -615,7 +625,8 @@ export class CoachBoard extends LitElement {
     }
 
     .bottom-bar {
-      flex-shrink: 0;
+      grid-column: 2;
+      grid-row: 3;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
@@ -1606,13 +1617,13 @@ export class CoachBoard extends LitElement {
       ` : nothing}
 
       ${isReadonly ? html`
-        <!-- Readonly mode: simplified header with board name, no sidebar -->
-        <div class="main-area">
-          <div class="context-bar" style="padding-top: env(safe-area-inset-top)">
-            <div class="context-board-name" title="${this._boardName}">
-              ${this._boardName}
-            </div>
+        <!-- Readonly mode: no sidebar, context bar + field + bottom bar fill grid col 2 -->
+        <div class="context-bar" style="padding-top: env(safe-area-inset-top)">
+          <div class="context-board-name" title="${this._boardName}">
+            ${this._boardName}
           </div>
+        </div>
+        <div class="board-area">
 
           <cb-field
             .players="${this.players}"
@@ -1652,38 +1663,23 @@ export class CoachBoard extends LitElement {
             @cb-field-play-overlay-click="${this.#toggleReadonlyPlayback}"
           ></cb-field>
 
-          <div class="bottom-bar readonly">
-            <div class="bottom-left"></div>
-            <div class="bottom-center">
-              <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
-              <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
-                      @change="${this.#onThemeChange}">
-                <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
-                <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
-              </select>
-            </div>
-            <div class="bottom-right"></div>
+        </div><!-- .board-area readonly -->
+        <div class="bottom-bar readonly">
+          <div class="bottom-left"></div>
+          <div class="bottom-center">
+            <label class="visually-hidden" for="field-theme-select">Pitch theme</label>
+            <select id="field-theme-select" class="theme-select" aria-label="Pitch theme"
+                    @change="${this.#onThemeChange}">
+              <option value="green" ?selected="${this.fieldTheme === 'green'}">Green</option>
+              <option value="white" ?selected="${this.fieldTheme === 'white'}">White</option>
+            </select>
           </div>
-        </div><!-- .main-area readonly -->
+          <div class="bottom-right"></div>
+        </div>
 
       ` : html`
-        <!-- Normal / shared-edit mode: sidebar + main area -->
+        <!-- Normal / shared-edit mode: floating sidebar + grid col-2 content -->
         <nav class="sidebar" aria-label="Tool palette">
-          <div class="sidebar-header">
-            <div class="sidebar-dropdown-wrap">
-              <button class="sidebar-tool sidebar-hamburger"
-                      aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
-                      aria-haspopup="true"
-                      aria-expanded="${this._menuOpen}"
-                      title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
-                      @click="${this.#toggleMenu}">
-                ${this._menuOpen
-                  ? svg`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`
-                  : svg`<svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z"/></svg>`}
-              </button>
-            </div>
-          </div>
-          <div class="sidebar-divider" role="separator"></div>
 
           <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
                @keydown="${this.#onSidebarToolKeyDown}">
@@ -1913,13 +1909,22 @@ export class CoachBoard extends LitElement {
           </div><!-- .sidebar-tools -->
         </nav><!-- .sidebar -->
 
-        <div class="main-area">
-          <div class="context-bar">
-            <div class="context-board-name" title="${this._boardName}">
-              ${this._boardName}
-              ${!this.#isBoardSaved ? html`<span class="cb-unsaved">(unsaved)</span>` : nothing}
-            </div>
-            <span class="context-divider" role="separator" aria-hidden="true"></span>
+        <div class="context-bar">
+          <button class="context-hamburger"
+                  aria-label="${this._menuOpen ? 'Close menu' : 'Open menu'}"
+                  aria-haspopup="true"
+                  aria-expanded="${this._menuOpen}"
+                  title="${this._menuOpen ? 'Close menu' : 'Open menu'}"
+                  @click="${this.#toggleMenu}">
+            ${this._menuOpen
+              ? svg`<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`
+              : svg`<svg viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="m158.52 305.64h883.08c34.23-1.1992 65.363-20.152 82.141-50.016 16.781-29.859 16.781-66.309 0-96.172-16.777-29.859-47.91-48.816-82.141-50.012h-883.08c-26.613-0.93359-52.461 8.9883-71.617 27.484-19.156 18.5-29.973 43.984-29.973 70.613 0 26.629 10.816 52.117 29.973 70.613s45.004 28.418 71.617 27.488zm883.08 196.2h-883.08c-35.07 0-67.473 18.711-85.008 49.082-17.535 30.367-17.535 67.789 0 98.156 17.535 30.371 49.938 49.082 85.008 49.082h883.08c35.066 0 67.473-18.711 85.008-49.082 17.535-30.367 17.535-67.789 0-98.156-17.535-30.371-49.941-49.082-85.008-49.082zm0 392.52h-883.08c-26.613-0.92969-52.461 8.9922-71.617 27.488s-29.973 43.984-29.973 70.613c0 26.629 10.816 52.113 29.973 70.613 19.156 18.496 45.004 28.418 71.617 27.484h883.08c34.23-1.1953 65.363-20.152 82.141-50.012 16.781-29.863 16.781-66.312 0-96.172-16.777-29.863-47.91-48.816-82.141-50.016z"/></svg>`}
+          </button>
+          <div class="context-board-name" title="${this._boardName}">
+            ${this._boardName}
+            ${!this.#isBoardSaved ? html`<span class="cb-unsaved">(unsaved)</span>` : nothing}
+          </div>
+          <span class="context-divider" role="separator" aria-hidden="true"></span>
             <cb-toolbar
               hide-tool-selector
               icon-only
@@ -1942,8 +1947,14 @@ export class CoachBoard extends LitElement {
               @rotate-items="${this.#onRotateItems}"
               @auto-number-toggle="${this.#onAutoNumberToggle}">
             </cb-toolbar>
-          </div><!-- .context-bar -->
+        </div><!-- .context-bar -->
 
+        <div class="board-area">
+          ${this._menuOpen ? html`
+            <div class="menu-backdrop"
+                 @click="${this.#toggleMenu}"
+                 aria-hidden="true"></div>
+          ` : nothing}
           <cb-field
             .players="${this.players}"
             .lines="${this.lines}"
@@ -2025,8 +2036,9 @@ export class CoachBoard extends LitElement {
               ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p style="white-space:pre-wrap">${this._boardNotes}</p></div>` : nothing}
             ` : nothing}
           </div>
+        </div><!-- .board-area -->
 
-          <div class="bottom-bar">
+        <div class="bottom-bar">
             <div class="bottom-left">
               <button class="icon-btn" title="Undo (Cmd+Z)" aria-label="Undo"
                       ?disabled="${this.#undoStack.length === 0}"
@@ -2104,8 +2116,7 @@ export class CoachBoard extends LitElement {
                 </svg>
               </button>
             </div>
-          </div><!-- .bottom-bar -->
-        </div><!-- .main-area -->
+        </div><!-- .bottom-bar -->
       `}
       <input type="file" accept=".svg,image/svg+xml" class="visually-hidden" id="svg-import-input"
              tabindex="-1" aria-label="Import SVG file"
@@ -2152,11 +2163,6 @@ export class CoachBoard extends LitElement {
           <path d="M880.71 163.3V163.32L740.23 163.16L738.09 127.98L882.89 128L880.71 163.3ZM106.9 438.69H106.88L105.81 458.31L105.78 459.55L105.99 479.2C106.11 489.65 114.67 498.03 125.12 497.92C135.5 497.81 143.84 489.35 143.84 479L143.63 459.77L144.64 441.37L146.85 423.11L150.26 405.01L154.85 387.19L160.6 369.72L167.5 352.63L175.49 336.07L184.57 320.03L194.67 304.65L205.76 289.97L217.8 276.04L230.73 262.93L244.27 250.89L258.55 239.75L273.53 229.55L289.13 220.35L305.29 212.18L321.96 205.07L339.06 199.05L356.5 194.15L374.21 190.39L392.15 187.78L409.75 186.38L388.69 203.43C384.01 207.22 381.58 212.76 381.58 218.35C381.58 222.59 382.98 226.86 385.86 230.41C392.52 238.64 404.61 239.91 412.84 233.25L475.4 182.59C479.9 178.95 482.51 173.47 482.53 167.68V167.59C482.53 161.81 479.9 156.42 475.4 152.77L413.16 102.35C404.93 95.68 392.85 96.95 386.18 105.18C383.3 108.73 381.9 113 381.9 117.25C381.9 122.84 384.33 128.38 389.01 132.17L409.17 148.5H409.04L407.82 148.56L388.53 150.1L387.31 150.24L368.17 153.02L366.96 153.24L348.04 157.26L346.85 157.55L328.23 162.78L327.06 163.15L308.81 169.58L307.67 170.03L289.88 177.62L288.77 178.14L271.51 186.87L270.44 187.46L253.78 197.29L252.74 197.95L236.75 208.83L235.76 209.55L220.51 221.45L219.57 222.23L205.11 235.09L204.22 235.94L190.42 249.93L189.58 250.84L176.73 265.71L175.95 266.68L164.1 282.36L163.39 283.38L152.6 299.81L151.95 300.87L142.27 317.97L141.69 319.07L133.15 336.77L132.64 337.91L125.28 356.13L124.85 357.3L118.71 375.97L118.36 377.17L113.45 396.2L113.18 397.41L109.54 416.72L109.35 417.95L106.98 437.46L106.93 438.7H106.88H106.9V438.69ZM1034.12 127.99H1035.01C1048.17 128.42 1058.72 139.24 1058.72 152.52V850.85L562.25 850.87V152.52C562.25 139.24 572.79 128.42 585.96 127.99L699.84 128.01L703.25 183.42C703.87 193.49 712.21 201.33 722.3 201.33L898.64 201.38C908.72 201.36 917.06 193.52 917.69 183.46L921.13 127.99H1034.12ZM165.32 878.25V878.27L130.31 880.29L130.22 735.5L165.38 737.71V737.73L165.32 878.26V878.25ZM810.51 955.19H810.54C821.5 955.19 830.33 964.07 830.33 975.02C830.33 985.97 821.45 994.85 810.5 994.85C799.55 994.85 790.67 985.97 790.67 975.02C790.67 964.07 799.52 955.19 810.47 955.19H810.52H810.51ZM810.5 916.95H810.46C778.39 916.95 752.43 942.95 752.43 975.02C752.43 1007.09 778.42 1033.08 810.49 1033.08C842.56 1033.08 868.56 1007.08 868.56 975.02C868.56 942.96 842.59 916.95 810.52 916.95H810.5ZM1058.75 1031.75V1031.8C1058.75 1045.02 1048.2 1056.26 1035.04 1056.28L585.98 1056.3C572.82 1055.87 562.26 1045.04 562.26 1031.76V889.07L1058.74 889.11V1031.75H1058.75ZM153.36 521.44V521.46C153.47 521.44 153.36 521.44 153.36 521.44C121.46 522.14 95.39 546.56 92.24 577.77V577.84C92.01 580 91.87 1031.59 91.87 1031.59C91.87 1055.47 105.03 1076.19 124.65 1086.81L124.74 1086.86C133.33 1091.56 143.14 1094.56 153.58 1094.56L481.57 1094.36C492.12 1094.36 500.68 1085.81 500.68 1075.26C500.68 1064.71 492.23 1056.26 481.77 1056.16C481.51 1056.16 154.65 1056.16 154.65 1056.16C150.38 1056.16 146.37 1055.07 142.87 1053.15L142.82 1053.12C135.64 1049 130.71 1041.43 130.42 1032.66L130.35 918.55L185.58 915.17C195.64 914.55 203.48 906.22 203.5 896.15C203.5 896.06 203.57 719.78 203.57 719.78C203.57 709.7 195.73 701.35 185.67 700.73L130.22 697.28L130.29 581.75C131.64 569.45 142.04 559.9 154.67 559.89L481.58 559.71C492.13 559.69 500.69 551.14 500.69 540.59C500.69 530.04 492.14 521.48 481.58 521.48H153.36V521.5V521.47V521.44ZM586.84 89.74H586.79C552.59 89.74 524.79 117.08 524.04 151.11V1033.18C524.81 1067.22 552.62 1094.56 586.81 1094.56H1034.2C1068.39 1094.54 1096.21 1067.2 1096.96 1033.17V151.11C1096.19 117.07 1068.38 89.73 1034.19 89.73H586.84V89.74Z" fill="white"/>
         </svg>
       </div>
-      ${this._menuOpen ? html`
-        <div class="menu-backdrop"
-             @click="${this.#toggleMenu}"
-             aria-hidden="true"></div>
-      ` : nothing}
       </div><!-- .app-board -->
       </div><!-- .app-wrap -->
     `;
