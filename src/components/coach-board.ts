@@ -300,20 +300,26 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
     }
 
+    .sidebar-header {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
     .sidebar-hamburger {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
-      margin: 6px 0 2px;
+      width: 44px;
+      height: 44px;
       background: transparent;
       border: 1px solid transparent;
       border-radius: 8px;
       color: var(--pt-text);
       cursor: pointer;
       padding: 0;
-      flex-shrink: 0;
       -webkit-tap-highlight-color: transparent;
       transition: background 0.12s;
     }
@@ -386,6 +392,14 @@ export class CoachBoard extends LitElement {
       border-color: transparent transparent currentColor transparent;
       opacity: 0.6;
       pointer-events: none;
+    }
+
+    .sidebar-tools {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      width: 100%;
     }
 
     /* Sidebar dropdown wrapper: fills sidebar width so menu opens flush-right */
@@ -466,6 +480,7 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
       display: flex;
       align-items: center;
+      height: 52px;
       min-height: 52px;
       background: var(--pt-bg-toolbar);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -483,7 +498,7 @@ export class CoachBoard extends LitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 220px;
+      max-width: 200px;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -508,6 +523,8 @@ export class CoachBoard extends LitElement {
     .context-bar cb-toolbar {
       flex: 1;
       min-width: 0;
+      height: 52px;
+      overflow: hidden;
     }
 
     /* In readonly mode we keep the old single-column toolbar layout */    .toolbar-area {
@@ -912,6 +929,7 @@ export class CoachBoard extends LitElement {
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | null = null;
+  @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
@@ -992,6 +1010,44 @@ export class CoachBoard extends LitElement {
         break;
     }
   };
+
+  #onSidebarToolKeyDown = (e: KeyboardEvent) => {
+    if (!(e.target as HTMLElement).classList.contains('sidebar-tool')) return;
+    const toolbar = e.currentTarget as HTMLElement;
+    const tools = Array.from(toolbar.querySelectorAll('.sidebar-tool')) as HTMLElement[];
+    const toolCount = tools.length;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        this._sidebarFocusIndex = (this._sidebarFocusIndex + 1) % toolCount;
+        this.updateComplete.then(() => {
+          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
+        });
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        this._sidebarFocusIndex = (this._sidebarFocusIndex - 1 + toolCount) % toolCount;
+        this.updateComplete.then(() => {
+          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
+        });
+        break;
+      case 'Home':
+        e.preventDefault();
+        this._sidebarFocusIndex = 0;
+        this.updateComplete.then(() => {
+          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[0] as HTMLElement)?.focus();
+        });
+        break;
+      case 'End':
+        e.preventDefault();
+        this._sidebarFocusIndex = toolCount - 1;
+        this.updateComplete.then(() => {
+          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
+        });
+        break;
+    }
+  };
+
   #mobileQuery = window.matchMedia('(max-width: 768px)');
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
@@ -1519,7 +1575,7 @@ export class CoachBoard extends LitElement {
         </div>
 
         <nav class="menu-nav">
-          ${menuItem('Home', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m600 112.5-562.5 487.5h112.5v487.5h337.5v-300h225v300h337.5v-487.5h112.5zm0 112.5 450 390v435h-225v-300h-450v300h-225v-435z"/></svg>`,
+          ${menuItem('Home', html`<svg viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor"><path d="M1214.45 54.9997H385.56C309.309 54.9997 247.16 117.052 247.16 193.346V1406.75C247.16 1483 309.259 1545.09 385.56 1545.09H1214.47C1290.72 1545.09 1352.87 1483.04 1352.87 1406.75L1352.86 193.293C1352.86 117.042 1290.71 54.9863 1214.46 54.9863L1214.45 54.9997ZM639.4 145H960.2L958.997 292.2L639.397 290.601L639.4 145ZM960.6 1455H639.8L641.05 1307.85L960.65 1309.45L960.655 1455L960.6 1455ZM1262.8 1406.7C1262.8 1433.35 1241.1 1455 1214.45 1455H1050.65V1309.45C1050.65 1258.9 1009.55 1217.8 959 1217.8L641 1217.81C590.448 1217.81 549.349 1258.91 549.349 1309.46V1455H385.549C358.899 1455 337.2 1433.35 337.2 1406.7L337.195 845.009H569.941C591.04 952.858 686.092 1034.61 799.995 1034.61C913.897 1034.61 1008.99 952.86 1030.05 845.009H1262.79L1262.8 1406.7ZM936.693 845.004C917.641 902.602 863.944 944.556 800 944.556C736.056 944.556 682.349 902.608 663.307 845.004H936.693ZM663.293 755.004C682.345 697.405 736.043 655.452 799.987 655.452C863.931 655.452 917.637 697.4 936.68 755.004H663.293ZM1262.79 755.004H1030.04C1008.94 647.154 913.889 565.404 799.987 565.404C686.084 565.404 590.987 647.153 569.933 755.004H337.187V193.31C337.187 166.66 358.884 145.008 385.536 145.008H549.336V290.554C549.336 341.106 590.435 382.205 640.987 382.205H958.933C1009.49 382.205 1050.58 341.106 1050.58 290.554V145.008H1214.38C1241.03 145.008 1262.73 166.658 1262.73 193.31V755.004H1262.79Z" /></svg>`,
             () => { this.#toggleMenu(); })}
           <div class="menu-nav-divider"></div>
 
@@ -1649,6 +1705,9 @@ export class CoachBoard extends LitElement {
           </button>
           <div class="sidebar-divider" role="separator"></div>
 
+          <div class="sidebar-tools" role="toolbar" aria-label="Tools" aria-orientation="vertical"
+               @keydown="${this.#onSidebarToolKeyDown}">
+
           <!-- Select (with submenu: Select / Multi-select) -->
           <div class="sidebar-dropdown-wrap">
             <button class="sidebar-tool has-submenu"
@@ -1657,7 +1716,8 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'select'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'select'}"
-                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'select' ? null : 'select'; }}">
+                    tabindex="${this._sidebarFocusIndex === 0 ? 0 : -1}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarFocusIndex = 0; this._sidebarMenu = this._sidebarMenu === 'select' ? null : 'select'; }}">
               <svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor" /></svg>
             </button>
             ${this._sidebarMenu === 'select' ? html`
@@ -1687,7 +1747,8 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'add-player'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'player'}"
-                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'player' ? null : 'player'; }}">
+                    tabindex="${this._sidebarFocusIndex === 1 ? 0 : -1}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarFocusIndex = 1; this._sidebarMenu = this._sidebarMenu === 'player' ? null : 'player'; }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m0 431.26 225 168.74v-200.16l-120.14-165.19z"/><path d="m1095.1 234.66-120.14 165.19v198.56l225-167.16z"/><path d="m1065.7 179.39c-9.9844-18.703-27.422-32.344-48-37.453l-267.71-66.938c0 82.828-67.172 150-150 150s-150-67.172-150-150l-267.71 66.938c-20.578 5.1562-38.016 18.75-48 37.453l-9.8438 18.469 134.44 184.87c2.3438 3.1875 3.5625 7.0781 3.5625 11.062v731.26h675l0.09375-731.29c0-3.9844 1.2656-7.8281 3.5625-11.062l134.44-184.87-9.8438-18.469zm-615.66 870.61h-112.5v-75h112.5zm318.74-581.26c-31.078 0-56.25-25.172-56.25-56.25 0-31.078 25.172-56.25 56.25-56.25 31.078 0 56.25 25.172 56.25 56.25 0 31.078-25.172 56.25-56.25 56.25z"/></svg>
             </button>
             ${this._sidebarMenu === 'player' ? html`
@@ -1723,26 +1784,82 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'add-equipment'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'equipment'}"
-                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'equipment' ? null : 'equipment'; }}">
+                    tabindex="${this._sidebarFocusIndex === 2 ? 0 : -1}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarFocusIndex = 2; this._sidebarMenu = this._sidebarMenu === 'equipment' ? null : 'equipment'; }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor"/></svg>
             </button>
             ${this._sidebarMenu === 'equipment' ? html`
               <div role="menu" aria-label="Add Equipment" @keydown="${this.#onSidebarMenuKeyDown}">
-                ${([
-                  { label: 'Ball', kind: 'ball' as const },
-                  { label: 'Cone', kind: 'cone' as const },
-                  { label: 'Dummy', kind: 'dummy' as const },
-                  { label: 'Pole', kind: 'pole' as const },
-                  { label: 'Goal', kind: 'goal' as const },
-                  { label: 'Mini Goal', kind: 'mini-goal' as const },
-                  { label: 'Pop-up Goal', kind: 'popup-goal' as const },
-                  { label: 'Coach', kind: 'coach' as const },
-                ] as { label: string; kind: import('../lib/types.js').EquipmentKind }[]).map(eq => html`
-                  <button role="menuitem" tabindex="-1"
-                          @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = eq.kind; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
-                    ${eq.label}
-                  </button>
-                `)}
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'ball'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 1200 1200" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <circle cx="600" cy="600" r="560" fill="white" />
+                    <path fill="${COLORS.ballDetail}" d="m1080 600.84c-0.23438 127.31-51 249.28-141.19 339.14s-212.34 140.26-339.66 140.02c-127.31-0.23438-249.28-51-339.14-141.19-89.867-90.191-140.26-212.34-140.02-339.66 0.23438-127.31 51-249.28 141.19-339.14 90.191-89.867 212.34-140.26 339.66-140.02 127.22 0.51562 249.05 51.375 338.86 141.52 89.766 90.094 140.26 212.11 140.29 339.32zm-481.92 153.61c25.781 0 51.609 0.84375 77.297 0 8.3906-0.84375 15.984-5.2031 21-12 25.219-41.578 49.547-83.766 73.078-126.47v-0.046875c3.2344-6.9375 3.2344-14.953 0-21.938-24-42-49.922-84-75.938-124.69h-0.046875c-4.5469-6.2344-11.531-10.219-19.172-11.016-48.703-0.9375-97.5-0.9375-146.29 0-8.3906 0.84375-16.031 5.2031-21 12-26.016 40.688-51.469 82.125-76.453 124.18-3.1875 6.9375-3.1875 14.906 0 21.844 24 42.562 48.422 84.703 73.219 126.47 4.5 6.1875 11.344 10.219 18.938 11.062 25.219 1.3125 50.297 0.60938 75.375 0.60938zm-174.71-426.61c-40.688 3.9375-73.312 6.4688-105.61 10.781-8.5312 1.5-16.125 6.2344-21.234 13.219-24.609 38.625-48 78-71.156 117.7-3.375 6.3281-4.0781 13.734-1.9219 20.531 13.266 32.859 27.469 65.344 42.609 97.453 3.5625 5.7188 9.6562 9.4219 16.406 9.9375 31.922-2.1562 63.703-5.2969 96-9.7031 8.3438-1.5469 15.75-6.2812 20.672-13.219 26.156-41.062 51.422-82.594 75.844-124.69h-0.046875c3.7969-7.4062 4.4062-16.078 1.6875-24-12-28.312-24-56.156-37.781-83.391-4.0781-5.9062-9.375-10.875-15.469-14.625zm352.55 0c-5.5312 3.75-10.266 8.5312-13.922 14.156-13.547 27.375-26.391 55.219-37.922 84-2.6719 7.875-2.2031 16.453 1.3125 24 24 42 49.781 84 75.938 124.55h0.046875c5.5312 7.1719 13.594 11.953 22.547 13.453 30.844 4.4531 62.062 7.4531 93.234 9.375 7.3594-0.75 13.922-4.9219 17.625-11.297 14.625-30.609 28.312-61.781 41.062-93.375 2.6719-7.4062 2.25-15.562-1.0781-22.641-23.062-39.703-46.688-78.938-71.297-117.7v-0.046875c-4.9219-7.0312-12.328-11.906-20.766-13.688-33.094-4.4062-66.703-6.9375-106.78-10.922zm-13.781 562.08c-22.219-30.984-43.828-61.922-66.141-91.688-4.3125-4.125-10.078-6.375-16.078-6.2344-53.297-0.65625-106.83-0.65625-160.69 0-5.9531 0.23438-11.625 2.8125-15.703 7.2188-22.312 30-43.781 60-65.766 91.078 22.547 28.922 43.453 56.625 65.625 84 5.4375 5.7656 12.844 9.2344 20.766 9.7031 50.719 0.79688 101.53 0.79688 152.39 0 7.5-0.51562 14.484-3.9375 19.453-9.6094 22.219-27.328 43.547-55.547 66.141-84.469zm-483.98-593.76c9.9844 2.9062 20.156 4.9688 30.469 6.1406 13.922 0 27.703-2.3906 41.531-3.8438 29.625-3.375 61.688-0.70312 88.547-11.391 46.688-19.828 91.781-43.172 134.9-69.844 7.4531-4.4531 7.0781-24 7.2188-37.312 0-4.0781-9.6094-9.2344-15.703-12-22.453-10.219-44.766-4.0781-67.219 1.3125h-0.046876c-84 20.016-160.36 64.125-219.71 126.94zm643.45 0c-63.047-67.172-145.69-112.78-236.16-130.22-16.969-1.9219-34.172-1.125-50.906 2.2969-5.7656 0.84375-15.375 7.7812-15.375 12 0 12.844 0 32.766 7.4531 37.219 43.547 25.688 89.297 48 134.39 71.062l0.046875-0.046875c3.2344 1.2656 6.7031 1.9219 10.172 2.0625 40.078 4.0781 80.156 8.5312 120 12 10.359-0.9375 20.578-3.2344 30.375-6.8438zm-747.71 192c-24 66.609-20.766 167.06 4.2188 248.86l-0.046876 0.046875c7.6406 25.125 23.109 47.156 44.156 62.859 24-12 24-12 23.391-36.938-1.7812-42.984-3.2344-85.594-5.625-127.82-0.23438-8.2031-1.9219-16.359-4.9219-24-14.719-35.109-30-70.078-45.844-104.86-4.3125-6.9375-9.4688-13.312-15.375-18.984zm804.61 310.78c59.156-48.703 87.375-226.22 46.781-308.53-4.3125 3.8438-9.9375 6.4688-12 10.547-21.141 56.625-60 107.16-56.062 172.31v0.046876c1.1719 29.953-0.09375 59.906-3.8438 89.625-1.5469 18.375 4.0781 29.906 25.078 35.203zm-246.52 223.69c77.578-23.672 146.86-68.859 199.78-130.31 10.594-14.297 18.984-30.047 24.984-46.781 1.6406-5.9062 0.14063-12.234-3.9844-16.828-8.1562-3.9375-20.766-9-26.859-5.3906-75 43.828-149.16 88.688-195.84 166.55-7.4531 12.281-10.078 20.438 1.9219 32.766zm-258 1.9219c0-12 3.1406-21.703 0-27.938-47.062-81.234-122.76-130.08-201.71-174.47-5.3906-3.1406-17.766 2.7656-24.938 7.4531l-0.046874-0.046875c-3.7969 4.8281-4.9219 11.203-3.0938 17.062 4.6406 15.141 11.766 29.438 21 42.328 55.219 64.219 127.64 111.28 208.78 135.61z" />
+                  </svg>
+                  Ball
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'cone'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <circle cx="8" cy="8" r="5" fill="none" stroke="${COLORS.coneNeonOrange}" stroke-width="3.5" />
+                    <circle cx="8" cy="8" r="2" fill="#d0d0d0" />
+                  </svg>
+                  Cone
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'dummy'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <rect x="4.5" y="1.5" width="7" height="13" rx="3.5"
+                          fill="none" stroke="${COLORS.coneChartreuse}" stroke-width="1.8" />
+                    <rect x="6.5" y="3.5" width="3" height="9" rx="1.5"
+                          fill="${COLORS.coneChartreuse}" fill-opacity="0.6" />
+                  </svg>
+                  Dummy
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'pole'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <circle cx="8" cy="8" r="5.5" fill="none" stroke="#d0d0d0" stroke-width="1.5" />
+                    <circle cx="8" cy="8" r="3" fill="${COLORS.coneChartreuse}" />
+                  </svg>
+                  Pole
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'goal'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <rect x="3" y="1" width="7" height="14" fill="none" stroke="white" stroke-width="1.3"
+                          stroke-dasharray="1.8,1" />
+                    <line x1="3" y1="1" x2="3" y2="15" stroke="white" stroke-width="1.3" stroke-dasharray="none" />
+                  </svg>
+                  Goal
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'mini-goal'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <rect x="3" y="3" width="5" height="10" fill="none" stroke="white" stroke-width="1.3"
+                          stroke-dasharray="1.8,1" />
+                    <line x1="3" y1="3" x2="3" y2="13" stroke="white" stroke-width="1.3" stroke-dasharray="none" />
+                  </svg>
+                  Mini Goal
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'popup-goal'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <path d="M 5,1.5 A 6.5,6.5 0 0 1 5,14.5" fill="none" stroke="${COLORS.popupGoal}" stroke-width="1.3"
+                          stroke-dasharray="1.8,1" />
+                    <line x1="5" y1="1.5" x2="5" y2="14.5" stroke="${COLORS.popupGoal}" stroke-width="1.3" stroke-dasharray="none" />
+                  </svg>
+                  Pop-up Goal
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'coach'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <circle cx="8" cy="8" r="7" fill="${COLORS.coachBg}" stroke="white" stroke-width="0.8" />
+                    <text x="8" y="8" text-anchor="middle" dominant-baseline="central"
+                          fill="white" font-size="8" font-weight="bold" font-family="system-ui, sans-serif">C</text>
+                  </svg>
+                  Coach
+                </button>
               </div>
             ` : nothing}
           </div>
@@ -1755,30 +1872,48 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'draw-line' || t === 'draw-shape'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'draw'}"
-                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarMenu = this._sidebarMenu === 'draw' ? null : 'draw'; }}">
+                    tabindex="${this._sidebarFocusIndex === 3 ? 0 : -1}"
+                    @click="${(e: Event) => { e.stopPropagation(); this._sidebarFocusIndex = 3; this._sidebarMenu = this._sidebarMenu === 'draw' ? null : 'draw'; }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m349.6 604.3-88.301 88.551c-9.75 9.6992-9.75 25.613 0.050781 35.352l17.699 17.699-123.65 123.95c-4.6992 4.6992-7.3008 11.113-7.3008 17.699 0 6.6016 2.6484 12.949 7.3516 17.699l53.102 53-79.602 79.75c-9.75 9.75-9.75 25.602 0.050781 35.352 4.8984 4.8984 11.25 7.3008 17.648 7.3008 6.3984 0 12.801-2.4492 17.699-7.3516l79.602-79.801 53.102 53c4.8984 4.8867 11.25 7.3008 17.648 7.3008s12.801-2.4609 17.699-7.3008l123.6-123.95 17.699 17.699c4.6992 4.6875 11.051 7.3008 17.648 7.3008 6.6484 0 13-2.7109 17.699-7.3008l88.301-88.562z"/><path d="m1060.9 325.05-150.74-150.3c-19.262-19.449-43.211-43.648-70.461-43.648-11.789 0-22.551 4.5-31.051 13.051l-70.637 70.801-88.551-88.301c-4.6992-4.6484-11.051-7.3008-17.648-7.3008-6.6484 0-13 2.6484-17.699 7.3516l-282.42 283.2c-9.6992 9.75-9.6992 25.602 0.050781 35.352 9.8008 9.6992 25.602 9.8008 35.352-0.050781l264.8-265.5 70.801 70.648-317.75 318.55 247.85 247.2 428.15-429.25c9-8.8008 17.488-17.148 17.488-30.898-0.035157-13.754-8.5352-22.102-17.535-30.902z"/></svg>
             </button>
             ${this._sidebarMenu === 'draw' ? html`
               <div role="menu" aria-label="Draw" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'solid'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 32 12" width="32" height="12" style="flex-shrink:0">
+                    <line x1="2" y1="6" x2="22" y2="6" stroke="${COLORS.previewStroke}" stroke-width="2" />
+                    <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
+                  </svg>
                   Pass / Shot
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'dashed'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 32 12" width="32" height="12" style="flex-shrink:0">
+                    <line x1="2" y1="6" x2="22" y2="6" stroke="${COLORS.previewStroke}" stroke-width="2" stroke-dasharray="4,3" />
+                    <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
+                  </svg>
                   Run
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'wavy'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 32 12" width="32" height="12" style="flex-shrink:0">
+                    <path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />
+                  </svg>
                   Dribble
                 </button>
                 <div class="sb-menu-separator"></div>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-shape'; this.shapeKind = 'rect'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <rect x="2" y="3" width="12" height="10" fill="none" stroke="${COLORS.previewStroke}" stroke-width="1.2" rx="0.5" />
+                  </svg>
                   Rectangle
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-shape'; this.shapeKind = 'ellipse'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 16 16" width="16" height="16" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                    <ellipse cx="8" cy="8" rx="7" ry="5" fill="none" stroke="${COLORS.previewStroke}" stroke-width="1.2" />
+                  </svg>
                   Ellipse
                 </button>
               </div>
@@ -1790,9 +1925,12 @@ export class CoachBoard extends LitElement {
                   title="Text (T)"
                   aria-label="Text"
                   aria-pressed="${t === 'add-text'}"
-                  @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); }}">
-            <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
+                  tabindex="${this._sidebarFocusIndex === 4 ? 0 : -1}"
+                  @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); this._sidebarFocusIndex = 4; }}">
+            <svg viewBox="240 204 720 720" width="20" height="20" fill="currentColor"><path d="m312 348h168v504h-96v72h264v-72h-96v-504h168v72h72v-108c0-9.5469-3.793-18.703-10.543-25.457-6.7539-6.75-15.91-10.543-25.457-10.543h-480c-9.5469 0-18.703 3.793-25.457 10.543-6.75 6.7539-10.543 15.91-10.543 25.457v108h72z"/><path d="m780 528v96h-96v72h96v120c0 28.645 11.379 56.113 31.633 76.367 20.254 20.254 47.723 31.633 76.367 31.633h72v-72h-72c-9.5469 0-18.703-3.793-25.457-10.543-6.75-6.7539-10.543-15.91-10.543-25.457v-120h96v-72h-96v-96z"/></svg>
           </button>
+
+          </div><!-- .sidebar-tools -->
         </nav><!-- .sidebar -->
 
         <div class="main-area">

@@ -479,13 +479,19 @@ export class CbToolbar extends LitElement {
 
     :host([hide-tool-selector]) {
       padding: 0;
+      height: 52px;
       min-height: 52px;
+      overflow: hidden;
+      background: transparent;
     }
 
     :host([hide-tool-selector]) .edit-bar {
       margin: 0;
       border-top: none;
+      height: 52px;
       min-height: 52px;
+      background: transparent;
+      box-shadow: none;
     }
 
     :host([icon-only]) .btn-text,
