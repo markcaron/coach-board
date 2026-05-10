@@ -889,6 +889,14 @@ export class CbToolbar extends LitElement {
       font-size: 0.8rem;
       color: var(--pt-text-muted);
       min-width: 32px;
+      text-align: right;
+    }
+
+    .ctx-panel-divider {
+      border: none;
+      border-top: 1px solid rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      margin: 4px 0;
     }
 
     .ctx-color-grid {
@@ -965,6 +973,12 @@ export class CbToolbar extends LitElement {
     .ctx-dd-wrap [role="menu"] {
       position: absolute;
       top: 0;
+      left: calc(100% + 4px);
+    }
+
+    .ctx-dd-wrap.flipped [role="menu"] {
+      top: auto;
+      bottom: 0;
       left: calc(100% + 4px);
       z-index: 300;
       min-width: 180px;
@@ -1141,6 +1155,8 @@ export class CbToolbar extends LitElement {
   }
 
   #panelTop = 0;
+  #panelFlipped = false;
+  #ctxMenuFlipped = false;
   #panelLeft = 0;
 
   connectedCallback() {
@@ -2075,7 +2091,13 @@ export class CbToolbar extends LitElement {
       this._openMenu = null;
     } else {
       const btn = e.currentTarget as HTMLElement;
-      this.#panelTop = btn.offsetTop;
+      const rect = btn.getBoundingClientRect();
+      const BOTTOM_CLEARANCE = 76; // bottom bar (60px) + buffer
+      const PANEL_ESTIMATE = 300;
+      this.#panelFlipped = (window.innerHeight - rect.bottom - BOTTOM_CLEARANCE) < PANEL_ESTIMATE;
+      this.#panelTop = this.#panelFlipped
+        ? this.offsetHeight - btn.offsetTop  // used as CSS `bottom`
+        : btn.offsetTop;
       this._openMenu = 'ctx-panel';
     }
   }
@@ -2085,6 +2107,11 @@ export class CbToolbar extends LitElement {
     if (this._openMenu === menu) {
       this._openMenu = null;
     } else {
+      const btn = e.currentTarget as HTMLElement;
+      const rect = btn.getBoundingClientRect();
+      const BOTTOM_CLEARANCE = 76;
+      const MENU_ESTIMATE = 320;
+      this.#ctxMenuFlipped = (window.innerHeight - rect.bottom - BOTTOM_CLEARANCE) < MENU_ESTIMATE;
       this._openMenu = menu;
     }
   }
@@ -2219,7 +2246,7 @@ export class CbToolbar extends LitElement {
       : 'Style';
     return html`
       <div class="ctx-panel"
-           style="top:${this.#panelTop}px"
+           style="${this.#panelFlipped ? `bottom:${this.#panelTop}px` : `top:${this.#panelTop}px`}"
            @pointerdown="${(e: Event) => e.stopPropagation()}"
            @keydown="${this.#onPanelKeyDown}">
         <div class="ctx-panel-header">
@@ -2261,6 +2288,7 @@ export class CbToolbar extends LitElement {
                @keydown="${this.#onNumberKeyDown}"
                @pointerdown="${(e: Event) => e.stopPropagation()}" />
       </div>
+      <hr class="ctx-panel-divider" />
       <div class="ctx-color-grid">
         ${getPlayerColors(this.fieldTheme).map(c => html`
           <button class="ctx-swatch-btn"
@@ -2427,7 +2455,7 @@ export class CbToolbar extends LitElement {
     const count = this.selectedItems.length;
     const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as unknown as Record<string, unknown>).groupId);
     return html`
-      <div class="ctx-dd-wrap">
+      <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
         <button class="ctx-icon-btn" title="Grouping" aria-label="Grouping"
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'grouping'}"
@@ -2452,7 +2480,7 @@ export class CbToolbar extends LitElement {
           </div>
         ` : nothing}
       </div>
-      <div class="ctx-dd-wrap">
+      <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
         <button class="ctx-icon-btn" title="Align" aria-label="Align"
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'align'}"
