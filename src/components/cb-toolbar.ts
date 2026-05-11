@@ -992,7 +992,7 @@ export class CbToolbar extends LitElement {
       align-items: center;
       justify-content: center;
       width: 40px;
-      height: 36px;
+      min-height: 44px;
       padding: 0;
       background: transparent;
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -1001,6 +1001,15 @@ export class CbToolbar extends LitElement {
       color: var(--pt-text);
       font: inherit;
       transition: background 0.12s;
+    }
+
+    /* Arrow polygon: dim when not pressed, full when pressed via CSS */
+    .ctx-line-btn polygon {
+      fill-opacity: 0.35;
+    }
+
+    .ctx-line-btn[aria-pressed="true"] polygon {
+      fill-opacity: 1;
     }
 
     .ctx-line-btn:hover {
@@ -1013,9 +1022,14 @@ export class CbToolbar extends LitElement {
     }
 
     .ctx-line-btn[aria-pressed="true"] {
-      background: var(--pt-danger-hover);
-      border-color: var(--pt-danger-hover);
-      color: var(--pt-text-white);
+      background: var(--pt-border);
+      border-color: var(--pt-text-white);
+    }
+
+    /* Tight-gap wrapper for the 5-button line type row */
+    .ctx-line-controls {
+      display: flex;
+      gap: 4px;
     }
 
     /* Sidebar arrangement dropdown wrapper */
@@ -2507,38 +2521,41 @@ export class CbToolbar extends LitElement {
   #renderPanelLine() {
     const lines = this.#selectedLines;
     const ref = lines[0];
-    const style = ref.style;
-    const nextStyle: LineStyle = style === 'solid' ? 'dashed' : style === 'dashed' ? 'wavy' : 'solid';
-    const styleLabel = style === 'solid' ? 'Pass/Shot' : style === 'dashed' ? 'Run' : 'Dribble';
-    const nextLabel = nextStyle === 'solid' ? 'Pass/Shot' : nextStyle === 'dashed' ? 'Run' : 'Dribble';
     const ids = lines.map(l => l.id);
     return html`
       <div class="ctx-row">
-        <button class="ctx-line-btn" title="Arrow on start" aria-pressed="${ref.arrowStart}"
-                aria-label="Arrow on start"
-                @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowStart: !ref.arrowStart }))}">
-          <svg viewBox="0 0 20 12" width="20" height="12">
-            <line x1="8" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2"/>
-            <polygon points="8,3 2,6 8,9" fill="${ref.arrowStart ? 'currentColor' : 'rgba(255,255,255,0.3)'}"/>
-          </svg>
-        </button>
-        <button class="ctx-line-btn" title="${styleLabel} — switch to ${nextLabel}"
-                aria-label="${styleLabel} — switch to ${nextLabel}"
-                @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { style: nextStyle }))}">
-          <svg viewBox="0 0 20 12" width="20" height="12">
-            ${style === 'wavy'
-              ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="currentColor" stroke-width="2.5"/>`
-              : svg`<line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2.5" stroke-dasharray="${style === 'dashed' ? '3,2' : 'none'}"/>`}
-          </svg>
-        </button>
-        <button class="ctx-line-btn" title="Arrow on end" aria-pressed="${ref.arrowEnd}"
-                aria-label="Arrow on end"
-                @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowEnd: !ref.arrowEnd }))}">
-          <svg viewBox="0 0 20 12" width="20" height="12">
-            <line x1="2" y1="6" x2="12" y2="6" stroke="currentColor" stroke-width="2"/>
-            <polygon points="12,3 18,6 12,9" fill="${ref.arrowEnd ? 'currentColor' : 'rgba(255,255,255,0.3)'}"/>
-          </svg>
-        </button>
+        <span class="ctx-label">Type</span>
+        <div class="ctx-line-controls">
+          <button class="ctx-line-btn" title="Arrow on start" aria-pressed="${ref.arrowStart}"
+                  aria-label="Arrow on start"
+                  @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowStart: !ref.arrowStart }))}">
+            <svg viewBox="0 0 20 12" width="20" height="12">
+              <line x1="8" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2"/>
+              <polygon points="8,3 2,6 8,9" fill="currentColor"/>
+            </svg>
+          </button>
+          ${LINE_STYLES.map(s => html`
+            <button class="ctx-line-btn"
+                    title="${s.label}"
+                    aria-label="${s.label}"
+                    aria-pressed="${ref.style === s.value}"
+                    @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { style: s.value }))}">
+              <svg viewBox="0 0 20 12" width="20" height="12">
+                ${s.value === 'wavy'
+                  ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="currentColor" stroke-width="2.5"/>`
+                  : svg`<line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2.5" stroke-dasharray="${s.value === 'dashed' ? '3,2' : 'none'}"/>`}
+              </svg>
+            </button>
+          `)}
+          <button class="ctx-line-btn" title="Arrow on end" aria-pressed="${ref.arrowEnd}"
+                  aria-label="Arrow on end"
+                  @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowEnd: !ref.arrowEnd }))}">
+            <svg viewBox="0 0 20 12" width="20" height="12">
+              <line x1="2" y1="6" x2="12" y2="6" stroke="currentColor" stroke-width="2"/>
+              <polygon points="12,3 18,6 12,9" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="ctx-row">
         <span class="ctx-label">Color</span>
