@@ -411,7 +411,7 @@ export class CbToolbar extends LitElement {
       width: 52px;
       height: 44px;
       text-align: center;
-      font: bold 0.85rem system-ui, sans-serif;
+      font: bold 1rem system-ui, sans-serif;
       color: var(--pt-text-white);
       background: var(--pt-bg-surface);
       border: 1px solid rgba(255, 255, 255, 0.25);
@@ -920,7 +920,7 @@ export class CbToolbar extends LitElement {
       min-width: 0;
       min-height: 44px;
       text-align: left;
-      font: bold 0.85rem system-ui, sans-serif;
+      font: bold 1rem system-ui, sans-serif;
       color: var(--pt-text-white);
       background: var(--pt-bg-primary);
       border: 1px solid rgba(255, 255, 255, 0.25);
@@ -942,7 +942,7 @@ export class CbToolbar extends LitElement {
     .ctx-font-select {
       width: 80px;
       min-height: 44px;
-      font: bold 0.85rem system-ui, sans-serif;
+      font: bold 1rem system-ui, sans-serif;
       color: var(--pt-text-white);
       background: var(--pt-bg-primary);
       border: 1px solid rgba(255, 255, 255, 0.25);
@@ -1150,7 +1150,7 @@ export class CbToolbar extends LitElement {
       width: 64px;
       height: 36px;
       text-align: center;
-      font: bold 0.85rem system-ui, sans-serif;
+      font: bold 1rem system-ui, sans-serif;
       color: var(--pt-text-white);
       background: var(--pt-bg-primary);
       border: 1px solid rgba(255, 255, 255, 0.25);
@@ -1170,7 +1170,7 @@ export class CbToolbar extends LitElement {
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 6px;
       color: var(--pt-text);
-      font: bold 0.85rem system-ui, sans-serif;
+      font: bold 1rem system-ui, sans-serif;
       cursor: pointer;
       transition: background 0.12s;
     }

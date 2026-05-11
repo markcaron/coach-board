@@ -73,7 +73,7 @@ export class CbBoardSummary extends LitElement {
       width: 100%;
       box-sizing: border-box;
       padding: 10px 12px;
-      font-size: 0.85rem;
+      font-size: 1rem;
       font-family: inherit;
       border: 1.5px solid rgba(0, 0, 0, 0.14);
       border-radius: 6px;
