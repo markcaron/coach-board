@@ -628,46 +628,6 @@ export class CoachBoard extends LitElement {
       margin: 4px 0;
     }
 
-    .unit-toggle {
-      display: flex;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .unit-toggle button {
-      background: transparent;
-      border: none;
-      color: var(--pt-text-muted);
-      font: inherit;
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 5px 10px;
-      cursor: pointer;
-      min-height: 32px;
-      transition: background 0.12s, color 0.12s;
-    }
-
-    .unit-toggle button:first-child {
-      border-right: 1px solid rgba(255, 255, 255, 0.25);
-    }
-
-    .unit-toggle button:hover {
-      background: var(--pt-border);
-      color: var(--pt-text);
-    }
-
-    .unit-toggle button[aria-pressed="true"] {
-      background: var(--pt-bg-surface);
-      color: var(--pt-text);
-    }
-
-    .unit-toggle button:focus-visible {
-      outline: 2px solid var(--pt-accent);
-      outline-offset: -2px;
-    }
-
     .context-bar cb-toolbar {
       flex: 1;
       min-width: 0;
@@ -2029,12 +1989,12 @@ export class CoachBoard extends LitElement {
           ` : nothing}
           <div class="context-bar-right">
             ${this.activeTool === 'measure' ? html`
-              <div class="unit-toggle" role="group" aria-label="Distance unit">
-                <button aria-pressed="${this._measureUnit === 'm'}"
-                        @click="${() => { this._measureUnit = 'm'; localStorage.setItem('cb-measure-unit', 'm'); }}">m</button>
-                <button aria-pressed="${this._measureUnit === 'yd'}"
-                        @click="${() => { this._measureUnit = 'yd'; localStorage.setItem('cb-measure-unit', 'yd'); }}">yd</button>
-              </div>
+              <label class="visually-hidden" for="ctx-unit-select">Distance unit</label>
+              <select id="ctx-unit-select" class="theme-select"
+                      @change="${(e: Event) => { const u = (e.target as HTMLSelectElement).value as 'm' | 'yd'; this._measureUnit = u; localStorage.setItem('cb-measure-unit', u); }}">
+                <option value="m" ?selected="${this._measureUnit === 'm'}">Meters</option>
+                <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards</option>
+              </select>
               <span class="context-divider" role="separator" aria-hidden="true"></span>
             ` : nothing}
             <label class="visually-hidden" for="ctx-theme-select">Pitch theme</label>
