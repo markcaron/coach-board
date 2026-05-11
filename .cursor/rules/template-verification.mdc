@@ -1,0 +1,148 @@
+---
+description: Verification protocol for built-in board template changes — prevents agents from modifying templates without explicit user direction
+alwaysApply: true
+---
+
+# Built-in Templates — Do Not Modify Without Explicit User Direction
+
+## Prime directive
+
+**Never change player positions, angles, colors, equipment, or any other template data in `src/lib/templates.ts` unless the user explicitly asks you to and provides a reference (screenshot, SVG export, or clear verbal description) for what the correct state should be.**
+
+Tactical and drill formations look wrong to the untrained eye all the time. A CDM sitting near the centre circle, a ball that isn't at the "front" of the play, fullbacks overlapping into unusual positions — these are all intentional coaching decisions. Do not "correct" them.
+
+---
+
+## Why this rule exists
+
+### The revert disaster (May 2026)
+
+1. An agent correctly fixed `HALF_ATT_SHAPE` and `OPEN_RONDO` in **PR #48** — the user verified both in that session.
+2. A later agent received screenshots that appeared to show wrong templates. It **never asked if the screenshots were from a new board or a saved board**, filed a bug, created revert PR #161, it merged, and the correct work was undone.
+3. **PR #162** had to redo the entire fix — this time sourcing coordinates directly from the user's own exported SVG board files to get pixel-perfect accuracy.
+
+Root cause 1: **saved boards retain the positions from when the template was applied**. Opening a board saved before a fix will always show the old positions. `templates.ts` changes do not retroactively update saved boards.
+
+Root cause 2: The agent assumed tactical intent from superficial visual reasoning ("the attacker should be near the goal") rather than trusting the user's explicit reference material.
+
+---
+
+## Things agents have gotten wrong before — do not repeat these
+
+### ❌ "The ball should be with the striker / at the front"
+The ball position is a tactical choice. In `HALF_ATT_SHAPE`, the ball is with #6 (CDM) near the centre circle — this represents the team *recirculating possession from deep*, not a static attacking setup. Do not move the ball to "where it makes more sense."
+
+### ❌ "The forward line should be near the penalty area, not at x=14"
+Player x-coordinates on the half-attack pitch go **0 (centre circle / left) → 60 (attacking goal / right)**. In the current template, Team A's front three are at x≈32–43, which IS in the attacking half — not x=14. A reviewer once claimed the coordinates were backwards; they were not. Read the coordinate system block at the top of `templates.ts` before drawing any conclusion.
+
+### ❌ "Blue players should face right because they attack right"
+Player facing angle is a per-player *drill context* choice, not a blanket team rule. In `OPEN_RONDO`, the four outer players each face *inward toward the drill area* (angles 0, 90, 180, 270). Applying the Team A default angle of 90 to all of them would be wrong. The angles are set explicitly in the template and must be preserved.
+
+### ❌ Trusting a code reviewer's positional feedback over the user
+Code reviewers can be wrong about tactical intent. In PR #48, a reviewer argued the coordinate system was backwards (Team B GK should be at high x, not low x). The **user explicitly confirmed the reviewer was mistaken**. If a reviewer raises a positional concern, bring it to the user — do not act on it unilaterally.
+
+### ❌ Making symmetric / "clean-looking" changes without a reference
+An agent once replaced rondo coordinates with a "clean symmetric diamond" because the original seemed off-center. The original was intentional. Always use the user's reference material, not your own aesthetic judgment.
+
+---
+
+## Protocol before touching `templates.ts`
+
+### 1. Confirm the report is against current code
+
+Always ask:
+
+> "Are you testing this with a **New Board** (applying the template fresh), or is this a board you saved earlier? Saved boards keep the positions from when they were created and won't reflect template updates."
+
+Do not file a bug or make changes until the user confirms they are seeing the issue in a **freshly applied template**.
+
+### 2. Get a reference from the user
+
+The gold standard is an **SVG export** from the app — it contains the exact board JSON in its `<desc>` tag, giving pixel-perfect coordinates, angles, and colors. A screenshot is acceptable but imprecise. A verbal description alone is not sufficient for coordinate changes.
+
+### 3. Check the deploy preview
+
+Every PR that touches `src/lib/templates.ts` must include a Netlify deploy preview link and the PR description must have checkboxes confirming each affected template was visually verified on a **new board**.
+
+```markdown
+## Test plan
+- [ ] New Board → [Pitch Type] → [Template Name]: visual description of expected layout
+```
+
+### 4. Never revert a user-verified template
+
+If the agent transcript history (in `/agent-transcripts/`) shows a template was explicitly verified by the user in a previous session, **do not revert it** without:
+
+1. The user explicitly requesting a revert, AND
+2. Confirming the new issue screenshots come from a fresh board.
+
+---
+
+## Coordinate system reference
+
+### Half-attack pitch (`pitchType: 'half-attack'`)
+
+SVG canvas: **60 wide × 68 tall** (portrait). Field runs left → right.
+
+| x value | Location |
+|---------|----------|
+| 0       | Left wall (slightly before centre circle) |
+| 7.5     | Halfway line / centre circle centre |
+| 43.5    | Penalty area left edge |
+| 49      | Penalty spot |
+| 60      | Attacking goal (right edge) |
+
+- `y = 0` → top touchline
+- `y = 34` → centre (`cy`)
+- `y = 68` → bottom touchline
+
+**Team A (blue) attacks left → right.** Deep-lying players (CBs, CDM) have **low x** (near the centre circle). Forwards and overlapping fullbacks have **high x** (near the goal). This is correct and intentional.
+
+### Open grass (`pitchType: 'open'`)
+
+SVG canvas: **105 wide × 68 tall** (same as full pitch). No field markings. Coordinates are free-form within this space.
+
+### Full pitch (`pitchType: 'full'`)
+
+SVG canvas: **105 wide × 68 tall**. Team A GK at x≈3 (left goal). Halfway line at x=52.5. Team A attacks left → right.
+
+### Half pitch defensive (`pitchType: 'half'`)
+
+SVG canvas: **60 wide × 68 tall**. Team A defending on left half (GK at x≈5).
+
+---
+
+## Template-specific notes
+
+### HALF_ATT_SHAPE — Attacking Shape
+
+- **Pitch type:** `half-attack`
+- **Both teams:** 10 Team A outfield (blue triangles) + 10 Team B outfield (red circles) + Team B GK (dark gray `#495057`, label "1"). Team A GK is off-screen in their own half.
+- **Ball:** with #6 (CDM) near the centre circle — this is deliberate (recirculating possession from deep).
+- **Team B** has a full 11 players on the pitch, not just a back 4. Past templates that only included Team B's back 4 + 3 mids were incorrect.
+- **Coordinate source:** SVG export from user's board (`attacking-shape.svg`, v1.2.1 board data).
+
+### OPEN_RONDO — Rondo (4v2)
+
+- **Pitch type:** `open` (open grass, 105×68)
+- **Players:** 4 Team A (blue triangles, **no labels**) + 2 Team B defenders (red circles, **no labels**) — unlabeled by design
+- **Player angles:** each outer player faces **inward** toward the drill area. These are set explicitly in the template (0, 90, 180, 270). The `playerAngle(team)` default in `coach-board.ts` must NOT override them.
+- **Cone color:** `COLORS.coneChartreuse` (`#7fff00`, Hi-Vis Yellow) — not neon orange.
+- **Ball:** near the left (►-facing) player, not at center.
+- **Coordinate source:** SVG export from user's board (`rondo-new.svg`, v1.4.0 board data).
+
+---
+
+## Known bug fixed in PR #162
+
+`coach-board.ts` line ~2918 used to unconditionally overwrite every template player's `angle` with the team default:
+
+```typescript
+// ❌ Before — ignores template angles
+angle: playerAngle(p.team)
+
+// ✅ After — respects explicitly set template angles
+angle: p.angle ?? playerAngle(p.team)
+```
+
+This caused every rondo outer player to face right (Team A default = 90°) regardless of the angle set in the template. The fix uses `??` so that only players without an explicit angle fall back to the team default. Do not revert this change.
