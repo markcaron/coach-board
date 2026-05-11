@@ -183,6 +183,13 @@ export class CbBoardSummary extends LitElement {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }
 
+  #onNotesKeyDown(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      this.#emit('cb-board-summary-save');
+    }
+  }
+
   // ── Section icons ─────────────────────────────────────────────────────────
 
   #iconPitch() {
@@ -330,7 +337,8 @@ export class CbBoardSummary extends LitElement {
                 rows="4"
                 placeholder="Add notes, drills, instructions…"
                 .value="${this.boardNotes}"
-                @input="${(e: Event) => this.#emit('cb-board-notes-input', { value: (e.target as HTMLTextAreaElement).value })}"></textarea>
+                @input="${(e: Event) => this.#emit('cb-board-notes-input', { value: (e.target as HTMLTextAreaElement).value })}"
+                @keydown="${this.#onNotesKeyDown}"></textarea>
       <div class="actions">
         <button class="save-btn" @click="${() => this.#emit('cb-board-summary-save')}">Save</button>
       </div>
