@@ -1,4 +1,5 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
+import { toolShortcutHintStyle } from '../lib/shared-styles.js';
 import { customElement, state, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { guard } from 'lit/directives/guard.js';
@@ -114,7 +115,7 @@ function rad2deg(r: number): number { return r * 180 / Math.PI; }
 
 @customElement('coach-board')
 export class CoachBoard extends LitElement {
-  static styles = css`
+  static styles = [toolShortcutHintStyle, css`
     *, *::before, *::after {
       box-sizing: border-box;
     }
@@ -591,11 +592,6 @@ export class CoachBoard extends LitElement {
       user-select: none;
     }
 
-    .tool-shortcut-hint {
-      opacity: 0.5;
-      font-size: 0.8em;
-    }
-
     .context-board-name .cb-unsaved {
       font-size: 0.9em;
       color: var(--pt-text-muted);
@@ -1065,7 +1061,7 @@ export class CoachBoard extends LitElement {
       white-space: pre-wrap;
     }
 
-  `;
+  `];
 
   @state() accessor activeTool: Tool = 'select';
   @state() accessor players: Player[] = [];
