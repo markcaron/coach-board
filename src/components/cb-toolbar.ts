@@ -171,10 +171,10 @@ const TEAMS_WHITE: { label: string; color: string; team: Team }[] = [
   { label: 'Neutral', color: COLORS.playerYellowW, team: 'neutral' },
 ];
 
-const LINE_STYLES: { label: string; value: LineStyle }[] = [
-  { label: 'Pass / Shot', value: 'solid' },
-  { label: 'Run', value: 'dashed' },
-  { label: 'Dribble', value: 'wavy' },
+const LINE_STYLES: { label: string; symbol: string; value: LineStyle }[] = [
+  { label: 'Pass / Shot', symbol: '―', value: 'solid' },
+  { label: 'Run',         symbol: '╌',  value: 'dashed' },
+  { label: 'Dribble',     symbol: '〜', value: 'wavy' },
 ];
 
 type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'dummy-color' | 'pole-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping' | 'ctx-panel';
@@ -952,10 +952,56 @@ export class CbToolbar extends LitElement {
       outline-offset: 2px;
     }
 
+    /* Shared select style — used for line style and font size */
+    .ctx-select {
+      flex: 1;
+      min-width: 0;
+      min-height: 44px;
+      font: 0.82rem system-ui, sans-serif;
+      color: var(--pt-text);
+      background: var(--pt-bg-primary);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 0 26px 0 10px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      cursor: pointer;
+    }
+
+    .ctx-select:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    /* Fieldset group — legend stacked above controls via margin */
+    fieldset.ctx-fieldset {
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    fieldset.ctx-fieldset > legend {
+      font-size: 0.8rem;
+      color: var(--pt-text-muted);
+      padding: 0;
+      font-weight: normal;
+      width: 100%;
+      float: none;
+      margin-bottom: 8px;
+    }
+
     .ctx-color-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 6px;
+      justify-content: start;
+    }
+
+    /* Equipment (cone/dummy/pole) colors — 2×2 grid */
+    .ctx-color-grid--2col {
+      grid-template-columns: repeat(2, auto);
     }
 
     .ctx-swatch-btn {
@@ -2375,10 +2421,11 @@ export class CbToolbar extends LitElement {
     if (selType === 'lines') {
       const ref = this.#selectedLines[0];
       const s = ref?.style ?? 'solid';
-      return svg`<svg viewBox="0 0 20 12" width="18" height="12">
+      return svg`<svg viewBox="0 0 22 12" width="20" height="12">
         ${s === 'wavy'
-          ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="currentColor" stroke-width="2"/>`
-          : svg`<line x1="2" y1="6" x2="16" y2="6" stroke="currentColor" stroke-width="2" stroke-dasharray="${s === 'dashed' ? '3,2' : 'none'}"/>`}
+          ? svg`<path d="M 2,6 Q 4.5,2 7,6 Q 9.5,10 12,6 Q 13,4 14,5" fill="none" stroke="currentColor" stroke-width="2"/>`
+          : svg`<line x1="2" y1="6" x2="13" y2="6" stroke="currentColor" stroke-width="2" stroke-dasharray="${s === 'dashed' ? '3,2' : 'none'}"/>`}
+        <polygon points="13,1 21,6 13,11" fill="currentColor"/>
       </svg>`;
     }
     if (selType === 'shapes') {
@@ -2451,21 +2498,24 @@ export class CbToolbar extends LitElement {
                @pointerdown="${(e: Event) => e.stopPropagation()}" />
       </div>
       <hr class="ctx-panel-divider" />
-      <div class="ctx-color-grid">
-        ${getPlayerColors(this.fieldTheme).map(c => html`
-          <button class="ctx-swatch-btn"
-                  aria-label="${c.name}"
-                  aria-pressed="${p.color === c.color}"
-                  title="${c.name}"
-                  @click="${() => this.#changeColor(c.color)}">
-            ${p.team === 'a'
-              ? html`<svg viewBox="0 0 20 20" width="20" height="20"><polygon points="10,2 18,18 2,18" fill="${c.color}" stroke="white" stroke-width="1" stroke-linejoin="round"/></svg>`
-              : p.team === 'neutral'
-              ? html`<svg viewBox="0 0 20 20" width="20" height="20"><rect x="3" y="3" width="14" height="14" rx="1" fill="${c.color}" stroke="white" stroke-width="1" transform="rotate(45 10 10)"/></svg>`
-              : html`<span class="color-swatch" style="background:${c.color};width:20px;height:20px;"></span>`}
-          </button>
-        `)}
-      </div>
+      <fieldset class="ctx-fieldset">
+        <legend>Color</legend>
+        <div class="ctx-color-grid">
+          ${getPlayerColors(this.fieldTheme).map(c => html`
+            <button class="ctx-swatch-btn"
+                    aria-label="${c.name}"
+                    aria-pressed="${p.color === c.color}"
+                    title="${c.name}"
+                    @click="${() => this.#changeColor(c.color)}">
+              ${p.team === 'a'
+                ? html`<svg viewBox="0 0 20 20" width="20" height="20"><polygon points="10,2 18,18 2,18" fill="${c.color}" stroke="white" stroke-width="1" stroke-linejoin="round"/></svg>`
+                : p.team === 'neutral'
+                ? html`<svg viewBox="0 0 20 20" width="20" height="20"><rect x="3" y="3" width="14" height="14" rx="1" fill="${c.color}" stroke="white" stroke-width="1" transform="rotate(45 10 10)"/></svg>`
+                : html`<span class="color-swatch" style="background:${c.color};width:20px;height:20px;"></span>`}
+            </button>
+          `)}
+        </div>
+      </fieldset>
     `;
   }
 
@@ -2473,48 +2523,56 @@ export class CbToolbar extends LitElement {
     const players = this.#selectedPlayers;
     const ref = players[0];
     return html`
-      <div class="ctx-color-grid">
-        ${getPlayerColors(this.fieldTheme).map(c => html`
-          <button class="ctx-swatch-btn"
-                  aria-label="${c.name}"
-                  aria-pressed="${ref.color === c.color}"
-                  title="${c.name}"
-                  @click="${() => this.#changeColor(c.color)}">
-            ${ref.team === 'a'
-              ? html`<svg viewBox="0 0 20 20" width="20" height="20"><polygon points="10,2 18,18 2,18" fill="${c.color}" stroke="white" stroke-width="1"/></svg>`
-              : html`<span class="color-swatch" style="background:${c.color};width:20px;height:20px;"></span>`}
-          </button>
-        `)}
-      </div>
+      <fieldset class="ctx-fieldset">
+        <legend>Color</legend>
+        <div class="ctx-color-grid">
+          ${getPlayerColors(this.fieldTheme).map(c => html`
+            <button class="ctx-swatch-btn"
+                    aria-label="${c.name}"
+                    aria-pressed="${ref.color === c.color}"
+                    title="${c.name}"
+                    @click="${() => this.#changeColor(c.color)}">
+              ${ref.team === 'a'
+                ? html`<svg viewBox="0 0 20 20" width="20" height="20"><polygon points="10,2 18,18 2,18" fill="${c.color}" stroke="white" stroke-width="1"/></svg>`
+                : html`<span class="color-swatch" style="background:${c.color};width:20px;height:20px;"></span>`}
+            </button>
+          `)}
+        </div>
+      </fieldset>
     `;
   }
 
   #renderPanelEquipmentColor(kind: 'cone' | 'dummy' | 'pole', items: Equipment[]) {
     const ref = items[0];
-    const defaultColor = kind === 'cone' ? '#ff7700' : '#a3e635';
+    const colors = getConeColors(this.fieldTheme);
+    // Default: cone → Neon Orange (index 1), others → chartreuse (index 0)
+    const defaultColor = kind === 'cone' ? colors[1]?.color ?? colors[0]?.color : colors[0]?.color ?? '#a3e635';
     return html`
-      <div class="ctx-color-grid" style="grid-template-columns:repeat(2,36px);">
-        ${getConeColors(this.fieldTheme).map(c => html`
-          <button class="ctx-swatch-btn"
-                  aria-label="${c.name}"
-                  aria-pressed="${(ref.color ?? defaultColor) === c.color}"
-                  title="${c.name}"
-                  @click="${() => this.#changeEquipmentColor(items, c.color)}">
-            <svg viewBox="0 0 20 20" width="20" height="20">
-              ${kind === 'pole' ? svg`
-                <circle cx="10" cy="10" r="7" fill="none" stroke="#d0d0d0" stroke-width="1.8"/>
-                <circle cx="10" cy="10" r="4" fill="${c.color}"/>
-              ` : kind === 'cone' ? svg`
-                <circle cx="10" cy="10" r="6.5" fill="none" stroke="${c.color}" stroke-width="4.5"/>
-                <circle cx="10" cy="10" r="2.5" fill="#d0d0d0"/>
-              ` : svg`
-                <circle cx="10" cy="10" r="7" fill="none" stroke="${c.color}" stroke-width="2"/>
-                <circle cx="10" cy="10" r="4" fill="${c.color}" fill-opacity="0.6"/>
-              `}
-            </svg>
-          </button>
-        `)}
-      </div>
+      <fieldset class="ctx-fieldset">
+        <legend>Color</legend>
+        <div class="ctx-color-grid ctx-color-grid--2col">
+          ${colors.map(c => html`
+            <button class="ctx-swatch-btn"
+                    aria-label="${c.name}"
+                    aria-pressed="${(ref.color ?? defaultColor) === c.color}"
+                    title="${c.name}"
+                    @click="${() => this.#changeEquipmentColor(items, c.color)}">
+              <svg viewBox="0 0 20 20" width="20" height="20">
+                ${kind === 'pole' ? svg`
+                  <circle cx="10" cy="10" r="7" fill="none" stroke="#d0d0d0" stroke-width="1.8"/>
+                  <circle cx="10" cy="10" r="4" fill="${c.color}"/>
+                ` : kind === 'cone' ? svg`
+                  <circle cx="10" cy="10" r="6.5" fill="none" stroke="${c.color}" stroke-width="4.5"/>
+                  <circle cx="10" cy="10" r="2.5" fill="#d0d0d0"/>
+                ` : svg`
+                  <circle cx="10" cy="10" r="7" fill="none" stroke="${c.color}" stroke-width="2"/>
+                  <circle cx="10" cy="10" r="4" fill="${c.color}" fill-opacity="0.6"/>
+                `}
+              </svg>
+            </button>
+          `)}
+        </div>
+      </fieldset>
     `;
   }
 
@@ -2523,8 +2581,8 @@ export class CbToolbar extends LitElement {
     const ref = lines[0];
     const ids = lines.map(l => l.id);
     return html`
-      <div class="ctx-row">
-        <span class="ctx-label">Type</span>
+      <fieldset class="ctx-fieldset">
+        <legend>Type</legend>
         <div class="ctx-line-controls">
           <button class="ctx-line-btn" title="Arrow on start" aria-pressed="${ref.arrowStart}"
                   aria-label="Arrow on start"
@@ -2534,19 +2592,12 @@ export class CbToolbar extends LitElement {
               <polygon points="8,3 2,6 8,9" fill="currentColor"/>
             </svg>
           </button>
-          ${LINE_STYLES.map(s => html`
-            <button class="ctx-line-btn"
-                    title="${s.label}"
-                    aria-label="${s.label}"
-                    aria-pressed="${ref.style === s.value}"
-                    @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { style: s.value }))}">
-              <svg viewBox="0 0 20 12" width="20" height="12">
-                ${s.value === 'wavy'
-                  ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="currentColor" stroke-width="2.5"/>`
-                  : svg`<line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2.5" stroke-dasharray="${s.value === 'dashed' ? '3,2' : 'none'}"/>`}
-              </svg>
-            </button>
-          `)}
+          <select class="ctx-select" aria-label="Line style"
+                  @change="${(e: Event) => this.dispatchEvent(new LineUpdateEvent(ids, { style: (e.target as HTMLSelectElement).value as LineStyle }))}">
+            ${LINE_STYLES.map(s => html`
+              <option value="${s.value}" ?selected="${ref.style === s.value}">${s.symbol}  ${s.label}</option>
+            `)}
+          </select>
           <button class="ctx-line-btn" title="Arrow on end" aria-pressed="${ref.arrowEnd}"
                   aria-label="Arrow on end"
                   @click="${() => this.dispatchEvent(new LineUpdateEvent(ids, { arrowEnd: !ref.arrowEnd }))}">
@@ -2556,9 +2607,10 @@ export class CbToolbar extends LitElement {
             </svg>
           </button>
         </div>
-      </div>
-      <div class="ctx-row">
-        <span class="ctx-label">Color</span>
+      </fieldset>
+      <hr class="ctx-panel-divider" />
+      <fieldset class="ctx-fieldset">
+        <legend>Color</legend>
         <div class="ctx-color-grid">
           ${getLineColors(this.fieldTheme).map(c => html`
             <button class="ctx-swatch-btn"
@@ -2570,7 +2622,7 @@ export class CbToolbar extends LitElement {
             </button>
           `)}
         </div>
-      </div>
+      </fieldset>
     `;
   }
 
@@ -2578,21 +2630,24 @@ export class CbToolbar extends LitElement {
     const shapes = this.#selectedShapes;
     const ref = shapes[0];
     return html`
-      <div class="ctx-color-grid">
-        ${getShapeStyles(this.fieldTheme).map(s => html`
-          <button class="ctx-swatch-btn"
-                  aria-label="${s.name}"
-                  aria-pressed="${ref.style === s.value}"
-                  title="${s.name}"
-                  @click="${() => this.#changeShapeStyle(s.value)}">
-            ${s.value === 'outline'
-              ? html`<span style="display:inline-block;width:18px;height:14px;border:2px solid currentColor;border-radius:1px;"></span>`
-              : s.value === 'dashed'
-              ? html`<span style="display:inline-block;width:18px;height:14px;border:2px dashed currentColor;border-radius:1px;"></span>`
-              : html`<span style="display:inline-block;width:18px;height:14px;background:${s.fill};border-radius:1px;opacity:0.7;"></span>`}
-          </button>
-        `)}
-      </div>
+      <fieldset class="ctx-fieldset">
+        <legend>Style</legend>
+        <div class="ctx-color-grid">
+          ${getShapeStyles(this.fieldTheme).map(s => html`
+            <button class="ctx-swatch-btn"
+                    aria-label="${s.name}"
+                    aria-pressed="${ref.style === s.value}"
+                    title="${s.name}"
+                    @click="${() => this.#changeShapeStyle(s.value)}">
+              ${s.value === 'outline'
+                ? html`<span style="display:inline-block;width:18px;height:14px;border:2px solid currentColor;border-radius:1px;"></span>`
+                : s.value === 'dashed'
+                ? html`<span style="display:inline-block;width:18px;height:14px;border:2px dashed currentColor;border-radius:1px;"></span>`
+                : html`<span style="display:inline-block;width:18px;height:14px;background:${s.fill};border-radius:1px;opacity:0.7;"></span>`}
+            </button>
+          `)}
+        </div>
+      </fieldset>
     `;
   }
 
