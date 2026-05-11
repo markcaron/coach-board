@@ -110,6 +110,7 @@ export class CbSideSheet extends LitElement {
     /* ── Body (slotted content) ───────────────────────────────────── */
     .sheet-body {
       flex: 1;
+      min-height: 0; /* prevents flex item from overflowing — required for overflow-y: auto to scroll */
       overflow-y: auto;
       display: flex;
       flex-direction: column;

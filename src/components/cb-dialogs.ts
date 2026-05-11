@@ -17,7 +17,7 @@ export interface BoardSummary {
   dummiesByColor: Map<string, number>;
   polesByColor: Map<string, number>;
   linesByStyle: Map<string, number>;
-  shapeCount: number;
+  shapesByKind: Map<string, number>;
   textCount: number;
   frameCount: number;
 }

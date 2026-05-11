@@ -2340,9 +2340,9 @@ export class CoachBoard extends LitElement {
                 ).join(', ')}</p></div>
               ` : nothing}
               ${this.#cachedSummary.linesByStyle.size > 0 ? html`
-                <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
+                <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}`).join(', ')}</p></div>
               ` : nothing}
-              ${this.#cachedSummary.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
+              ${this.#cachedSummary.shapesByKind.size > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${[...this.#cachedSummary.shapesByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).join(', ')}</p></div>` : nothing}
               ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p class="notes-body">${this._boardNotes}</p></div>` : nothing}
@@ -2475,33 +2475,6 @@ export class CoachBoard extends LitElement {
         @cb-print-confirm="${this.#handlePrint}"
       ></cb-dialogs>
 
-      <!-- My Boards side sheet -->
-      <cb-side-sheet
-        ?open="${this._myBoardsOpen}"
-        heading="My Boards"
-        @close="${() => { this._myBoardsOpen = false; }}">
-        <cb-my-boards
-          .boards="${this._myBoards}"
-          @cb-open-board="${this.#onOpenBoard}"
-          @cb-duplicate-board="${this.#onDuplicateBoard}"
-          @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
-          @cb-import-svg="${this.#importSvgFromMyBoards}"
-          @cb-export-all-boards="${this.#exportAllBoards}">
-        </cb-my-boards>
-      </cb-side-sheet>
-
-      <!-- Board Summary side sheet -->
-      <cb-side-sheet
-        ?open="${this._boardSummaryOpen}"
-        heading="Board Summary"
-        @close="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
-        <cb-board-summary
-          .summary="${this._boardSummaryData}"
-          .boardNotes="${this._boardNotes}"
-          @cb-board-notes-input="${this.#onBoardNotesInput}"
-          @cb-board-summary-save="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
-        </cb-board-summary>
-      </cb-side-sheet>
       <cb-share
         .players="${this.players}"
         .lines="${this.lines}"
@@ -2523,6 +2496,35 @@ export class CoachBoard extends LitElement {
       </div>
       </div><!-- .app-board -->
       </div><!-- .app-wrap -->
+
+      <!-- Side sheets: must live OUTSIDE .app-wrap so position:fixed uses the
+           viewport as the containing block, not the transformed .app-wrap box. -->
+      <cb-side-sheet
+        ?open="${this._myBoardsOpen}"
+        heading="My Boards"
+        @close="${() => { this._myBoardsOpen = false; }}">
+        <cb-my-boards
+          .boards="${this._myBoards}"
+          @cb-open-board="${this.#onOpenBoard}"
+          @cb-duplicate-board="${this.#onDuplicateBoard}"
+          @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
+          @cb-import-svg="${this.#importSvgFromMyBoards}"
+          @cb-export-all-boards="${this.#exportAllBoards}">
+        </cb-my-boards>
+      </cb-side-sheet>
+
+      <cb-side-sheet
+        ?open="${this._boardSummaryOpen}"
+        heading="Board Summary"
+        @close="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
+        <cb-board-summary
+          .summary="${this._boardSummaryData}"
+          .boardNotes="${this._boardNotes}"
+          @cb-board-notes-input="${this.#onBoardNotesInput}"
+          @cb-board-summary-save="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
+        </cb-board-summary>
+      </cb-side-sheet>
+
       ${this._updateAvailable ? html`
         <div class="update-toast ${this._toastDismissing ? 'toast-dismissing' : ''}"
              role="status" aria-live="polite" aria-atomic="true">
@@ -2804,8 +2806,15 @@ export class CoachBoard extends LitElement {
     const linesByStyle = new Map<string, number>();
     for (const l of this.lines) {
       const hasArrow = l.arrowStart || l.arrowEnd;
-      const label = `${l.style === 'solid' ? 'Solid' : l.style === 'dashed' ? 'Dashed' : 'Wavy'}${hasArrow ? ' arrow' : ''}`;
+      const style = l.style === 'solid' ? 'Pass/Shoot' : l.style === 'dashed' ? 'Run' : 'Dribble';
+      const label = `${style}${hasArrow ? ' w/ Arrow' : ''}`;
       linesByStyle.set(label, (linesByStyle.get(label) ?? 0) + 1);
+    }
+
+    const shapesByKind = new Map<string, number>();
+    for (const sh of this.shapes) {
+      const label = sh.kind === 'rect' ? 'Rectangle' : 'Ellipse';
+      shapesByKind.set(label, (shapesByKind.get(label) ?? 0) + 1);
     }
 
     const pitchLabel = this.pitchType === 'half' ? 'Half Pitch (Def.)'
@@ -2824,7 +2833,7 @@ export class CoachBoard extends LitElement {
       dummiesByColor,
       polesByColor,
       linesByStyle,
-      shapeCount: this.shapes.length,
+      shapesByKind,
       textCount: this.textItems.length,
       frameCount: this.animationFrames.length,
     };
