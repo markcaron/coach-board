@@ -126,6 +126,13 @@ export class CbBoardSummary extends LitElement {
       outline-offset: 2px;
     }
 
+    .save-shortcut-hint {
+      font-size: 0.72rem;
+      font-weight: 400;
+      opacity: 0.7;
+      margin-left: 4px;
+    }
+
     .divider {
       height: 1px;
       background: rgba(0, 0, 0, 0.08);
@@ -336,11 +343,15 @@ export class CbBoardSummary extends LitElement {
                 aria-labelledby="cb-board-summary-notes-label"
                 rows="4"
                 placeholder="Add notes, drills, instructions…"
+                title="Cmd+Enter to save"
                 .value="${this.boardNotes}"
                 @input="${(e: Event) => this.#emit('cb-board-notes-input', { value: (e.target as HTMLTextAreaElement).value })}"
                 @keydown="${this.#onNotesKeyDown}"></textarea>
       <div class="actions">
-        <button class="save-btn" @click="${() => this.#emit('cb-board-summary-save')}">Save</button>
+        <button class="save-btn" @click="${() => this.#emit('cb-board-summary-save')}">
+          Save
+          <span class="save-shortcut-hint">⌘↵</span>
+        </button>
       </div>
     `;
   }

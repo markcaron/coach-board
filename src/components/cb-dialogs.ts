@@ -503,6 +503,7 @@ export class CbDialogs extends LitElement {
       </dialog>
 
       <dialog id="import-error-dialog">
+        <!-- Dismiss-only dialog: every action closes it, so both buttons are type="submit". -->
         <form method="dialog">
           <div class="dialog-header">
             <h2>Import Error</h2>
@@ -522,6 +523,7 @@ export class CbDialogs extends LitElement {
 
 
       <dialog id="about-dialog">
+        <!-- Dismiss-only dialog: every action closes it, so both buttons are type="submit". -->
         <form method="dialog">
           <div class="about-close-row">
             <button type="submit" class="dialog-close" aria-label="Close" title="Close">
