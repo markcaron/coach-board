@@ -2308,7 +2308,7 @@ export class CbToolbar extends LitElement {
     }
   }
 
-  #onCtxArrangeClick(menu: 'align' | 'grouping', e: Event) {
+  #onCtxArrangeClick(menu: 'align' | 'grouping' | 'z-order', e: Event) {
     e.stopPropagation();
     if (this._openMenu === menu) {
       this._openMenu = null;
