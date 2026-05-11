@@ -377,7 +377,7 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
       background: transparent;
       border: none;
-      color: rgba(220, 38, 38, 0.55);
+      color: var(--pt-danger);
       cursor: pointer;
       padding: 8px;
       border-radius: 6px;
@@ -388,11 +388,11 @@ export class CoachBoard extends LitElement {
       min-height: 40px;
     }
 
-    .my-boards-list .delete-btn:hover { background: rgba(220, 38, 38, 0.08); color: #dc2626; }
+    .my-boards-list .delete-btn:hover { background: color-mix(in srgb, var(--pt-danger) 10%, transparent); color: var(--pt-danger); }
     .my-boards-list .delete-btn:focus-visible {
-      outline: 2px solid #dc2626;
+      outline: 2px solid var(--pt-danger);
       outline-offset: -2px;
-      background: rgba(220, 38, 38, 0.08);
+      background: color-mix(in srgb, var(--pt-danger) 10%, transparent);
     }
 
     /* Alerts */
@@ -2093,7 +2093,7 @@ export class CoachBoard extends LitElement {
     return html`
       <div class="app-wrap ${this._menuOpen ? 'menu-open' : ''} ${this._myBoardsOpen ? 'my-boards-open' : ''}">
       ${this.#renderMenuPanel()}<!-- grid col 1: left panel -->
-      <div class="app-board"><!-- grid col 2 -->
+      <div class="app-board" ?inert="${this._myBoardsOpen}"><!-- grid col 2 -->
 
       ${isReadonly ? html`
         <!-- Readonly mode: no sidebar, context bar + field fill grid col 2 -->
@@ -2775,14 +2775,14 @@ export class CoachBoard extends LitElement {
                       </div>
                     </button>
                     <button class="action-btn" title="Duplicate ${b.name}" aria-label="Duplicate ${b.name}"
-                            @click="${() => this.#onDuplicateBoard(new CustomEvent('', { detail: { board: b } }) as CustomEvent<{ board: SavedBoard }>)}">
+                            @click="${() => this.#duplicateBoard(b)}">
                       <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
                         <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
                         <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                       </svg>
                     </button>
                     <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
-                            @click="${() => this.#onHandleDeleteBoard(new CustomEvent('', { detail: { board: b } }) as CustomEvent<{ board: SavedBoard }>)}">
+                            @click="${() => this.#handleDeleteBoard(b)}">
                       <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
                         <path d="M5 2V1h6v1h4v2H1V2h4zm1 4v7h1V6H6zm3 0v7h1V6H9zM2 5l1 10h10l1-10H2z"/>
                       </svg>

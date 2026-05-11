@@ -841,10 +841,12 @@ export class CbDialogs extends LitElement {
 
   closeNewBoard() { this._newBoardDialog?.close(); }
 
+  /** @deprecated My Boards state is now managed by CoachBoard. Use setMyBoards() only. */
   openMyBoards(boards: SavedBoard[]) { this._myBoards = boards; }
 
   setMyBoards(boards: SavedBoard[]) { this._myBoards = boards; }
 
+  /** @deprecated My Boards sheet is now managed by CoachBoard. */
   closeMyBoards() { /* managed by coach-board.ts */ }
 
   openDeleteConfirm(name: string) {
