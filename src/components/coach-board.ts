@@ -1094,6 +1094,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _playbackLoop: boolean = true;
 
   @query('cb-field') private accessor _field!: CbField;
+  @query('.sidebar') private accessor _sidebar!: HTMLElement;
   @query('cb-share') private accessor _share!: CbShare;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('cb-dialogs') private accessor _dialogs!: CbDialogs;  @state() private accessor _boardName: string = 'Untitled Board';
@@ -1125,7 +1126,7 @@ export class CoachBoard extends LitElement {
       this._fieldMenuOpen = false;
     }
     // Close sidebar tool dropdown when clicking outside the sidebar
-    if (this._sidebarMenu && !path.includes(this.renderRoot.querySelector('.sidebar') as EventTarget)) {
+    if (this._sidebarMenu && !path.includes(this._sidebar as EventTarget)) {
       this._sidebarMenu = null;
     }
   };
@@ -1227,8 +1228,7 @@ export class CoachBoard extends LitElement {
   #onSidebarPointerLeave = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
     if (this._sidebarMenu !== null) return;
-    const sidebar = this.renderRoot.querySelector('.sidebar');
-    if (sidebar?.classList.contains('sidebar-locked')) return;
+    if (this._sidebar?.classList.contains('sidebar-locked')) return;
     this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
@@ -1238,7 +1238,7 @@ export class CoachBoard extends LitElement {
   #updateSidebarLock() {
     // Defer one frame so SVG aspect-ratio layout is settled
     requestAnimationFrame(() => {
-      const sidebar = this.renderRoot.querySelector('.sidebar') as HTMLElement | null;
+      const sidebar = this._sidebar;
       const svgEl = this._field?.svgEl;
       if (!sidebar || !svgEl) return;
       const sidebarRight = sidebar.getBoundingClientRect().right;
@@ -3484,8 +3484,7 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    const sidebar = this.renderRoot.querySelector('.sidebar');
-    if (!this._sidebarCollapsed && !sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
+    if (!this._sidebarCollapsed && !this._sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
