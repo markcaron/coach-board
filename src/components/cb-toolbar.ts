@@ -2341,7 +2341,7 @@ export class CbToolbar extends LitElement {
     const selType = this.#selectionType;
     const hasGroupA = selType !== 'none' && selType !== 'mixed';
     const isPanelOpen = this._openMenu === 'ctx-panel';
-    const hasControlsAboveDelete = hasGroupA || this.#hasRotatable || this.selectedItems.length >= 2;
+    const hasControlsAboveDelete = hasGroupA || this.#hasRotatable || this.selectedItems.length >= 1;
 
     return html`
       ${hasGroupA ? html`
@@ -2367,7 +2367,7 @@ export class CbToolbar extends LitElement {
         </button>
       ` : nothing}
 
-      ${this.selectedItems.length >= 2 ? html`
+      ${this.selectedItems.length >= 1 ? html`
         <hr class="ctx-sep" />
         ${this.#renderSidebarArrangement()}
       ` : nothing}
@@ -2791,10 +2791,8 @@ export class CbToolbar extends LitElement {
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'z-order'}"
                 @click="${(e: Event) => this.#onCtxArrangeClick('z-order', e)}">
-          <svg class="icon" viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor">
-            <rect x="200" y="900" width="700" height="500" rx="40"/>
-            <rect x="500" y="550" width="700" height="500" rx="40" opacity="0.6"/>
-            <rect x="800" y="200" width="700" height="500" rx="40" opacity="0.3"/>
+          <svg class="icon" viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor">
+            <path d="m939.85 639.97-97.859 65.398 165.53 96.852-407.52 271.68-407.52-271.68 165.53-96.852-97.859-65.398-235.71 144.13c-29.184 17.855-28.176 19.117 0 36.227l548.4 366.28c27.168 17.855 27.168 17.855 54.336 0l548.4-366.28c28.176-17.113 29.184-18.359 0-36.227zm-312.68-627.14c-27.168-17.102-27.168-17.102-54.336 0l-548.4 366.28c-28.176 17.113-28.176 18.863 0 36.227l548.4 366.28c27.168 17.102 27.168 17.102 54.336 0l548.4-366.28c27.422-18.109 27.168-18.109 0-36.227z"/>
           </svg>
         </button>
         ${this._openMenu === 'z-order' ? html`
@@ -2802,19 +2800,15 @@ export class CbToolbar extends LitElement {
                @keydown="${this.#onMenuKeyDown}">
             <button role="menuitem" tabindex="-1"
                     @click="${() => { this._openMenu = null; this.dispatchEvent(new ZOrderEvent('front')); }}">
-              <svg class="icon" viewBox="0 0 1600 1600" width="17" height="17" fill="currentColor">
-                <rect x="200" y="900" width="700" height="500" rx="40" opacity="0.3"/>
-                <rect x="500" y="550" width="700" height="500" rx="40" opacity="0.5"/>
-                <rect x="800" y="200" width="700" height="500" rx="40"/>
+              <svg class="icon" viewBox="0 0 1200 1200" width="17" height="17" fill="currentColor">
+                <path d="m939.85 639.97-97.859 65.398 165.53 96.852-407.52 271.68-407.52-271.68 165.53-96.852-97.859-65.398-235.71 144.13c-29.184 17.855-28.176 19.117 0 36.227l548.4 366.28c27.168 17.855 27.168 17.855 54.336 0l548.4-366.28c28.176-17.113 29.184-18.359 0-36.227zm-312.68-627.14c-27.168-17.102-27.168-17.102-54.336 0l-548.4 366.28c-28.176 17.113-28.176 18.863 0 36.227l548.4 366.28c27.168 17.102 27.168 17.102 54.336 0l548.4-366.28c27.422-18.109 27.168-18.109 0-36.227z"/>
               </svg>
               Bring to front <span class="tool-shortcut-hint">(⌘])</span>
             </button>
             <button role="menuitem" tabindex="-1"
                     @click="${() => { this._openMenu = null; this.dispatchEvent(new ZOrderEvent('back')); }}">
-              <svg class="icon" viewBox="0 0 1600 1600" width="17" height="17" fill="currentColor">
-                <rect x="200" y="900" width="700" height="500" rx="40"/>
-                <rect x="500" y="550" width="700" height="500" rx="40" opacity="0.5"/>
-                <rect x="800" y="200" width="700" height="500" rx="40" opacity="0.3"/>
+              <svg class="icon" viewBox="0 0 1200 1200" width="17" height="17" fill="currentColor">
+                <path d="m600 126.42 407.98 271.98-407.98 271.99-407.98-271.99zm335.45 512.73-335.45 222.62-341.5-220.61-234.71 143.05c-28.199 17.375-28.199 17.125 0 36.266l549 366.67c27.203 17.125 27.203 17.125 54.395 0l549-366.67c28.199-19.141 28.199-19.141 0-36.266zm-308.25-625.56c-27.203-18.133-27.203-18.133-54.406 0l-549 366.67c-28.199 17.125-28.199 17.125 0 36.266l549 366.67c27.203 18.133 27.203 18.133 54.395 0l549-366.67c28.199-19.141 28.199-19.141 0-36.266z"/>
               </svg>
               Send to back <span class="tool-shortcut-hint">(⌘[)</span>
             </button>
