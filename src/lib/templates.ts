@@ -46,18 +46,14 @@ function ball(x: number, y: number): Equipment {
 //
 // ── half-attack pitch ────────────────────────────────────────────────────────
 // Shows the attacking half of the field. Direction of play: left → right.
-//   x=7.5  = midfield line (left edge of the half)
+//   x=7.5  = midfield line (left edge of the half; centre circle centred here)
 //   x=43.5 = penalty area left edge
 //   x=49   = penalty spot
 //   x=60   = attacking goal (right edge)
 //
-// In the Attacking Shape template Team A (#6) builds from deep on the LEFT
-// (low x, near the centre circle at x≈7.5–24) while the front three press
-// right toward x=60. Team B (red) defends compact at HIGH x, near the goal:
-//   GK at x=57 (3 m from goal line)
-//   Defenders at x=47–50 (inside penalty area)
-//   Midfielders at x=38–40 (outside penalty area)
-// Team A builds from LOW x (CBs at x=16, CDM at x=24) toward HIGH x.
+// Attacking Shape: Team A (#6) recirculates at the centre circle (x≈7.8).
+// CBs cover at x≈11–12, CMs at x≈26–28, attack + overlapping FBs at x≈32–44.
+// Team B back 4 at x≈43–45, midfield block at x≈22–36, GK at x≈55.8.
 //
 // If a future report says this template looks wrong, first confirm the
 // reporter is testing with a NEW board, not a saved board (saved boards
@@ -67,6 +63,8 @@ function ball(x: number, y: number): Equipment {
 // No pitch markings; coordinate space is the same 105×68 SVG canvas.
 // Rondo players are unlabeled by design — they render as directional tokens
 // (not numbered circles), which is the intended clean drill visual.
+// Diamond centred at approx (54, 32), spanning 43 wide × 45 tall.
+// Ball sits near the left player. Cones form a 40×36 area around the drill.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -203,38 +201,42 @@ const HALF_ATT_SHAPE: BoardTemplate = {
   name: 'Attacking Shape',
   pitchType: 'half-attack',
   players: [
-    // Team A — building left→right toward goal at x=60
-    outfield(14, 10, '5'),     // LCB — left, near top touchline
-    outfield(14, W - 10, '4'), // RCB — right, near bottom touchline
-    outfield(10, cy, '6'),     // CDM — on the ball, inside centre circle
-    outfield(26, 20, '10'),    // LCM — left half-space
-    outfield(26, W - 20, '8'), // RCM — right half-space
-    outfield(48, 8, '3'),      // LB — overlapping left
-    outfield(48, W - 8, '2'),  // RB — overlapping right
-    outfield(38, 14, '11'),    // LW — left channel
-    outfield(44, cy, '9'),     // ST — at penalty arc
-    outfield(38, W - 14, '7'), // RW — right channel
+    // Team A — building left→right, #6 recirculating at centre circle
+    outfield(11.33, 12.62, '5'),  // LCB
+    outfield(12.04, 53.22, '4'),  // RCB
+    outfield(7.79,  33.44, '6'),  // CDM — on the ball, near centre circle
+    outfield(28.37, 26.62, '10'), // LCM
+    outfield(26.01, 46.87, '8'),  // RCM
+    outfield(32.88, 13.49, '11'), // LW
+    outfield(43.32, 27.69, '9'),  // ST
+    outfield(42.02, 48.86, '7'),  // RW
+    outfield(41.71,  3.62, '3'),  // LFB — overlapping
+    outfield(34.31, 62.89, '2'),  // RFB — overlapping
 
     // Team B — defending goal at x=60
-    // penalty area: x=43.5–60 | penalty spot: x=49 | goal line: x=60
-    teamBGK(57, cy),           // GK — 3 m from goal line
-    teamB(50, 10, '2'),        // upper back (y=10, doesn't overlap blue #3 at y=8)
-    teamB(47, 24, '4'),        // upper CB (inside penalty area)
-    teamB(47, W - 24, '5'),    // lower CB (inside penalty area)
-    teamB(50, W - 10, '3'),    // lower back (y=58, doesn't overlap blue #2 at y=60)
-    teamB(40, 18, '10'),       // left mid
-    teamB(38, cy, '6'),        // CDM — central
-    teamB(40, W - 18, '8'),    // right mid
+    teamBGK(55.78, 34.09),        // GK
+    teamB(43.93,  8.46, '2'),     // upper back
+    teamB(44.68, 22.29, '4'),     // RCB
+    teamB(44.43, 39.25, '5'),     // LCB
+    teamB(44.96, 54.84, '3'),     // lower back
+    teamB(36.03, 18.66, '7'),     // upper mid
+    teamB(34.37, 29.72, '6'),     // CDM
+    teamB(32.86, 43.94, '8'),     // lower mid
+    teamB(22.10, 22.10, '9'),     // deep upper
+    teamB(22.60, 36.80, '10'),    // deep lower
+    teamB(34.75, 55.88, '11'),    // wide lower
   ],
-  equipment: [ball(10, cy)],
+  equipment: [ball(10.79, 36.21)],
   lines: [],
   shapes: [],
   textItems: [],
 };
 
 // Open grass: Rondo 4v2 with cones marking the area, no player labels
+// Coordinates sourced directly from reference SVG board data.
+// Outer players face inward; defenders unlabeled by design
 function cone(x: number, y: number): Equipment {
-  return { id: `tpl-cone-${x}-${y}`, x, y, kind: 'cone', color: COLORS.coneNeonOrange };
+  return { id: `tpl-cone-${x}-${y}`, x, y, kind: 'cone', color: COLORS.coneChartreuse };
 }
 
 const OPEN_RONDO: BoardTemplate = {
@@ -242,19 +244,19 @@ const OPEN_RONDO: BoardTemplate = {
   name: 'Rondo (4v2)',
   pitchType: 'open',
   players: [
-    { id: 'tpl-a1', x: 44, y: 12,        angle: 90,  team: 'a', color: COLORS.playerBlue }, // top, facing ▼
-    { id: 'tpl-a2', x: 22, y: 28,        angle: 0,   team: 'a', color: COLORS.playerBlue }, // left, facing ►
-    { id: 'tpl-a3', x: 44, y: W - 12,    angle: 270, team: 'a', color: COLORS.playerBlue }, // bottom, facing ▲
-    { id: 'tpl-a4', x: 66, y: 38,        angle: 180, team: 'a', color: COLORS.playerBlue }, // right, facing ◄
-    { id: 'tpl-d1', x: 36, y: 26,        team: 'b', color: COLORS.playerRed },
-    { id: 'tpl-d2', x: 52, y: 40,        team: 'b', color: COLORS.playerRed },
+    { id: 'tpl-a1', x: 57.75, y:  9.88, angle: 180, team: 'a', color: COLORS.playerBlue }, // top    — faces ▼
+    { id: 'tpl-a2', x: 31.00, y: 29.27, angle: 90,  team: 'a', color: COLORS.playerBlue }, // left   — faces ►
+    { id: 'tpl-a3', x: 50.09, y: 53.94, angle: 0,   team: 'a', color: COLORS.playerBlue }, // bottom — faces ▲
+    { id: 'tpl-a4', x: 73.62, y: 35.17, angle: 270, team: 'a', color: COLORS.playerBlue }, // right  — faces ◄
+    { id: 'tpl-d1', x: 47.22, y: 26.20, team: 'b', color: COLORS.playerRed },
+    { id: 'tpl-d2', x: 59.89, y: 39.98, team: 'b', color: COLORS.playerRed },
   ],
   equipment: [
-    ball(24, 28),
-    cone(18, 10),
-    cone(18, W - 10),
-    cone(68, 10),
-    cone(68, W - 10),
+    ball(33.82, 33.01),
+    cone(32.78, 14.52),
+    cone(72.21, 14.52),
+    cone(72.21, 50.95),
+    cone(32.78, 50.95),
   ],
   lines: [],
   shapes: [],
