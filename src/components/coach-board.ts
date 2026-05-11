@@ -1236,14 +1236,18 @@ export class CoachBoard extends LitElement {
   #sidebarLockObserver: ResizeObserver | null = null;
 
   #updateSidebarLock() {
-    const sidebar = this.renderRoot.querySelector('.sidebar') as HTMLElement | null;
-    const svgEl = this._field?.svgEl;
-    if (!sidebar || !svgEl) return;
-    const sidebarRight = sidebar.getBoundingClientRect().right;
-    const svgLeft = svgEl.getBoundingClientRect().left;
-    const locked = svgLeft > sidebarRight + 8; // 8px clearance
-    sidebar.classList.toggle('sidebar-locked', locked);
-    if (locked) this._sidebarCollapsed = false;
+    // Defer one frame so SVG aspect-ratio layout (which responds to both
+    // width and height changes) is settled before reading getBoundingClientRect
+    requestAnimationFrame(() => {
+      const sidebar = this.renderRoot.querySelector('.sidebar') as HTMLElement | null;
+      const svgEl = this._field?.svgEl;
+      if (!sidebar || !svgEl) return;
+      const sidebarRight = sidebar.getBoundingClientRect().right;
+      const svgLeft = svgEl.getBoundingClientRect().left;
+      const locked = svgLeft > sidebarRight + 8; // 8px clearance
+      sidebar.classList.toggle('sidebar-locked', locked);
+      if (locked) this._sidebarCollapsed = false;
+    });
   }
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
@@ -1715,11 +1719,13 @@ export class CoachBoard extends LitElement {
     this._isMobile = this.#mobileQuery.matches;
     this._sidebarCollapsed = this.#mobileQuery.matches;
     this.updateComplete.then(() => {
+      this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
       const boardArea = this.renderRoot.querySelector('.board-area');
-      if (boardArea) {
-        this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
-        this.#sidebarLockObserver.observe(boardArea);
-      }
+      if (boardArea) this.#sidebarLockObserver.observe(boardArea);
+      // Also observe the SVG directly — its rendered size changes on both
+      // width and height resizes (aspect-ratio scaling)
+      const svgEl = this._field?.svgEl;
+      if (svgEl) this.#sidebarLockObserver.observe(svgEl);
     });
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
