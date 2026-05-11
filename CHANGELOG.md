@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.5.0 — Washington Spirit (2026-05-11)
+
+### Features
+
+- **My Boards side sheet** (#120): My Boards replaces the centered modal with an animated slide-in side sheet from the right edge. Includes backdrop, Escape / click-outside close, `inert` on the board canvas while open, and `prefers-reduced-motion` support.
+- **Board Summary side sheet** (#154): Board Summary moves to the same side sheet shell, showing a breakdown of all board elements (players, equipment, lines, shapes, text, animation frames) plus a notes/instructions textarea with Cmd+Enter to save.
+- **Board thumbnail previews** (#71): Each saved board in My Boards displays a live JPEG thumbnail (320 px, 80% center crop) generated automatically on every save. Falls back gracefully to the generic pitch icon for older boards; thumbnails backfill on first My Boards open.
+- **Measurement / distance tool** (#68): A new Measure tool (M) lets coaches click to set an anchor, then move the cursor for a live distance readout — accurate to FIFA standard metres (1 SVG unit = 1 m). Holds Shift to snap to 0°/45°/90°. Escape clears the current measurement. A Meters / Yards select in the context bar (persisted to `localStorage`) converts the readout.
+- **Zoom & pan** (#72, #122): Full SVG viewBox zoom and pan. Scroll-wheel zoom, two-finger pinch, click-drag pan (Hand tool, H), toolbar zoom buttons, and keyboard shortcuts `=` / `-` / `0` for zoom in/out/reset. Zoom level percentage shown in the bottom bar.
+- **Z-order controls** (#69): Bring to Front (Cmd+]) and Send to Back (Cmd+[) for all element types, exposed in the sidebar context panel for any selected item.
+- **Sidebar pinned at wide viewports** (#134): The tool sidebar transitions from a floating panel to a pinned layout column at ≥ 1100 px. A ResizeObserver handles the threshold; the sidebar collapses to a 14 px grab strip at narrower sizes.
+- **Sidebar restructure** (#144): A new "More tools" submenu (⋯) houses Text and Measure; the Hand tool (H) is a first-class sidebar entry. Tool button sizing and icon polish across the sidebar.
+- **Keyboard shortcuts** (#130): Group (Cmd+G), Ungroup (Cmd+Shift+G), Rotate CW/CCW (`.` / `,`), and Deselect (Escape) added to the global keyboard shortcut set.
+- **Enter key confirms dialogs** (#153): All dialogs wrapped in `<form method="dialog">` with `type="submit"` on primary buttons. Enter in any input/select field confirms the dialog. Board Summary textarea uses Cmd+Enter to save (plain Enter = newline). A `⌘↵` hint is shown on the Save button.
+- **Line panel UX** (#143): The line context panel gains an arrowhead style picker, `<select>` for line style, and a fieldset layout for improved keyboard navigation.
+- **Brand tokens** (#128): `--pt-color-brand-green-dark` and `--pt-color-brand-green-light` added to the design token set for use in logo SVGs.
+
+### Bug Fixes
+
+- **Share dialog focus** (#158): Closing the Share dialog (×, Close, Copy link, or Escape) now returns focus to the Share Board button, fixing keyboard navigation flow.
+- **Ball double divider** (#157): A spurious second `<hr>` separator appeared in the sidebar context area when a Ball was selected. Fixed by guarding the inner separator on the presence of a context dropdown or rotate button above it.
+- **Multi-select miss** (#132): Clicking/tapping an empty area in Multi-select mode no longer exits Multi-select. Escape also clears the `_multiSelect` flag.
+- **iOS safe area** (#133): Context bar and bottom bar correctly account for iOS status bar inset in standalone PWA mode; home indicator zone gets the toolbar background color.
+- **Template layouts** (#160): Restored correct player formations for Attacking Shape and Rondo templates, which had been inadvertently overwritten.
+- **Print icon** (#141): Replaced thin-stroke print icon with a heavier variant that renders clearly at 20 px.
+
+### Accessibility
+
+- **9 WCAG violations fixed** (#170–#178, #181, #182): Addresses critical and serious violations surfaced by an axe-core 4.9.1 audit:
+  - Play overlay on shared boards converted from `<div>` to `<button>` with `aria-label` / `aria-pressed` (WCAG 2.1.1, 4.1.2)
+  - Pitch orientation menu button gains `aria-haspopup`, `aria-expanded`, `aria-controls`, and full arrow-key navigation (WCAG 2.1.1, 4.1.2)
+  - All 5 sidebar tool trigger buttons gain `aria-controls` pointing at their respective `role="menu"` elements (WCAG 4.1.2)
+  - Duplicate `id="cb-side-sheet-title"` on both side sheets replaced with a heading-derived unique id (WCAG 4.1.1)
+  - `user-scalable=no` removed from the viewport meta tag, restoring browser pinch-to-zoom for low-vision users (WCAG 1.4.4)
+  - `?aria-hidden` replaced with `ifDefined` to produce valid `aria-hidden="true"` / absent (not `aria-hidden=""`) on `.menu-panel` and side sheets (WCAG 4.1.2)
+  - Closed `.menu-panel` gains `inert` to remove 9 invisible buttons from the Tab order (WCAG 2.1.2, 2.4.3)
+  - Share dialog "Generating link…" status wrapped in `aria-live="polite"` region (WCAG 4.1.3)
+  - SVG drawing surface gains `role="application"`, `aria-label`, and a visually-hidden instructions paragraph (WCAG 1.1.1)
+  - Decorative rotate overlay and About dialog illustration gain `aria-hidden="true"` (WCAG 1.1.1)
+
+### Refactoring
+
+- **`cb-side-sheet` generic shell** (#154): Extracted a reusable `cb-side-sheet` component (animated slide, backdrop, Escape handling, `inert`, `aria-modal`) from the inline side-sheet code. `cb-my-boards` and `cb-board-summary` are now separate components.
+- **Shared `tool-shortcut-hint` style** (#150): The `.tool-shortcut-hint` CSS class is distributed via a Lit CSS module (`shared-styles.ts`), eliminating per-component duplication.
+
 ## 1.4.0 — SD Wave (2026-05-10)
 
 ### Features
