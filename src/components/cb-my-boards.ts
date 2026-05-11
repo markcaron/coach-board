@@ -83,6 +83,25 @@ export class CbMyBoards extends LitElement {
       opacity: 0.5;
     }
 
+    .board-thumb-wrap {
+      flex-shrink: 0;
+      width: 44px;
+      height: 30px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .board-thumb {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
     .board-title {
       font-size: 0.9rem;
       font-weight: 500;
@@ -235,10 +254,16 @@ export class CbMyBoards extends LitElement {
               <li>
                 <button class="board-open-btn" aria-label="Open ${b.name}"
                         @click="${() => this.#emit('cb-open-board', { id: b.id })}">
-                  <svg class="board-icon" viewBox="0 0 1200 1200" width="22" height="22"
-                       aria-hidden="true" fill="currentColor">
-                    <path d="m1050.2 206.34h-900.37c-50.016 0-90.703 40.688-90.703 90.703v605.86c0 50.016 40.688 90.703 90.703 90.703h900.42c50.016 0 90.703-40.688 90.703-90.703v-605.81c0-50.062-40.734-90.75-90.75-90.75zm58.875 696.56c0 32.484-26.391 58.875-58.875 58.875h-900.37c-32.484 0-58.875-26.391-58.875-58.875v-605.81c0-32.484 26.391-58.875 58.875-58.875h900.42c32.484 0 58.875 26.391 58.875 58.875v605.81z"/>
-                  </svg>
+                  ${b.thumbnail ? html`
+                    <span class="board-thumb-wrap" aria-hidden="true">
+                      <img class="board-thumb" src="${b.thumbnail}" alt="">
+                    </span>
+                  ` : html`
+                    <svg class="board-icon" viewBox="0 0 1200 1200" width="22" height="22"
+                         aria-hidden="true" fill="currentColor">
+                      <path d="m1050.2 206.34h-900.37c-50.016 0-90.703 40.688-90.703 90.703v605.86c0 50.016 40.688 90.703 90.703 90.703h900.42c50.016 0 90.703-40.688 90.703-90.703v-605.81c0-50.062-40.734-90.75-90.75-90.75zm58.875 696.56c0 32.484-26.391 58.875-58.875 58.875h-900.37c-32.484 0-58.875-26.391-58.875-58.875v-605.81c0-32.484 26.391-58.875 58.875-58.875h900.42c32.484 0 58.875 26.391 58.875 58.875v605.81z"/>
+                    </svg>
+                  `}
                   <div class="board-info">
                     <div class="board-title">${b.name}</div>
                     <div class="board-date">
