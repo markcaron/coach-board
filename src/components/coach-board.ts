@@ -1,7 +1,9 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
+import { toolShortcutHintStyle } from '../lib/shared-styles.js';
 import { customElement, state, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { guard } from 'lit/directives/guard.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
@@ -12,7 +14,7 @@ import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getAct
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
-import { ToolChangedEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, ZOrderEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -21,10 +23,16 @@ import './cb-timeline.js';
 import './cb-dialogs.js';
 import type { CbDialogs, BoardSummary, PendingBoardAction } from './cb-dialogs.js';
 import './cb-field.js';
-import type { CbField, GhostCursor, DrawState, ShapeDrawState } from './cb-field.js';
+import type { CbField, GhostCursor, DrawState, ShapeDrawState, MeasureState } from './cb-field.js';
 import './cb-share.js';
 import type { CbShare } from './cb-share.js';
 import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
+import './cb-side-sheet.js';
+import type { CbSideSheet } from './cb-side-sheet.js';
+import './cb-my-boards.js';
+import type { CbMyBoards } from './cb-my-boards.js';
+import './cb-board-summary.js';
+import type { CbBoardSummary } from './cb-board-summary.js';
 
 type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side' | 'trail-cp1' | 'trail-cp2';
 
@@ -84,6 +92,9 @@ interface Snapshot {
 
 const MAX_HISTORY = 50;
 
+/** Tools housed in the More submenu — drives aria-pressed on the More button */
+const MORE_TOOLS: Tool[] = ['add-text', 'measure'];
+
 function isModifier(e: PointerEvent | MouseEvent): boolean {
   return e.shiftKey || e.metaKey || e.ctrlKey;
 }
@@ -111,7 +122,7 @@ function rad2deg(r: number): number { return r * 180 / Math.PI; }
 
 @customElement('coach-board')
 export class CoachBoard extends LitElement {
-  static styles = css`
+  static styles = [toolShortcutHintStyle, css`
     *, *::before, *::after {
       box-sizing: border-box;
     }
@@ -175,6 +186,11 @@ export class CoachBoard extends LitElement {
       transform: translateX(0);
     }
 
+    /* Side sheet open: whole view slides left by the sheet width */
+    .app-wrap.sheet-open {
+      transform: translateX(calc(var(--panel-w) * -1 - min(400px, 100vw)));
+    }
+
     .app-board {
       grid-column: 2;
       height: 100dvh;
@@ -184,7 +200,7 @@ export class CoachBoard extends LitElement {
         "board"
         "timeline"
         "botbar";
-      grid-template-rows: 60px 1fr auto 60px;
+      grid-template-rows: auto 1fr auto 60px;
       overflow: hidden;
       position: relative; /* contains the absolute .menu-backdrop */
     }
@@ -291,6 +307,16 @@ export class CoachBoard extends LitElement {
       .update-toast,
       .update-toast.toast-dismissing { animation: none; }
     }
+
+    /* ── Locked sidebar (JS-driven, .sidebar-locked class) ────────── */
+    /* Applied when the SVG's left edge clears the sidebar's right edge.
+       Keeps sidebar floating exactly where it is — no drawer slide. */
+    .sidebar.sidebar-locked,
+    .sidebar.sidebar-locked.sidebar--collapsed {
+      transform: translateY(-50%);
+      transition: none;
+    }
+    .sidebar.sidebar-locked .sidebar-handle { display: none; }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
     /* Absolutely positioned over .board-area so the field canvas
@@ -543,7 +569,8 @@ export class CoachBoard extends LitElement {
       grid-area: topbar;
       display: flex;
       align-items: center;
-      height: 60px;
+      min-height: calc(60px + env(safe-area-inset-top, 0px));
+      padding-top: env(safe-area-inset-top, 0px);
       background: var(--pt-bg-toolbar);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       z-index: 10;
@@ -777,6 +804,14 @@ export class CoachBoard extends LitElement {
       justify-self: start;
     }
 
+    .bottom-bar-divider {
+      width: 1px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.15); /* matches .context-divider */
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
     .bottom-center {
       display: flex;
       gap: 8px;
@@ -834,6 +869,30 @@ export class CoachBoard extends LitElement {
       pointer-events: none;
     }
 
+    .zoom-level {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      min-width: 40px;
+      padding: 4px 6px;
+      text-align: center;
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      color: var(--pt-text-muted);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .zoom-level:hover {
+      background: var(--pt-border);
+      color: var(--pt-text);
+    }
+
+    .zoom-level:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
 
     .theme-select {
       background: var(--pt-bg-surface);
@@ -1046,7 +1105,7 @@ export class CoachBoard extends LitElement {
       white-space: pre-wrap;
     }
 
-  `;
+  `];
 
   @state() accessor activeTool: Tool = 'select';
   @state() accessor players: Player[] = [];
@@ -1066,13 +1125,19 @@ export class CoachBoard extends LitElement {
   @state() accessor pitchType: PitchType = 'full';
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
-  @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | null = null;
-  @state() private accessor _sidebarCollapsed: boolean = window.matchMedia('(max-width: 768px)').matches;
+  #fieldMenuTrigger: HTMLElement | null = null;
+  @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | 'more' | null = null;
+  @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
   #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
+  @state() private accessor _viewTransform = { x: 0, y: 0, scale: 1 };
+  @state() private accessor _myBoardsOpen: boolean = false;
+  @state() private accessor _myBoards: SavedBoard[] = [];
+  @state() private accessor _boardSummaryOpen: boolean = false;
+  @state() private accessor _boardSummaryData: BoardSummary | null = null;
   @state() private accessor _rotateHandleId: string | null = null;
   @state() private accessor _animationMode: boolean = false;
   @state() accessor animationFrames: AnimationFrame[] = [];
@@ -1083,6 +1148,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _playbackLoop: boolean = true;
 
   @query('cb-field') private accessor _field!: CbField;
+  @query('.sidebar') private accessor _sidebar!: HTMLElement;
   @query('cb-share') private accessor _share!: CbShare;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('cb-dialogs') private accessor _dialogs!: CbDialogs;  @state() private accessor _boardName: string = 'Untitled Board';
@@ -1105,8 +1171,20 @@ export class CoachBoard extends LitElement {
   #shapeResizeDrag: ShapeResizeDragState | null = null;
   @state() accessor _draw: DrawState | null = null;
   @state() accessor _shapeDraw: ShapeDrawState | null = null;
+  @state() private accessor _measureStart: { x: number; y: number } | null = null;
+  @state() private accessor _measureEnd: { x: number; y: number } | null = null;
+  @state() private accessor _measureUnit: 'm' | 'yd' = (localStorage.getItem('cb-measure-unit') as 'm' | 'yd') ?? 'm';
   @state() accessor _marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
+  #boundWheel = (e: WheelEvent) => this.#onWheel(e);
+  #boundTouchStart = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+
+  // Pan/pinch tracking
+  #panDrag: { startClientX: number; startClientY: number; startVx: number; startVy: number; svgPerPx: number } | null = null;
+  #activePointers = new Map<number, { clientX: number; clientY: number }>();
+  #pinchStartDist = 0;
+  #pinchStartScale = 1;
+  #pinchStartPan = { x: 0, y: 0 };
   #onDocClickForMenu = (e: PointerEvent) => {
     const path = e.composedPath();
     // Field orientation dropdown still uses a popup, close it on outside click
@@ -1114,13 +1192,13 @@ export class CoachBoard extends LitElement {
       this._fieldMenuOpen = false;
     }
     // Close sidebar tool dropdown when clicking outside the sidebar
-    if (this._sidebarMenu && !path.includes(this.renderRoot.querySelector('.sidebar') as EventTarget)) {
+    if (this._sidebarMenu && !path.includes(this._sidebar as EventTarget)) {
       this._sidebarMenu = null;
     }
   };
 
   // Opens a sidebar dropdown and focuses its first item; toggles if already open
-  #openSidebarMenu(name: 'select' | 'player' | 'equipment' | 'draw', focusIndex: number) {
+  #openSidebarMenu(name: 'select' | 'player' | 'equipment' | 'draw' | 'more', focusIndex: number) {
     this._sidebarFocusIndex = focusIndex;
     const isOpening = this._sidebarMenu !== name;
     this._sidebarMenu = isOpening ? name : null;
@@ -1216,10 +1294,37 @@ export class CoachBoard extends LitElement {
   #onSidebarPointerLeave = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
     if (this._sidebarMenu !== null) return;
+    if (this._sidebar?.classList.contains('sidebar-locked')) return;
     this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
+  #sidebarLockObserver: ResizeObserver | null = null;
+
+  #updateSidebarLock() {
+    // Defer one frame so SVG aspect-ratio layout is settled
+    requestAnimationFrame(() => {
+      const sidebar = this._sidebar;
+      const svgEl = this._field?.svgEl;
+      if (!sidebar || !svgEl) return;
+
+      // When zoomed/panned, getScreenCTM().e reflects the shifted SVG origin,
+      // not the actual field position on screen. Skip the recalculation so the
+      // lock state from zoom=1 is preserved — changing it at high zoom causes
+      // spurious `locked` transitions and can cascade into orientation changes.
+      if (this._viewTransform.scale !== 1 || this._viewTransform.x !== 0 || this._viewTransform.y !== 0) return;
+
+      const sidebarRight = sidebar.getBoundingClientRect().right;
+      // getScreenCTM().e is the screen x of the SVG origin (x=0 = left field
+      // boundary line) — this accounts for preserveAspectRatio centering that
+      // getBoundingClientRect() on the element itself misses
+      const ctm = svgEl.getScreenCTM();
+      const fieldLeft = ctm ? ctm.e : svgEl.getBoundingClientRect().left;
+      const locked = fieldLeft > sidebarRight + 8; // 8px clearance from field line
+      sidebar.classList.toggle('sidebar-locked', locked);
+      if (locked) this._sidebarCollapsed = false;
+    });
+  }
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
     this._isMobile = e.matches;
@@ -1271,6 +1376,15 @@ export class CoachBoard extends LitElement {
     return !!this.#currentBoard && this.#currentBoard.name !== 'Untitled Board';
   }
 
+  get #anySheetOpen(): boolean {
+    return this._myBoardsOpen || this._boardSummaryOpen;
+  }
+
+  get #measureState(): MeasureState | null {
+    if (!this._measureStart || !this._measureEnd) return null;
+    return { x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y, unit: this._measureUnit };
+  }
+
   #saveToStorage() {
     if (!this.#currentBoard) return;
     this.#currentBoard = {
@@ -1289,7 +1403,13 @@ export class CoachBoard extends LitElement {
       notes: this._boardNotes || undefined,
     };
     if (this.#saveTimer) clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(() => {
+    this.#saveTimer = setTimeout(async () => {
+      if (this.#currentBoard?.name !== 'Untitled Board') {
+        const thumb = await this.#generateThumbnail();
+        if (thumb && this.#currentBoard) {
+          this.#currentBoard = { ...this.#currentBoard, thumbnail: thumb };
+        }
+      }
       saveBoard(this.#currentBoard!).catch(() => {});
       this.#saveTimer = null;
     }, 500);
@@ -1462,6 +1582,57 @@ export class CoachBoard extends LitElement {
     this.requestUpdate();
   }
 
+  // ── View transform (zoom / pan) ────────────────────────────────────────
+
+  #clamp(v: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  #getPanLimits() {
+    const fd = getFieldDimensions(this.fieldOrientation, this.pitchType);
+    return { maxX: fd.w * 0.75, maxY: fd.h * 0.75 };
+  }
+
+  #applyZoom(newScale: number) {
+    const s = this.#clamp(newScale, 0.25, 8);
+    const { maxX, maxY } = this.#getPanLimits();
+    this._viewTransform = {
+      scale: s,
+      x: this.#clamp(this._viewTransform.x, -maxX, maxX),
+      y: this.#clamp(this._viewTransform.y, -maxY, maxY),
+    };
+  }
+
+  #zoomIn()    { this.#applyZoom(this._viewTransform.scale * 1.25); }
+  #zoomOut()   { this.#applyZoom(this._viewTransform.scale / 1.25); }
+  #resetView() { this._viewTransform = { x: 0, y: 0, scale: 1 }; }
+
+  #onWheel(e: WheelEvent) {
+    if (e.ctrlKey || e.metaKey) {
+      // Always prevent the browser from zoom-scaling the viewport, regardless of
+      // where the pinch/ctrl-wheel lands (toolbar, sidebar, etc.)
+      e.preventDefault();
+      if (this._viewMode === 'readonly') return;
+      const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+      this.#applyZoom(this._viewTransform.scale * factor);
+    } else {
+      // Plain scroll: only pan the field if the event target is within the field area
+      if (this._viewMode === 'readonly') return;
+      const fieldEl = this._field;
+      if (!fieldEl || !e.composedPath().includes(fieldEl)) return;
+      const { maxX, maxY } = this.#getPanLimits();
+      const ctm = fieldEl.svgEl?.getScreenCTM();
+      const svgPerPx = ctm ? 1 / Math.abs(ctm.a) : 1;
+      this._viewTransform = {
+        ...this._viewTransform,
+        x: this.#clamp(this._viewTransform.x + e.deltaX * svgPerPx, -maxX, maxX),
+        y: this.#clamp(this._viewTransform.y + e.deltaY * svgPerPx, -maxY, maxY),
+      };
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   #undo() {
     if (this.#undoStack.length === 0) return;
     this.#redoStack.push(this.#snapshot());
@@ -1572,6 +1743,57 @@ export class CoachBoard extends LitElement {
       }, 'image/png');
     };
     img.src = svgUrl;
+  }
+
+  async #generateThumbnail(): Promise<string | undefined> {
+    try {
+      const svgEl = this._field?.svgEl;
+      if (!svgEl) return undefined;
+      const vb = svgEl.viewBox.baseVal;
+      if (!vb.width || !vb.height) return undefined;
+
+      const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
+      svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+      svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+      svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+      svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+      svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+      const ZOOM = 0.8;
+      const cropW = vb.width * ZOOM;
+      const cropH = vb.height * ZOOM;
+      const cropX = vb.x + (vb.width - cropW) / 2;
+      const cropY = vb.y + (vb.height - cropH) / 2;
+      svgClone.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`);
+
+      const THUMB_W = 320;
+      const w = THUMB_W;
+      const h = Math.round(cropH * (THUMB_W / cropW));
+      svgClone.setAttribute('width', String(w));
+      svgClone.setAttribute('height', String(h));
+
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgClone);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      return new Promise<string | undefined>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(svgUrl);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(undefined); };
+        img.src = svgUrl;
+      });
+    } catch {
+      return undefined;
+    }
   }
 
   async #saveGif() {
@@ -1688,6 +1910,23 @@ export class CoachBoard extends LitElement {
     document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
     this._isMobile = this.#mobileQuery.matches;
+    this._sidebarCollapsed = this.#mobileQuery.matches;
+    this.updateComplete.then(() => {
+      this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
+      const boardArea = this.renderRoot.querySelector('.board-area');
+      if (boardArea) this.#sidebarLockObserver.observe(boardArea);
+      // Also observe the SVG directly — its rendered size changes on both
+      // width and height resizes (aspect-ratio scaling)
+      const svgEl = this._field?.svgEl;
+      if (svgEl) this.#sidebarLockObserver.observe(svgEl);
+      // Prevent browser-level pinch/zoom across the ENTIRE page, not just the field.
+      // A ctrlKey+wheel anywhere on chrome (toolbar, sidebar) would otherwise still
+      // change the viewport and trigger orientation media queries.
+      // passive:false is required so e.preventDefault() is honoured.
+      document.addEventListener('wheel', this.#boundWheel, { passive: false });
+      // Belt-and-suspenders for touch devices (older Safari ignores touch-action on SVG)
+      document.addEventListener('touchstart', this.#boundTouchStart, { passive: false });
+    });
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -1707,7 +1946,11 @@ export class CoachBoard extends LitElement {
     super.disconnectedCallback();
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
+    document.removeEventListener('wheel', this.#boundWheel);
+    document.removeEventListener('touchstart', this.#boundTouchStart);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    this.#sidebarLockObserver?.disconnect();
+    this.#sidebarLockObserver = null;
     if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
@@ -1724,6 +1967,10 @@ export class CoachBoard extends LitElement {
     }
     if (changedProperties.has('activeTool')) {
       this._sidebarCollapsed = false;
+      if (this.activeTool !== 'measure') {
+        this._measureStart = null;
+        this._measureEnd = null;
+      }
     }
   }
 
@@ -1736,12 +1983,16 @@ export class CoachBoard extends LitElement {
     `;
 
     return html`
-      <div class="menu-panel" aria-hidden="${!this._menuOpen}" role="navigation" aria-label="Main menu">
+      <div class="menu-panel"
+           aria-hidden="${ifDefined(!this._menuOpen ? 'true' : undefined)}"
+           ?inert="${!this._menuOpen}"
+           role="navigation"
+           aria-label="Main menu">
 
         <div class="menu-header">
           <svg class="menu-logo" viewBox="0 0 1600 1600" aria-hidden="true">
-            <path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/>
-            <path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/>
+            <path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="var(--pt-color-brand-green-dark)"/>
+            <path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="var(--pt-color-brand-green-light)"/>
             <path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/>
             <path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/>
             <path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/>
@@ -1769,7 +2020,7 @@ export class CoachBoard extends LitElement {
           ${this._viewMode !== 'readonly' ? html`
             ${menuItem('Board Summary', html`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 5h6M5 8h6M5 11h4" stroke-linecap="round"/></svg>`,
               this.#showBoardSummary)}
-            ${menuItem('Print Board', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m1012.5 489.64h-82.836v-189.68c0-26.477-10.273-51.336-28.914-69.977l-85.5-85.5c-18.602-18.602-43.461-28.875-69.977-28.875l-373.01 0.003906c-56.25 0-102.04 45.789-102.04 102.04v271.99l-82.723-0.003906c-80.625 0-146.25 65.625-146.25 146.25v302.29c0 80.625 65.625 146.25 146.25 146.25h825c80.625 0 146.25-65.625 146.25-146.25v-302.29c0-80.625-65.625-146.25-146.25-146.25zm-159.49-211.91c5.8516 5.8516 9.0742 13.688 9.1133 22.125h-93.039c-12.863 0-23.324-10.461-23.324-23.324v-93.301c8.2891 0.11328 16.012 3.2617 21.75 9zm-515.25-60.078c0-19.051 15.449-34.5 34.5-34.5h305.96v93.375c0 50.102 40.762 90.863 90.863 90.863h93.039v122.25h-524.36zm556.2 799.24h-587.92v-109.73c0-2.1016 1.6484-3.75 3.75-3.75h580.46c2.1016 0 3.75 1.6484 3.75 3.75v109.73zm197.29-78.711c0 43.426-35.289 78.75-78.75 78.75h-51v-109.73c0-39.301-31.988-71.25-71.25-71.25h-580.46c-39.301 0-71.25 31.988-71.25 71.25v109.73h-51.039c-43.426 0-78.75-35.289-78.75-78.75v-302.29c0-43.426 35.289-78.75 78.75-78.75h825c43.426 0 78.75 35.289 78.75 78.75z"/></svg>`,
+            ${menuItem('Print Board', html`<svg viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor"><path d="M995.402 150.155C1031.17 150.588 1064.67 164.658 1089.83 189.816L1203.83 303.816C1229.44 329.424 1243.55 363.588 1243.55 399.947V648.853H1346V648.851H1350C1459.71 648.851 1549 738.142 1549 847.851V1250.9C1549 1360.61 1459.71 1449.9 1350 1449.9H250C140.291 1449.9 51 1360.61 51 1250.9V847.851C51 738.142 140.291 648.851 250 648.851L356.297 648.855V290.203C356.297 212.992 419.142 150.149 496.351 150.149L993.697 150.144L995.402 150.155ZM250.001 746.855C194.263 746.855 149.001 792.162 149.001 847.855V1250.91C149.001 1306.65 194.308 1351.91 250.001 1351.91H314.054V1209.6C314.054 1155.04 358.442 1110.6 413.054 1110.6H1187C1241.56 1110.6 1286 1154.99 1286 1209.6V1351.91H1350C1405.74 1351.91 1451 1306.6 1451 1250.91L1451 847.855C1451 792.117 1405.69 746.855 1350 746.855H250.001ZM413.054 1208.55C412.724 1208.55 412.488 1208.67 412.331 1208.83C412.174 1208.98 412.054 1209.22 412.054 1209.55V1351.86H1188V1209.55C1188 1209.22 1187.88 1208.98 1187.72 1208.83C1187.57 1208.67 1187.33 1208.55 1187 1208.55H413.054ZM385.946 848.853C413.01 848.853 434.946 870.795 434.946 897.853C434.946 924.911 413.005 946.853 385.946 946.853H299.999C272.941 946.853 250.999 924.912 250.999 897.853C250.999 870.795 272.941 848.853 299.999 848.853H385.946ZM496.347 248.203C473.155 248.203 454.347 267.01 454.347 290.203L454.35 648.853H1145.5V493.853H1025.44C956.434 493.853 900.293 437.714 900.293 368.703V248.203H496.347ZM998.347 368.708C998.347 383.65 1010.5 395.807 1025.45 395.807H1145.28C1144.36 387.147 1140.62 379.241 1134.52 373.135L1020.52 259.135C1014.57 253.19 1006.83 249.538 998.347 248.566V368.708Z"/></svg>`,
               this.#showPrintDialog)}
           ` : nothing}
           ${menuItem('Export Board', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/><path d="m600 37.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v566.55l-197.5-164.55c-12.738-10.59-29.156-15.695-45.656-14.199-16.496 1.5-31.727 9.4844-42.344 22.199-10.59 12.738-15.695 29.156-14.199 45.656 1.5 16.496 9.4844 31.727 22.199 42.344l300 250c3.1484 2.2344 6.4961 4.1758 10 5.8008 2.2852 1.5312 4.6758 2.9023 7.1484 4.0977 14.566 6.1328 30.988 6.1328 45.551 0 2.4141-1.2031 4.7539-2.5547 7-4.0469 3.5039-1.6289 6.8477-3.5703 10-5.8008l300-250c13.23-11.004 21.336-26.977 22.41-44.148 1.0742-17.176-4.9766-34.031-16.73-46.598-11.758-12.566-28.172-19.73-45.379-19.805-14.613 0.027344-28.762 5.1562-40 14.5l-197.5 164.55v-566.55c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/></svg>`,
@@ -1789,17 +2040,17 @@ export class CoachBoard extends LitElement {
     const t = this.activeTool;
     const isReadonly = this._viewMode === 'readonly';
     return html`
-      <div class="app-wrap ${this._menuOpen ? 'menu-open' : ''}">
+      <div class="app-wrap ${this._menuOpen ? 'menu-open' : ''} ${this.#anySheetOpen ? 'sheet-open' : ''}">
       ${this.#renderMenuPanel()}<!-- grid col 1: left panel -->
-      <div class="app-board"><!-- grid col 2 -->
+      <div class="app-board" ?inert="${this.#anySheetOpen}"><!-- grid col 2 -->
 
       ${isReadonly ? html`
         <!-- Readonly mode: no sidebar, context bar + field fill grid col 2 -->
-        <div class="context-bar" style="padding-top: env(safe-area-inset-top)">
+        <div class="context-bar">
           <a href="/" class="branding-link" title="Open CoachingBoard">
             <svg class="branding-icon" viewBox="0 0 1600 1600" aria-hidden="true">
-              <path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/>
-              <path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/>
+              <path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="var(--pt-color-brand-green-dark)"/>
+              <path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="var(--pt-color-brand-green-light)"/>
               <path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/>
               <path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/>
               <path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/>
@@ -1831,8 +2082,10 @@ export class CoachBoard extends LitElement {
             .ghost="${this.ghost}"
             .draw="${this._draw}"
             .shapeDraw="${this._shapeDraw}"
+            .measure="${this.#measureState}"
             .marquee="${this._marquee}"
             .activeTool="${this.activeTool}"
+            .viewTransform="${this._viewTransform}"
             .playerColor="${this.playerColor}"
             .playerTeam="${this.playerTeam}"
             .lineStyle="${this.lineStyle}"
@@ -1903,10 +2156,20 @@ export class CoachBoard extends LitElement {
               @ungroup-items="${this.#onUngroupItems}"
               @delete-items="${this.#onDeleteItems}"
               @rotate-items="${this.#onRotateItems}"
+              @z-order="${this.#onZOrder}"
               @auto-number-toggle="${this.#onAutoNumberToggle}">
             </cb-toolbar>
           ` : nothing}
           <div class="context-bar-right">
+            ${this.activeTool === 'measure' ? html`
+              <label class="visually-hidden" for="ctx-unit-select">Distance unit</label>
+              <select id="ctx-unit-select" class="theme-select"
+                      @change="${(e: Event) => { const u = (e.target as HTMLSelectElement).value as 'm' | 'yd'; this._measureUnit = u; localStorage.setItem('cb-measure-unit', u); }}">
+                <option value="m" ?selected="${this._measureUnit === 'm'}">Meters</option>
+                <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards</option>
+              </select>
+              <span class="context-divider" role="separator" aria-hidden="true"></span>
+            ` : nothing}
             <label class="visually-hidden" for="ctx-theme-select">Pitch theme</label>
             <select id="ctx-theme-select" class="theme-select"
                     @change="${this.#onThemeChange}">
@@ -1942,24 +2205,27 @@ export class CoachBoard extends LitElement {
           <!-- Select (with submenu: Select / Multi-select) -->
           <div class="sidebar-dropdown-wrap">
             <button class="sidebar-tool has-submenu"
-                    title="${this._multiSelect ? 'Multi-select' : 'Select'}"
-                    aria-label="${this._multiSelect ? 'Multi-select' : 'Select'}"
-                    aria-pressed="${t === 'select'}"
+                    title="${t === 'pan' ? 'Hand' : this._multiSelect ? 'Multi-select' : 'Select'}"
+                    aria-label="${t === 'pan' ? 'Hand' : this._multiSelect ? 'Multi-select' : 'Select'}"
+                    aria-pressed="${t === 'select' || t === 'pan'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'select'}"
+                    aria-controls="sidebar-menu-select"
                     tabindex="${this._sidebarFocusIndex === 0 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('select', 0); }}">
-              ${this._multiSelect
+              ${t === 'pan'
+                ? svg`<svg viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor"><path d="M832.829 -5.65527C907.857 -18.2921 979.337 25.9844 1003.09 95.7441C1018.15 90.7944 1033.93 88.2408 1049.86 88.166H1049.97C1133.94 88.2271 1202.13 155.692 1203.25 239.421L1203.26 241.402V241.414L1203.27 313.792C1217.36 311.529 1231.71 310.954 1246.01 312.121H1246.01C1246.03 312.123 1246.05 312.124 1246.07 312.126C1246.08 312.127 1246.09 312.128 1246.11 312.129H1246.11C1325.81 318.344 1385.93 386.946 1381.77 466.699C1381.78 594.398 1385.19 664.706 1388.44 724.716L1389.09 736.609V736.614C1391.95 789.107 1394.67 839.092 1394.67 917.302C1394.67 1202.22 1357.98 1312.42 1328.23 1401.15L1328.1 1401.54L1327.96 1401.92C1314.61 1436.94 1305.55 1473.45 1300.89 1510.66C1295.54 1565.62 1249.44 1607.61 1194.19 1607.79H679.454L679.297 1607.79C629.191 1607 586.131 1572.26 574.76 1523.55C559.821 1483.88 534.811 1448.79 502.155 1421.75L501.563 1421.26L501.011 1420.73C411.233 1333.97 341.36 1228.77 296.26 1112.37V1112.37C250.038 995.329 222.588 911.857 210.263 872.296L210.264 872.295C201.258 843.593 204.62 812.389 219.757 786.308L219.764 786.31C234.708 760.543 259.723 742.085 288.767 735.468C347.605 721.264 409.713 733.616 458.643 769.319L459.415 769.883L460.13 770.518C480.326 788.442 498.305 808.583 513.755 830.513V304.994C513.87 220.417 582.402 151.884 666.979 151.771H667.041L667.104 151.771C680.003 151.835 692.809 153.56 705.203 156.868V145.468C705.099 70.646 759.108 6.7681 832.827 -5.65527H832.829ZM679.611 1587.79H1194.12V1587.79H679.611V1587.79ZM671.043 1587.25C671.083 1587.25 671.123 1587.26 671.163 1587.26C671.104 1587.26 671.044 1587.25 670.984 1587.24L671.043 1587.25ZM858.308 107.396C837.166 107.397 820.058 124.532 820.058 145.647L820.052 783.9C820.052 815.643 794.294 841.4 762.552 841.4C730.809 841.4 705.052 815.643 705.052 783.9V304.68L705.074 304.207C705.096 303.753 705.098 303.219 705.072 302.656L705.065 302.499L705.061 302.342C704.438 281.239 686.809 264.622 665.693 265.244C644.59 265.866 627.973 283.495 628.596 304.611L628.604 304.905V305.2L628.614 1007.35V1007.35C628.614 1023.82 621.559 1039.5 609.189 1050.4C596.933 1061.21 580.66 1066.33 564.42 1064.48V1064.48C544.878 1062.38 526.433 1054.83 510.99 1042.84L509.806 1041.92L508.771 1040.83C482.581 1013.31 461.507 981.357 446.566 946.407L446.525 946.312L446.486 946.216C433.346 914.574 414.215 885.842 390.077 861.599C370.393 847.706 346.107 842.147 322.491 845.966C335.292 886.405 361.272 963.834 403.218 1070.42L403.241 1070.48L403.265 1070.54C442.546 1172.24 503.613 1264.09 582.208 1339.59C629.93 1380.29 665.573 1433.29 685.337 1492.81L1187.05 1492.81C1192.78 1448.84 1203.52 1405.66 1219.1 1364.13C1245.87 1284.2 1279.46 1184.4 1279.46 917.158C1279.46 842.172 1276.93 796.209 1274.04 742.692V742.691C1270.53 678.542 1266.56 605.642 1266.56 466.064V465.023L1266.67 463.988C1268.6 445.452 1255.31 428.853 1236.91 426.622C1225.26 426.203 1213.7 428.399 1203.06 432.995V815.86C1203.06 847.603 1177.3 873.36 1145.56 873.36C1113.82 873.36 1088.06 847.603 1088.06 815.86V241.407C1088.06 220.265 1070.92 203.157 1049.81 203.156C1028.67 203.156 1011.56 220.292 1011.56 241.407V783.954C1011.56 815.697 985.801 841.454 954.059 841.454C922.316 841.454 896.559 815.697 896.559 783.954V145.647C896.559 124.505 879.423 107.397 858.308 107.396ZM656.929 1474.18C657.197 1474.81 657.462 1475.44 657.726 1476.07C657.462 1475.44 657.197 1474.81 656.929 1474.18V1474.18ZM1315.09 1377.36C1313.13 1383.29 1311.18 1389.09 1309.27 1394.79L1309.27 1394.79C1311.18 1389.09 1313.13 1383.29 1315.09 1377.36ZM422.692 1161.14C422.915 1161.56 423.138 1161.97 423.361 1162.39C423.029 1161.77 422.698 1161.15 422.367 1160.52L422.692 1161.14ZM385.558 1080.2C386.525 1082.67 387.505 1085.15 388.497 1087.61C387.505 1085.15 386.525 1082.67 385.559 1080.2H385.558ZM566.562 1044.6C567.219 1044.67 567.875 1044.73 568.531 1044.77C567.875 1044.73 567.218 1044.67 566.562 1044.6C566.068 1044.54 565.575 1044.49 565.083 1044.42C565.575 1044.49 566.069 1044.54 566.562 1044.6ZM1374.67 917.301C1374.67 922.387 1374.66 927.416 1374.63 932.39C1374.65 929.575 1374.66 926.742 1374.67 923.891C1374.67 921.705 1374.67 919.509 1374.67 917.302L1374.67 917.301ZM302.362 848.632C302.568 849.285 302.777 849.949 302.99 850.624C302.777 849.949 302.568 849.285 302.362 848.632ZM300.956 844.146C301.054 844.461 301.155 844.78 301.256 845.102C301.155 844.78 301.055 844.461 300.957 844.146C300.947 844.118 300.938 844.09 300.929 844.062C300.938 844.09 300.946 844.118 300.956 844.146ZM300.764 843.545C300.775 843.584 300.788 843.623 300.8 843.662C300.788 843.623 300.775 843.584 300.764 843.545ZM300.611 842.972C300.619 843.003 300.626 843.034 300.634 843.065C300.626 843.034 300.619 843.003 300.611 842.972ZM300.485 842.381C300.492 842.415 300.497 842.449 300.504 842.482C300.497 842.449 300.492 842.415 300.485 842.381ZM225.316 840.562C225.319 840.961 225.324 841.359 225.332 841.757L225.317 840.63C225.317 840.607 225.317 840.585 225.316 840.562ZM394.877 840.861C394.818 840.826 394.758 840.79 394.699 840.755C394.758 840.79 394.818 840.826 394.877 840.861ZM225.33 838.377C225.324 838.721 225.32 839.064 225.317 839.408C225.32 839.064 225.324 838.721 225.33 838.377ZM392.383 839.399C392.275 839.338 392.166 839.279 392.059 839.218C392.166 839.279 392.275 839.338 392.383 839.399ZM391.125 838.695C390.964 838.606 390.802 838.52 390.641 838.432C390.802 838.52 390.964 838.607 391.125 838.695ZM388.592 837.34C388.141 837.106 387.69 836.876 387.236 836.648C387.69 836.876 388.141 837.106 388.592 837.34ZM307.691 828.845H307.692H307.691ZM308.681 828.481C308.658 828.489 308.636 828.496 308.613 828.503C308.636 828.496 308.658 828.489 308.681 828.481ZM309.114 828.354C309.046 828.372 308.979 828.391 308.911 828.411C308.979 828.391 309.046 828.372 309.114 828.354ZM309.422 828.272C309.354 828.289 309.286 828.307 309.218 828.325C309.286 828.307 309.354 828.289 309.422 828.272ZM323.294 825.649C322.898 825.699 322.502 825.751 322.105 825.805C322.502 825.751 322.898 825.699 323.294 825.649ZM324.888 825.462C324.422 825.513 323.956 825.568 323.49 825.625C323.956 825.568 324.422 825.513 324.888 825.462ZM1109.19 825.039C1109.23 825.195 1109.27 825.351 1109.31 825.507C1109.27 825.351 1109.23 825.195 1109.19 825.039ZM326.431 825.303C325.992 825.345 325.553 825.39 325.114 825.438C325.553 825.39 325.992 825.345 326.431 825.303ZM327.97 825.166C327.491 825.205 327.013 825.247 326.535 825.293C327.013 825.247 327.491 825.205 327.97 825.166ZM329.083 825.08C328.793 825.101 328.504 825.123 328.214 825.146C328.504 825.123 328.793 825.101 329.083 825.08ZM330.098 825.012C329.867 825.026 329.635 825.042 329.404 825.058C329.635 825.042 329.867 825.026 330.098 825.012ZM331.242 824.945C331.035 824.956 330.827 824.967 330.619 824.979C330.827 824.967 331.035 824.956 331.242 824.945ZM1109.05 824.471C1109.09 824.625 1109.13 824.779 1109.17 824.933C1109.13 824.779 1109.09 824.625 1109.05 824.471ZM332.517 824.886C332.229 824.898 331.941 824.911 331.653 824.925C331.941 824.911 332.229 824.898 332.517 824.886ZM333.48 824.85C333.217 824.858 332.954 824.867 332.69 824.878C332.954 824.867 333.217 824.858 333.48 824.85ZM334.56 824.82C334.359 824.825 334.159 824.829 333.959 824.835C334.159 824.829 334.359 824.825 334.56 824.82ZM335.891 824.797C335.589 824.8 335.288 824.805 334.986 824.811C335.288 824.805 335.589 824.8 335.891 824.797ZM1108.82 823.414C1108.83 823.48 1108.85 823.545 1108.86 823.61C1108.85 823.53 1108.83 823.45 1108.81 823.37C1108.82 823.385 1108.82 823.399 1108.82 823.414ZM1108.62 822.328C1108.63 822.422 1108.65 822.516 1108.67 822.61C1108.65 822.516 1108.63 822.422 1108.62 822.328ZM953.091 821.441L953.225 821.442C953.113 821.44 953.002 821.437 952.891 821.434C952.957 821.436 953.024 821.44 953.091 821.441ZM952.044 821.398C952.127 821.403 952.21 821.406 952.293 821.41C952.21 821.406 952.127 821.403 952.044 821.398ZM747.124 818.085C747.678 818.336 748.239 818.573 748.807 818.797L747.961 818.451C747.68 818.332 747.401 818.21 747.124 818.085ZM234.859 800.368C234.512 801.046 234.175 801.729 233.847 802.414L234.347 801.389C234.516 801.048 234.686 800.707 234.859 800.368ZM726.217 793.202C726.248 793.325 726.28 793.447 726.312 793.569C726.28 793.447 726.248 793.325 726.217 793.202ZM726.048 792.517C726.085 792.675 726.124 792.833 726.163 792.991C726.124 792.833 726.085 792.675 726.048 792.517ZM725.813 791.454C725.823 791.501 725.834 791.548 725.844 791.595C725.831 791.533 725.817 791.472 725.805 791.41C725.808 791.425 725.81 791.439 725.813 791.454ZM725.608 790.368C725.626 790.47 725.644 790.572 725.663 790.674C725.644 790.572 725.626 790.47 725.608 790.368ZM916.674 786.912C916.696 787.202 916.722 787.491 916.751 787.778C916.722 787.491 916.696 787.202 916.674 786.912ZM916.616 786.029C916.628 786.249 916.641 786.468 916.657 786.687C916.642 786.468 916.628 786.249 916.616 786.029ZM916.559 783.954L916.57 784.921C916.577 785.2 916.588 785.478 916.602 785.756C916.573 785.158 916.559 784.557 916.559 783.953V783.954ZM712.886 267.812L712.453 267.262C712.412 267.211 712.371 267.16 712.33 267.109C712.517 267.343 712.703 267.576 712.886 267.812ZM712.086 266.808C711.97 266.665 711.854 266.523 711.736 266.381C711.854 266.523 711.97 266.665 712.086 266.808ZM710.887 265.376C710.658 265.112 710.428 264.85 710.195 264.591C710.428 264.85 710.658 265.112 710.887 265.376ZM708.767 263.056C708.928 263.223 709.088 263.392 709.248 263.562H709.249C708.831 263.118 708.405 262.681 707.974 262.251C708.24 262.517 708.505 262.785 708.767 263.056ZM707.87 262.147C707.624 261.903 707.375 261.661 707.124 261.421C707.375 261.661 707.624 261.903 707.87 262.147ZM692.944 251.402C693.194 251.528 693.442 251.653 693.689 251.782L693.063 251.461C693.024 251.441 692.984 251.422 692.944 251.402ZM692.243 251.056C692.161 251.016 692.078 250.975 691.995 250.936C692.078 250.975 692.161 251.016 692.243 251.056ZM685.226 248.195C685.451 248.27 685.676 248.346 685.9 248.424C685.452 248.268 685.001 248.118 684.548 247.974L685.226 248.195ZM679.003 246.502C678.673 246.432 678.342 246.364 678.01 246.3C678.342 246.364 678.673 246.432 679.003 246.502ZM677.784 246.257C677.52 246.207 677.256 246.158 676.991 246.111C677.256 246.158 677.52 246.207 677.784 246.257ZM676.771 246.073C676.466 246.021 676.159 245.97 675.852 245.922C676.159 245.97 676.466 246.021 676.771 246.073ZM673.988 245.662C674.231 245.692 674.472 245.723 674.714 245.756C675.068 245.804 675.422 245.855 675.774 245.909C675.045 245.797 674.311 245.699 673.573 245.613C673.712 245.629 673.85 245.645 673.988 245.662ZM673.141 245.564C673.019 245.551 672.897 245.539 672.774 245.526C672.897 245.539 673.019 245.551 673.141 245.564ZM672.411 245.49C672.241 245.474 672.071 245.459 671.9 245.444C672.071 245.459 672.241 245.474 672.411 245.49ZM671.676 245.426C671.452 245.407 671.228 245.39 671.003 245.374C671.228 245.39 671.452 245.407 671.676 245.426ZM670.725 245.355C670.538 245.343 670.352 245.332 670.165 245.321C670.352 245.332 670.538 245.343 670.725 245.355ZM669.771 245.3C669.567 245.29 669.362 245.281 669.156 245.272C669.362 245.281 669.567 245.29 669.771 245.3ZM666.2 245.23C665.835 245.234 665.47 245.241 665.104 245.252C664.852 245.259 664.602 245.269 664.352 245.279L665.104 245.253C665.47 245.242 665.835 245.235 666.2 245.23ZM668.956 245.265C668.709 245.256 668.461 245.249 668.213 245.243C668.461 245.249 668.709 245.256 668.956 245.265ZM668.006 245.238C667.857 245.235 667.708 245.233 667.559 245.231C667.708 245.233 667.857 245.235 668.006 245.238ZM666.315 245.229C666.604 245.227 666.892 245.227 667.18 245.229C666.892 245.227 666.604 245.227 666.315 245.229ZM722.651 184.52C723.506 184.927 724.356 185.344 725.202 185.771V185.77C724.356 185.343 723.506 184.927 722.651 184.52ZM1033.05 185.603C1032.99 185.619 1032.94 185.635 1032.89 185.651C1032.94 185.635 1032.99 185.619 1033.05 185.603ZM1034.34 185.23C1034.25 185.257 1034.15 185.285 1034.05 185.312C1034.15 185.285 1034.25 185.257 1034.34 185.23ZM1035.52 184.921C1035.36 184.961 1035.2 185.003 1035.04 185.045C1035.2 185.003 1035.36 184.961 1035.52 184.921ZM1041.42 183.756C1041.34 183.767 1041.27 183.777 1041.19 183.788C1041.27 183.777 1041.34 183.767 1041.42 183.756ZM714.989 181.16L714.859 181.107C714.739 181.059 714.617 181.013 714.496 180.965C714.66 181.03 714.825 181.094 714.989 181.16ZM713.381 180.528C713.288 180.492 713.195 180.456 713.102 180.42C712.998 180.38 712.894 180.342 712.791 180.303C712.988 180.378 713.184 180.453 713.381 180.528ZM711.712 179.899C711.511 179.825 711.309 179.75 711.107 179.677C711.309 179.75 711.511 179.825 711.712 179.899ZM709.281 179.025C708.881 178.886 708.481 178.749 708.08 178.614C708.481 178.749 708.881 178.886 709.281 179.025ZM707.69 178.484C707.339 178.367 706.987 178.251 706.635 178.137C706.987 178.251 707.339 178.367 707.69 178.484ZM706.242 178.011C705.921 177.908 705.599 177.806 705.277 177.705C705.599 177.806 705.921 177.908 706.242 178.011ZM627.587 177.744C627.451 177.786 627.315 177.829 627.18 177.872C627.315 177.829 627.451 177.786 627.587 177.744ZM704.739 177.539C704.442 177.448 704.144 177.357 703.846 177.268C704.144 177.357 704.442 177.448 704.739 177.539ZM629.196 177.256C629.099 177.285 629.001 177.314 628.903 177.343C629.001 177.314 629.099 177.285 629.196 177.256ZM703.248 177.091C702.995 177.016 702.741 176.942 702.487 176.869C702.741 176.942 702.995 177.016 703.248 177.091ZM630.664 176.829C630.519 176.87 630.375 176.913 630.23 176.954C630.375 176.913 630.519 176.87 630.664 176.829ZM701.754 176.66C701.549 176.602 701.344 176.545 701.139 176.488C701.344 176.545 701.549 176.602 701.754 176.66ZM632.132 176.422C632.039 176.447 631.946 176.474 631.853 176.499C632.055 176.444 632.258 176.389 632.461 176.334L632.132 176.422ZM700.399 176.286C700.088 176.202 699.776 176.12 699.464 176.038C699.776 176.12 700.088 176.202 700.399 176.286ZM699.051 175.931C698.946 175.904 698.842 175.875 698.737 175.849C698.611 175.816 698.485 175.787 698.358 175.755C698.589 175.813 698.82 175.871 699.051 175.931ZM697.11 175.445C697.043 175.429 696.976 175.412 696.908 175.396C696.849 175.381 696.79 175.368 696.73 175.354C696.857 175.384 696.984 175.415 697.11 175.445ZM695.403 175.044C695.243 175.007 695.082 174.97 694.921 174.934C695.082 174.97 695.242 175.007 695.403 175.044ZM687.789 173.542C688.991 173.742 690.191 173.959 691.387 174.192L689.535 173.844C688.954 173.739 688.372 173.639 687.789 173.542ZM687.484 173.492C687.026 173.417 686.567 173.345 686.107 173.274C686.567 173.345 687.026 173.417 687.484 173.492ZM685.618 173.199C685.063 173.116 684.507 173.037 683.951 172.961C684.507 173.037 685.063 173.116 685.618 173.199ZM676.448 172.16V172.159V172.16ZM800.602 137.661C800.589 137.752 800.576 137.843 800.564 137.934C800.576 137.843 800.589 137.752 800.602 137.661ZM800.749 136.645C800.731 136.761 800.714 136.877 800.696 136.993C800.714 136.877 800.731 136.761 800.749 136.645ZM800.917 135.615C800.899 135.72 800.882 135.825 800.864 135.931C800.882 135.825 800.899 135.72 800.917 135.615ZM801.71 131.817C801.66 132.022 801.61 132.228 801.562 132.434C801.61 132.228 801.66 132.022 801.71 131.817ZM801.922 130.975C801.876 131.15 801.831 131.326 801.787 131.502C801.831 131.326 801.876 131.15 801.922 130.975ZM802.161 130.084C802.119 130.238 802.076 130.392 802.035 130.546C802.076 130.392 802.119 130.238 802.161 130.084ZM802.425 129.16C802.378 129.32 802.331 129.481 802.285 129.642C802.331 129.481 802.378 129.32 802.425 129.16ZM802.708 128.227C802.653 128.401 802.6 128.575 802.547 128.75C802.6 128.575 802.654 128.401 802.708 128.227ZM802.991 127.343C802.928 127.533 802.868 127.724 802.807 127.915C802.868 127.724 802.928 127.533 802.991 127.343ZM805.439 121.157C805.42 121.199 805.402 121.241 805.383 121.283C805.402 121.241 805.42 121.199 805.439 121.157ZM806.009 119.968C805.973 120.042 805.936 120.115 805.9 120.189C805.936 120.115 805.972 120.042 806.009 119.968ZM806.593 118.813C806.548 118.899 806.503 118.984 806.459 119.07C806.503 118.984 806.548 118.899 806.593 118.813ZM808.483 115.451C808.24 115.851 808.002 116.255 807.769 116.661L808.123 116.054C808.242 115.852 808.362 115.651 808.483 115.451ZM1009.36 114.736C1009.25 114.774 1009.13 114.814 1009.02 114.853C1009.28 114.767 1009.54 114.682 1009.8 114.598L1009.36 114.736ZM812.224 110.011C812.085 110.191 811.947 110.371 811.81 110.553C811.947 110.371 812.084 110.19 812.224 110.011ZM812.73 109.365C812.583 109.551 812.436 109.737 812.29 109.925C812.436 109.737 812.583 109.551 812.73 109.365ZM812.907 109.145C812.881 109.177 812.854 109.21 812.828 109.243C813 109.028 813.174 108.815 813.35 108.603L812.907 109.145ZM861.072 87.4609C860.754 87.446 860.434 87.4337 860.114 87.4238C860.434 87.4335 860.754 87.446 861.072 87.4609ZM858.308 87.3965C858.559 87.3965 858.81 87.3982 859.061 87.4014C859.382 87.4054 859.702 87.4127 860.022 87.4219C859.453 87.4051 858.881 87.3955 858.308 87.3955V87.3965ZM808.837 21.7197C808.705 21.7722 808.575 21.826 808.443 21.8789C809.03 21.6424 809.618 21.4091 810.209 21.1807L808.837 21.7197ZM840.294 13.4346C839.98 13.4775 839.666 13.5221 839.352 13.5674C839.666 13.5222 839.98 13.4775 840.294 13.4346ZM841.375 13.292C841.109 13.3261 840.844 13.3607 840.578 13.3965C840.844 13.3607 841.109 13.3261 841.375 13.292ZM842.637 13.1357C842.376 13.1667 842.116 13.1979 841.855 13.2305C842.116 13.1979 842.376 13.1667 842.637 13.1357ZM845.41 12.834C844.616 12.9118 843.822 12.9975 843.026 13.0898C843.822 12.9976 844.616 12.9117 845.41 12.834ZM846.309 12.749C846.074 12.7704 845.84 12.7928 845.605 12.8154C845.921 12.785 846.236 12.7566 846.551 12.7285L846.309 12.749ZM225.316 839.556C225.315 839.891 225.314 840.227 225.316 840.562C225.314 840.227 225.315 839.891 225.316 839.556ZM389.863 838.01C389.517 837.824 389.169 837.642 388.821 837.461C389.169 837.642 389.517 837.825 389.863 838.01ZM1108.92 823.898C1108.96 824.057 1109 824.216 1109.03 824.374C1109 824.216 1108.96 824.057 1108.92 823.898ZM725.917 791.938C725.952 792.097 725.988 792.256 726.024 792.414C725.988 792.256 725.952 792.097 725.917 791.938ZM711.447 266.034C711.28 265.835 711.112 265.637 710.942 265.44C711.112 265.637 711.28 265.835 711.447 266.034ZM710.022 179.287C709.867 179.232 709.713 179.175 709.558 179.121C709.524 179.109 709.491 179.098 709.458 179.087C709.646 179.153 709.834 179.22 710.022 179.287Z"/></svg>`
+                : this._multiSelect
                 ? svg`<svg viewBox="0 0 1600 1600" width="20" height="20"><path d="M87.5712 346.734C84.8837 339.234 92.1337 331.796 99.8212 334.608L469.249 467.508L647.075 961.824L471.447 1365.05C468.322 1372.3 456.822 1373.61 453.385 1363.61L87.5712 346.734Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M1506.44 616.688C1514.62 619.625 1514.87 631.063 1507.06 634.437L1056.63 830.624L860.447 1281.05C857.322 1288.3 845.822 1289.61 842.384 1279.61L476.571 262.733C473.884 255.233 481.134 247.796 488.821 250.608L1506.44 616.688Z" fill="currentColor"/></svg>`
                 : svg`<svg viewBox="0 0 1600 1600" width="20" height="20"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor"/></svg>`}
               ${this.selectedIds.size > 0 ? html`<span class="sidebar-badge">${this.selectedIds.size}</span>` : nothing}
             </button>
             ${this._sidebarMenu === 'select' ? html`
-              <div role="menu" aria-label="Select tool" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-select" role="menu" aria-label="Select tool" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'select'; this._multiSelect = false; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg viewBox="0 0 1600 1600" width="16" height="16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor"/></svg>
-                  Select <span style="opacity:0.5;font-size:0.8em">(V)</span>
+                  Select <span class="tool-shortcut-hint">(V)</span>
                 </button>
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'select'; this._multiSelect = true; this.ghost = null; this._sidebarMenu = null; }}">
@@ -1968,6 +2234,11 @@ export class CoachBoard extends LitElement {
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M1506.44 616.688C1514.62 619.625 1514.87 631.063 1507.06 634.437L1056.63 830.624L860.447 1281.05C857.322 1288.3 845.822 1289.61 842.384 1279.61L476.571 262.733C473.884 255.233 481.134 247.796 488.821 250.608L1506.44 616.688Z" fill="currentColor"/>
                   </svg>
                   Multi-select
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'pan'; this._multiSelect = false; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 1600 1600" width="16" height="16" fill="currentColor"><path d="M832.829 -5.65527C907.857 -18.2921 979.337 25.9844 1003.09 95.7441C1018.15 90.7944 1033.93 88.2408 1049.86 88.166H1049.97C1133.94 88.2271 1202.13 155.692 1203.25 239.421L1203.26 241.402V241.414L1203.27 313.792C1217.36 311.529 1231.71 310.954 1246.01 312.121H1246.01C1246.03 312.123 1246.05 312.124 1246.07 312.126C1246.08 312.127 1246.09 312.128 1246.11 312.129H1246.11C1325.81 318.344 1385.93 386.946 1381.77 466.699C1381.78 594.398 1385.19 664.706 1388.44 724.716L1389.09 736.609V736.614C1391.95 789.107 1394.67 839.092 1394.67 917.302C1394.67 1202.22 1357.98 1312.42 1328.23 1401.15L1328.1 1401.54L1327.96 1401.92C1314.61 1436.94 1305.55 1473.45 1300.89 1510.66C1295.54 1565.62 1249.44 1607.61 1194.19 1607.79H679.454L679.297 1607.79C629.191 1607 586.131 1572.26 574.76 1523.55C559.821 1483.88 534.811 1448.79 502.155 1421.75L501.563 1421.26L501.011 1420.73C411.233 1333.97 341.36 1228.77 296.26 1112.37V1112.37C250.038 995.329 222.588 911.857 210.263 872.296L210.264 872.295C201.258 843.593 204.62 812.389 219.757 786.308L219.764 786.31C234.708 760.543 259.723 742.085 288.767 735.468C347.605 721.264 409.713 733.616 458.643 769.319L459.415 769.883L460.13 770.518C480.326 788.442 498.305 808.583 513.755 830.513V304.994C513.87 220.417 582.402 151.884 666.979 151.771H667.041L667.104 151.771C680.003 151.835 692.809 153.56 705.203 156.868V145.468C705.099 70.646 759.108 6.7681 832.827 -5.65527H832.829ZM679.611 1587.79H1194.12V1587.79H679.611V1587.79ZM671.043 1587.25C671.083 1587.25 671.123 1587.26 671.163 1587.26C671.104 1587.26 671.044 1587.25 670.984 1587.24L671.043 1587.25ZM858.308 107.396C837.166 107.397 820.058 124.532 820.058 145.647L820.052 783.9C820.052 815.643 794.294 841.4 762.552 841.4C730.809 841.4 705.052 815.643 705.052 783.9V304.68L705.074 304.207C705.096 303.753 705.098 303.219 705.072 302.656L705.065 302.499L705.061 302.342C704.438 281.239 686.809 264.622 665.693 265.244C644.59 265.866 627.973 283.495 628.596 304.611L628.604 304.905V305.2L628.614 1007.35V1007.35C628.614 1023.82 621.559 1039.5 609.189 1050.4C596.933 1061.21 580.66 1066.33 564.42 1064.48V1064.48C544.878 1062.38 526.433 1054.83 510.99 1042.84L509.806 1041.92L508.771 1040.83C482.581 1013.31 461.507 981.357 446.566 946.407L446.525 946.312L446.486 946.216C433.346 914.574 414.215 885.842 390.077 861.599C370.393 847.706 346.107 842.147 322.491 845.966C335.292 886.405 361.272 963.834 403.218 1070.42L403.241 1070.48L403.265 1070.54C442.546 1172.24 503.613 1264.09 582.208 1339.59C629.93 1380.29 665.573 1433.29 685.337 1492.81L1187.05 1492.81C1192.78 1448.84 1203.52 1405.66 1219.1 1364.13C1245.87 1284.2 1279.46 1184.4 1279.46 917.158C1279.46 842.172 1276.93 796.209 1274.04 742.692V742.691C1270.53 678.542 1266.56 605.642 1266.56 466.064V465.023L1266.67 463.988C1268.6 445.452 1255.31 428.853 1236.91 426.622C1225.26 426.203 1213.7 428.399 1203.06 432.995V815.86C1203.06 847.603 1177.3 873.36 1145.56 873.36C1113.82 873.36 1088.06 847.603 1088.06 815.86V241.407C1088.06 220.265 1070.92 203.157 1049.81 203.156C1028.67 203.156 1011.56 220.292 1011.56 241.407V783.954C1011.56 815.697 985.801 841.454 954.059 841.454C922.316 841.454 896.559 815.697 896.559 783.954V145.647C896.559 124.505 879.423 107.397 858.308 107.396ZM656.929 1474.18C657.197 1474.81 657.462 1475.44 657.726 1476.07C657.462 1475.44 657.197 1474.81 656.929 1474.18V1474.18ZM1315.09 1377.36C1313.13 1383.29 1311.18 1389.09 1309.27 1394.79L1309.27 1394.79C1311.18 1389.09 1313.13 1383.29 1315.09 1377.36ZM422.692 1161.14C422.915 1161.56 423.138 1161.97 423.361 1162.39C423.029 1161.77 422.698 1161.15 422.367 1160.52L422.692 1161.14ZM385.558 1080.2C386.525 1082.67 387.505 1085.15 388.497 1087.61C387.505 1085.15 386.525 1082.67 385.559 1080.2H385.558ZM566.562 1044.6C567.219 1044.67 567.875 1044.73 568.531 1044.77C567.875 1044.73 567.218 1044.67 566.562 1044.6C566.068 1044.54 565.575 1044.49 565.083 1044.42C565.575 1044.49 566.069 1044.54 566.562 1044.6ZM1374.67 917.301C1374.67 922.387 1374.66 927.416 1374.63 932.39C1374.65 929.575 1374.66 926.742 1374.67 923.891C1374.67 921.705 1374.67 919.509 1374.67 917.302L1374.67 917.301ZM302.362 848.632C302.568 849.285 302.777 849.949 302.99 850.624C302.777 849.949 302.568 849.285 302.362 848.632ZM300.956 844.146C301.054 844.461 301.155 844.78 301.256 845.102C301.155 844.78 301.055 844.461 300.957 844.146C300.947 844.118 300.938 844.09 300.929 844.062C300.938 844.09 300.946 844.118 300.956 844.146ZM300.764 843.545C300.775 843.584 300.788 843.623 300.8 843.662C300.788 843.623 300.775 843.584 300.764 843.545ZM300.611 842.972C300.619 843.003 300.626 843.034 300.634 843.065C300.626 843.034 300.619 843.003 300.611 842.972ZM300.485 842.381C300.492 842.415 300.497 842.449 300.504 842.482C300.497 842.449 300.492 842.415 300.485 842.381ZM225.316 840.562C225.319 840.961 225.324 841.359 225.332 841.757L225.317 840.63C225.317 840.607 225.317 840.585 225.316 840.562ZM394.877 840.861C394.818 840.826 394.758 840.79 394.699 840.755C394.758 840.79 394.818 840.826 394.877 840.861ZM225.33 838.377C225.324 838.721 225.32 839.064 225.317 839.408C225.32 839.064 225.324 838.721 225.33 838.377ZM392.383 839.399C392.275 839.338 392.166 839.279 392.059 839.218C392.166 839.279 392.275 839.338 392.383 839.399ZM391.125 838.695C390.964 838.606 390.802 838.52 390.641 838.432C390.802 838.52 390.964 838.607 391.125 838.695ZM388.592 837.34C388.141 837.106 387.69 836.876 387.236 836.648C387.69 836.876 388.141 837.106 388.592 837.34ZM307.691 828.845H307.692H307.691ZM308.681 828.481C308.658 828.489 308.636 828.496 308.613 828.503C308.636 828.496 308.658 828.489 308.681 828.481ZM309.114 828.354C309.046 828.372 308.979 828.391 308.911 828.411C308.979 828.391 309.046 828.372 309.114 828.354ZM309.422 828.272C309.354 828.289 309.286 828.307 309.218 828.325C309.286 828.307 309.354 828.289 309.422 828.272ZM323.294 825.649C322.898 825.699 322.502 825.751 322.105 825.805C322.502 825.751 322.898 825.699 323.294 825.649ZM324.888 825.462C324.422 825.513 323.956 825.568 323.49 825.625C323.956 825.568 324.422 825.513 324.888 825.462ZM1109.19 825.039C1109.23 825.195 1109.27 825.351 1109.31 825.507C1109.27 825.351 1109.23 825.195 1109.19 825.039ZM326.431 825.303C325.992 825.345 325.553 825.39 325.114 825.438C325.553 825.39 325.992 825.345 326.431 825.303ZM327.97 825.166C327.491 825.205 327.013 825.247 326.535 825.293C327.013 825.247 327.491 825.205 327.97 825.166ZM329.083 825.08C328.793 825.101 328.504 825.123 328.214 825.146C328.504 825.123 328.793 825.101 329.083 825.08ZM330.098 825.012C329.867 825.026 329.635 825.042 329.404 825.058C329.635 825.042 329.867 825.026 330.098 825.012ZM331.242 824.945C331.035 824.956 330.827 824.967 330.619 824.979C330.827 824.967 331.035 824.956 331.242 824.945ZM1109.05 824.471C1109.09 824.625 1109.13 824.779 1109.17 824.933C1109.13 824.779 1109.09 824.625 1109.05 824.471ZM332.517 824.886C332.229 824.898 331.941 824.911 331.653 824.925C331.941 824.911 332.229 824.898 332.517 824.886ZM333.48 824.85C333.217 824.858 332.954 824.867 332.69 824.878C332.954 824.867 333.217 824.858 333.48 824.85ZM334.56 824.82C334.359 824.825 334.159 824.829 333.959 824.835C334.159 824.829 334.359 824.825 334.56 824.82ZM335.891 824.797C335.589 824.8 335.288 824.805 334.986 824.811C335.288 824.805 335.589 824.8 335.891 824.797ZM1108.82 823.414C1108.83 823.48 1108.85 823.545 1108.86 823.61C1108.85 823.53 1108.83 823.45 1108.81 823.37C1108.82 823.385 1108.82 823.399 1108.82 823.414ZM1108.62 822.328C1108.63 822.422 1108.65 822.516 1108.67 822.61C1108.65 822.516 1108.63 822.422 1108.62 822.328ZM953.091 821.441L953.225 821.442C953.113 821.44 953.002 821.437 952.891 821.434C952.957 821.436 953.024 821.44 953.091 821.441ZM952.044 821.398C952.127 821.403 952.21 821.406 952.293 821.41C952.21 821.406 952.127 821.403 952.044 821.398ZM747.124 818.085C747.678 818.336 748.239 818.573 748.807 818.797L747.961 818.451C747.68 818.332 747.401 818.21 747.124 818.085ZM234.859 800.368C234.512 801.046 234.175 801.729 233.847 802.414L234.347 801.389C234.516 801.048 234.686 800.707 234.859 800.368ZM726.217 793.202C726.248 793.325 726.28 793.447 726.312 793.569C726.28 793.447 726.248 793.325 726.217 793.202ZM726.048 792.517C726.085 792.675 726.124 792.833 726.163 792.991C726.124 792.833 726.085 792.675 726.048 792.517ZM725.813 791.454C725.823 791.501 725.834 791.548 725.844 791.595C725.831 791.533 725.817 791.472 725.805 791.41C725.808 791.425 725.81 791.439 725.813 791.454ZM725.608 790.368C725.626 790.47 725.644 790.572 725.663 790.674C725.644 790.572 725.626 790.47 725.608 790.368ZM916.674 786.912C916.696 787.202 916.722 787.491 916.751 787.778C916.722 787.491 916.696 787.202 916.674 786.912ZM916.616 786.029C916.628 786.249 916.641 786.468 916.657 786.687C916.642 786.468 916.628 786.249 916.616 786.029ZM916.559 783.954L916.57 784.921C916.577 785.2 916.588 785.478 916.602 785.756C916.573 785.158 916.559 784.557 916.559 783.953V783.954ZM712.886 267.812L712.453 267.262C712.412 267.211 712.371 267.16 712.33 267.109C712.517 267.343 712.703 267.576 712.886 267.812ZM712.086 266.808C711.97 266.665 711.854 266.523 711.736 266.381C711.854 266.523 711.97 266.665 712.086 266.808ZM710.887 265.376C710.658 265.112 710.428 264.85 710.195 264.591C710.428 264.85 710.658 265.112 710.887 265.376ZM708.767 263.056C708.928 263.223 709.088 263.392 709.248 263.562H709.249C708.831 263.118 708.405 262.681 707.974 262.251C708.24 262.517 708.505 262.785 708.767 263.056ZM707.87 262.147C707.624 261.903 707.375 261.661 707.124 261.421C707.375 261.661 707.624 261.903 707.87 262.147ZM692.944 251.402C693.194 251.528 693.442 251.653 693.689 251.782L693.063 251.461C693.024 251.441 692.984 251.422 692.944 251.402ZM692.243 251.056C692.161 251.016 692.078 250.975 691.995 250.936C692.078 250.975 692.161 251.016 692.243 251.056ZM685.226 248.195C685.451 248.27 685.676 248.346 685.9 248.424C685.452 248.268 685.001 248.118 684.548 247.974L685.226 248.195ZM679.003 246.502C678.673 246.432 678.342 246.364 678.01 246.3C678.342 246.364 678.673 246.432 679.003 246.502ZM677.784 246.257C677.52 246.207 677.256 246.158 676.991 246.111C677.256 246.158 677.52 246.207 677.784 246.257ZM676.771 246.073C676.466 246.021 676.159 245.97 675.852 245.922C676.159 245.97 676.466 246.021 676.771 246.073ZM673.988 245.662C674.231 245.692 674.472 245.723 674.714 245.756C675.068 245.804 675.422 245.855 675.774 245.909C675.045 245.797 674.311 245.699 673.573 245.613C673.712 245.629 673.85 245.645 673.988 245.662ZM673.141 245.564C673.019 245.551 672.897 245.539 672.774 245.526C672.897 245.539 673.019 245.551 673.141 245.564ZM672.411 245.49C672.241 245.474 672.071 245.459 671.9 245.444C672.071 245.459 672.241 245.474 672.411 245.49ZM671.676 245.426C671.452 245.407 671.228 245.39 671.003 245.374C671.228 245.39 671.452 245.407 671.676 245.426ZM670.725 245.355C670.538 245.343 670.352 245.332 670.165 245.321C670.352 245.332 670.538 245.343 670.725 245.355ZM669.771 245.3C669.567 245.29 669.362 245.281 669.156 245.272C669.362 245.281 669.567 245.29 669.771 245.3ZM666.2 245.23C665.835 245.234 665.47 245.241 665.104 245.252C664.852 245.259 664.602 245.269 664.352 245.279L665.104 245.253C665.47 245.242 665.835 245.235 666.2 245.23ZM668.956 245.265C668.709 245.256 668.461 245.249 668.213 245.243C668.461 245.249 668.709 245.256 668.956 245.265ZM668.006 245.238C667.857 245.235 667.708 245.233 667.559 245.231C667.708 245.233 667.857 245.235 668.006 245.238ZM666.315 245.229C666.604 245.227 666.892 245.227 667.18 245.229C666.892 245.227 666.604 245.227 666.315 245.229ZM722.651 184.52C723.506 184.927 724.356 185.344 725.202 185.771V185.77C724.356 185.343 723.506 184.927 722.651 184.52ZM1033.05 185.603C1032.99 185.619 1032.94 185.635 1032.89 185.651C1032.94 185.635 1032.99 185.619 1033.05 185.603ZM1034.34 185.23C1034.25 185.257 1034.15 185.285 1034.05 185.312C1034.15 185.285 1034.25 185.257 1034.34 185.23ZM1035.52 184.921C1035.36 184.961 1035.2 185.003 1035.04 185.045C1035.2 185.003 1035.36 184.961 1035.52 184.921ZM1041.42 183.756C1041.34 183.767 1041.27 183.777 1041.19 183.788C1041.27 183.777 1041.34 183.767 1041.42 183.756ZM714.989 181.16L714.859 181.107C714.739 181.059 714.617 181.013 714.496 180.965C714.66 181.03 714.825 181.094 714.989 181.16ZM713.381 180.528C713.288 180.492 713.195 180.456 713.102 180.42C712.998 180.38 712.894 180.342 712.791 180.303C712.988 180.378 713.184 180.453 713.381 180.528ZM711.712 179.899C711.511 179.825 711.309 179.75 711.107 179.677C711.309 179.75 711.511 179.825 711.712 179.899ZM709.281 179.025C708.881 178.886 708.481 178.749 708.08 178.614C708.481 178.749 708.881 178.886 709.281 179.025ZM707.69 178.484C707.339 178.367 706.987 178.251 706.635 178.137C706.987 178.251 707.339 178.367 707.69 178.484ZM706.242 178.011C705.921 177.908 705.599 177.806 705.277 177.705C705.599 177.806 705.921 177.908 706.242 178.011ZM627.587 177.744C627.451 177.786 627.315 177.829 627.18 177.872C627.315 177.829 627.451 177.786 627.587 177.744ZM704.739 177.539C704.442 177.448 704.144 177.357 703.846 177.268C704.144 177.357 704.442 177.448 704.739 177.539ZM629.196 177.256C629.099 177.285 629.001 177.314 628.903 177.343C629.001 177.314 629.099 177.285 629.196 177.256ZM703.248 177.091C702.995 177.016 702.741 176.942 702.487 176.869C702.741 176.942 702.995 177.016 703.248 177.091ZM630.664 176.829C630.519 176.87 630.375 176.913 630.23 176.954C630.375 176.913 630.519 176.87 630.664 176.829ZM701.754 176.66C701.549 176.602 701.344 176.545 701.139 176.488C701.344 176.545 701.549 176.602 701.754 176.66ZM632.132 176.422C632.039 176.447 631.946 176.474 631.853 176.499C632.055 176.444 632.258 176.389 632.461 176.334L632.132 176.422ZM700.399 176.286C700.088 176.202 699.776 176.12 699.464 176.038C699.776 176.12 700.088 176.202 700.399 176.286ZM699.051 175.931C698.946 175.904 698.842 175.875 698.737 175.849C698.611 175.816 698.485 175.787 698.358 175.755C698.589 175.813 698.82 175.871 699.051 175.931ZM697.11 175.445C697.043 175.429 696.976 175.412 696.908 175.396C696.849 175.381 696.79 175.368 696.73 175.354C696.857 175.384 696.984 175.415 697.11 175.445ZM695.403 175.044C695.243 175.007 695.082 174.97 694.921 174.934C695.082 174.97 695.242 175.007 695.403 175.044ZM687.789 173.542C688.991 173.742 690.191 173.959 691.387 174.192L689.535 173.844C688.954 173.739 688.372 173.639 687.789 173.542ZM687.484 173.492C687.026 173.417 686.567 173.345 686.107 173.274C686.567 173.345 687.026 173.417 687.484 173.492ZM685.618 173.199C685.063 173.116 684.507 173.037 683.951 172.961C684.507 173.037 685.063 173.116 685.618 173.199ZM676.448 172.16V172.159V172.16ZM800.602 137.661C800.589 137.752 800.576 137.843 800.564 137.934C800.576 137.843 800.589 137.752 800.602 137.661ZM800.749 136.645C800.731 136.761 800.714 136.877 800.696 136.993C800.714 136.877 800.731 136.761 800.749 136.645ZM800.917 135.615C800.899 135.72 800.882 135.825 800.864 135.931C800.882 135.825 800.899 135.72 800.917 135.615ZM801.71 131.817C801.66 132.022 801.61 132.228 801.562 132.434C801.61 132.228 801.66 132.022 801.71 131.817ZM801.922 130.975C801.876 131.15 801.831 131.326 801.787 131.502C801.831 131.326 801.876 131.15 801.922 130.975ZM802.161 130.084C802.119 130.238 802.076 130.392 802.035 130.546C802.076 130.392 802.119 130.238 802.161 130.084ZM802.425 129.16C802.378 129.32 802.331 129.481 802.285 129.642C802.331 129.481 802.378 129.32 802.425 129.16ZM802.708 128.227C802.653 128.401 802.6 128.575 802.547 128.75C802.6 128.575 802.654 128.401 802.708 128.227ZM802.991 127.343C802.928 127.533 802.868 127.724 802.807 127.915C802.868 127.724 802.928 127.533 802.991 127.343ZM805.439 121.157C805.42 121.199 805.402 121.241 805.383 121.283C805.402 121.241 805.42 121.199 805.439 121.157ZM806.009 119.968C805.973 120.042 805.936 120.115 805.9 120.189C805.936 120.115 805.972 120.042 806.009 119.968ZM806.593 118.813C806.548 118.899 806.503 118.984 806.459 119.07C806.503 118.984 806.548 118.899 806.593 118.813ZM808.483 115.451C808.24 115.851 808.002 116.255 807.769 116.661L808.123 116.054C808.242 115.852 808.362 115.651 808.483 115.451ZM1009.36 114.736C1009.25 114.774 1009.13 114.814 1009.02 114.853C1009.28 114.767 1009.54 114.682 1009.8 114.598L1009.36 114.736ZM812.224 110.011C812.085 110.191 811.947 110.371 811.81 110.553C811.947 110.371 812.084 110.19 812.224 110.011ZM812.73 109.365C812.583 109.551 812.436 109.737 812.29 109.925C812.436 109.737 812.583 109.551 812.73 109.365ZM812.907 109.145C812.881 109.177 812.854 109.21 812.828 109.243C813 109.028 813.174 108.815 813.35 108.603L812.907 109.145ZM861.072 87.4609C860.754 87.446 860.434 87.4337 860.114 87.4238C860.434 87.4335 860.754 87.446 861.072 87.4609ZM858.308 87.3965C858.559 87.3965 858.81 87.3982 859.061 87.4014C859.382 87.4054 859.702 87.4127 860.022 87.4219C859.453 87.4051 858.881 87.3955 858.308 87.3955V87.3965ZM808.837 21.7197C808.705 21.7722 808.575 21.826 808.443 21.8789C809.03 21.6424 809.618 21.4091 810.209 21.1807L808.837 21.7197ZM840.294 13.4346C839.98 13.4775 839.666 13.5221 839.352 13.5674C839.666 13.5222 839.98 13.4775 840.294 13.4346ZM841.375 13.292C841.109 13.3261 840.844 13.3607 840.578 13.3965C840.844 13.3607 841.109 13.3261 841.375 13.292ZM842.637 13.1357C842.376 13.1667 842.116 13.1979 841.855 13.2305C842.116 13.1979 842.376 13.1667 842.637 13.1357ZM845.41 12.834C844.616 12.9118 843.822 12.9975 843.026 13.0898C843.822 12.9976 844.616 12.9117 845.41 12.834ZM846.309 12.749C846.074 12.7704 845.84 12.7928 845.605 12.8154C845.921 12.785 846.236 12.7566 846.551 12.7285L846.309 12.749ZM225.316 839.556C225.315 839.891 225.314 840.227 225.316 840.562C225.314 840.227 225.315 839.891 225.316 839.556ZM389.863 838.01C389.517 837.824 389.169 837.642 388.821 837.461C389.169 837.642 389.517 837.825 389.863 838.01ZM1108.92 823.898C1108.96 824.057 1109 824.216 1109.03 824.374C1109 824.216 1108.96 824.057 1108.92 823.898ZM725.917 791.938C725.952 792.097 725.988 792.256 726.024 792.414C725.988 792.256 725.952 792.097 725.917 791.938ZM711.447 266.034C711.28 265.835 711.112 265.637 710.942 265.44C711.112 265.637 711.28 265.835 711.447 266.034ZM710.022 179.287C709.867 179.232 709.713 179.175 709.558 179.121C709.524 179.109 709.491 179.098 709.458 179.087C709.646 179.153 709.834 179.22 710.022 179.287Z"/></svg>
+                  Hand <span class="tool-shortcut-hint">(H)</span>
                 </button>
               </div>
             ` : nothing}
@@ -1981,12 +2252,13 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'add-player'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'player'}"
+                    aria-controls="sidebar-menu-player"
                     tabindex="${this._sidebarFocusIndex === 1 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('player', 1); }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m0 431.26 225 168.74v-200.16l-120.14-165.19z"/><path d="m1095.1 234.66-120.14 165.19v198.56l225-167.16z"/><path d="m1065.7 179.39c-9.9844-18.703-27.422-32.344-48-37.453l-267.71-66.938c0 82.828-67.172 150-150 150s-150-67.172-150-150l-267.71 66.938c-20.578 5.1562-38.016 18.75-48 37.453l-9.8438 18.469 134.44 184.87c2.3438 3.1875 3.5625 7.0781 3.5625 11.062v731.26h675l0.09375-731.29c0-3.9844 1.2656-7.8281 3.5625-11.062l134.44-184.87-9.8438-18.469zm-615.66 870.61h-112.5v-75h112.5zm318.74-581.26c-31.078 0-56.25-25.172-56.25-56.25 0-31.078 25.172-56.25 56.25-56.25 31.078 0 56.25 25.172 56.25 56.25 0 31.078-25.172 56.25-56.25 56.25z"/></svg>
             </button>
             ${this._sidebarMenu === 'player' ? html`
-              <div role="menu" aria-label="Add Player" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-player" role="menu" aria-label="Add Player" @keydown="${this.#onSidebarMenuKeyDown}">
                 ${(this.fieldTheme === 'white'
                   ? [{ label: 'Team A', color: COLORS.playerBlueW, team: 'a' as const }, { label: 'Team B', color: COLORS.playerRedW, team: 'b' as const }, { label: 'Neutral', color: COLORS.playerYellowW, team: 'neutral' as const }]
                   : [{ label: 'Team A', color: COLORS.playerBlue, team: 'a' as const }, { label: 'Team B', color: COLORS.playerRed, team: 'b' as const }, { label: 'Neutral', color: COLORS.playerYellow, team: 'neutral' as const }]
@@ -2018,12 +2290,13 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'add-equipment'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'equipment'}"
+                    aria-controls="sidebar-menu-equipment"
                     tabindex="${this._sidebarFocusIndex === 2 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('equipment', 2); }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor"/></svg>
             </button>
             ${this._sidebarMenu === 'equipment' ? html`
-              <div role="menu" aria-label="Add Equipment" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-equipment" role="menu" aria-label="Add Equipment" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'ball'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
                   <svg class="icon" viewBox="0 0 1200 1200" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
@@ -2106,12 +2379,13 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'draw-line' || t === 'draw-shape'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'draw'}"
+                    aria-controls="sidebar-menu-draw"
                     tabindex="${this._sidebarFocusIndex === 3 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('draw', 3); }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m349.6 604.3-88.301 88.551c-9.75 9.6992-9.75 25.613 0.050781 35.352l17.699 17.699-123.65 123.95c-4.6992 4.6992-7.3008 11.113-7.3008 17.699 0 6.6016 2.6484 12.949 7.3516 17.699l53.102 53-79.602 79.75c-9.75 9.75-9.75 25.602 0.050781 35.352 4.8984 4.8984 11.25 7.3008 17.648 7.3008 6.3984 0 12.801-2.4492 17.699-7.3516l79.602-79.801 53.102 53c4.8984 4.8867 11.25 7.3008 17.648 7.3008s12.801-2.4609 17.699-7.3008l123.6-123.95 17.699 17.699c4.6992 4.6875 11.051 7.3008 17.648 7.3008 6.6484 0 13-2.7109 17.699-7.3008l88.301-88.562z"/><path d="m1060.9 325.05-150.74-150.3c-19.262-19.449-43.211-43.648-70.461-43.648-11.789 0-22.551 4.5-31.051 13.051l-70.637 70.801-88.551-88.301c-4.6992-4.6484-11.051-7.3008-17.648-7.3008-6.6484 0-13 2.6484-17.699 7.3516l-282.42 283.2c-9.6992 9.75-9.6992 25.602 0.050781 35.352 9.8008 9.6992 25.602 9.8008 35.352-0.050781l264.8-265.5 70.801 70.648-317.75 318.55 247.85 247.2 428.15-429.25c9-8.8008 17.488-17.148 17.488-30.898-0.035157-13.754-8.5352-22.102-17.535-30.902z"/></svg>
             </button>
             ${this._sidebarMenu === 'draw' ? html`
-              <div role="menu" aria-label="Draw" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-draw" role="menu" aria-label="Draw" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'solid'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg class="icon" viewBox="0 0 32 12" width="32" height="12">
@@ -2154,18 +2428,38 @@ export class CoachBoard extends LitElement {
             ` : nothing}
           </div>
 
-          <!-- Text -->
-          <button class="sidebar-tool"
-                  title="Text (T)"
-                  aria-label="Text"
-                  aria-pressed="${t === 'add-text'}"
-                  tabindex="${this._sidebarFocusIndex === 4 ? 0 : -1}"
-                  @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); this._sidebarFocusIndex = 4; }}">
-            <svg viewBox="0 0 1200 1200" width="26" height="26" fill="currentColor">
-              <path d="m1010.5 347.39c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26h-31.594c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-31.594l-0.046874-505.26zm-94.734-126.32h63.141v63.141h-63.141zm-694.74 0h63.141v63.141h-63.141zm63.141 757.87h-63.141v-63.141h63.141zm694.74 0h-63.141v-63.141h63.141zm-63.141-126.32h-31.594c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-31.594v-505.22h31.594c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26z"/>
-              <path d="m789.47 378.94h-378.94c-17.438 0-31.594 14.156-31.594 31.594v63.141c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-31.594h126.32v378.94c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-378.94h126.32v31.594c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-63.141c0-17.438-14.156-31.594-31.594-31.594z"/>
-            </svg>
-          </button>
+          <!-- More (secondary tools: Text, Measure) -->
+          <div class="sidebar-dropdown-wrap">
+            <button class="sidebar-tool has-submenu"
+                    title="More tools"
+                    aria-label="More tools"
+                    aria-pressed="${MORE_TOOLS.includes(t)}"
+                    aria-haspopup="menu"
+                    aria-expanded="${this._sidebarMenu === 'more'}"
+                    aria-controls="sidebar-menu-more"
+                    tabindex="${this._sidebarFocusIndex === 4 ? 0 : -1}"
+                    @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('more', 4); }}">
+              <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor">
+                <circle cx="200" cy="600" r="120"/>
+                <circle cx="600" cy="600" r="120"/>
+                <circle cx="1000" cy="600" r="120"/>
+              </svg>
+            </button>
+            ${this._sidebarMenu === 'more' ? html`
+              <div id="sidebar-menu-more" role="menu" aria-label="More tools" @keydown="${this.#onSidebarMenuKeyDown}">
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m1010.5 347.39c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26h-31.594c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-31.594l-0.046874-505.26zm-94.734-126.32h63.141v63.141h-63.141zm-694.74 0h63.141v63.141h-63.141zm63.141 757.87h-63.141v-63.141h63.141zm694.74 0h-63.141v-63.141h63.141zm-63.141-126.32h-31.594c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-31.594v-505.22h31.594c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26z"/><path d="m789.47 378.94h-378.94c-17.438 0-31.594 14.156-31.594 31.594v63.141c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-31.594h126.32v378.94c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-378.94h126.32v31.594c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-63.141c0-17.438-14.156-31.594-31.594-31.594z"/></svg>
+                  Text <span class="tool-shortcut-hint">(T)</span>
+                </button>
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'measure'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
+                  <svg viewBox="0 0 1200 1200" width="17" height="17" fill="currentColor"><path d="m1139.3 40.5c-14.25-5.625-30-2.625-40.875 8.25l-1050 1049.6c-10.875 10.875-13.875 27-8.25 40.875s19.5 23.25 34.5 23.25h1050c20.625 0 37.5-16.875 37.5-37.5v-1050c0-15-9-28.875-23.25-34.5zm-51.75 1047h-922.13l97.125-97.125 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 97.125-97.125v922.13z"/><path d="m951.74 565.5c-13.875-5.625-30-2.625-40.875 8.25l-337.5 337.5c-10.875 10.875-13.875 27-8.25 40.875s19.5 23.25 34.5 23.25h337.5c20.625 0 37.5-16.875 37.5-37.5v-337.5c0-15-9-28.875-23.25-34.5zm-51.75 334.5h-209.63l209.63-209.63z"/><path d="m75 750h98.625c20.625 0 37.5-16.875 37.5-37.5s-16.875-37.5-37.5-37.5h-8.25l509.63-509.63v8.25c0 20.625 16.875 37.5 37.5 37.5s37.5-16.875 37.5-37.5v-98.625c0-20.625-16.875-37.5-37.5-37.5h-98.625c-20.625 0-37.5 16.875-37.5 37.5s16.875 37.5 37.5 37.5h8.25l-509.63 509.63v-8.25c0-20.625-16.875-37.5-37.5-37.5s-37.5 16.875-37.5 37.5v98.625c0 20.625 16.875 37.5 37.5 37.5z"/></svg>
+                  Measure <span class="tool-shortcut-hint">(M)</span>
+                </button>
+              </div>
+            ` : nothing}
+          </div>
 
           </div><!-- .sidebar-tools -->
 
@@ -2184,7 +2478,8 @@ export class CoachBoard extends LitElement {
               @group-items="${this.#onGroupItems}"
               @ungroup-items="${this.#onUngroupItems}"
               @delete-items="${this.#onDeleteItems}"
-              @rotate-items="${this.#onRotateItems}">
+              @rotate-items="${this.#onRotateItems}"
+              @z-order="${this.#onZOrder}">
             </cb-toolbar>
           ` : nothing}
 
@@ -2200,8 +2495,10 @@ export class CoachBoard extends LitElement {
               .ghost="${this.ghost}"
               .draw="${this._draw}"
               .shapeDraw="${this._shapeDraw}"
+              .measure="${this.#measureState}"
               .marquee="${this._marquee}"
               .activeTool="${this.activeTool}"
+              .viewTransform="${this._viewTransform}"
               .playerColor="${this.playerColor}"
               .playerTeam="${this.playerTeam}"
               .lineStyle="${this.lineStyle}"
@@ -2246,9 +2543,9 @@ export class CoachBoard extends LitElement {
                 ).join(', ')}</p></div>
               ` : nothing}
               ${this.#cachedSummary.linesByStyle.size > 0 ? html`
-                <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}${n > 1 ? 's' : ''}`).join(', ')}</p></div>
+                <div class="summary-section"><h3>Lines</h3><p>${[...this.#cachedSummary.linesByStyle.entries()].map(([st, n]) => `${n} ${st}`).join(', ')}</p></div>
               ` : nothing}
-              ${this.#cachedSummary.shapeCount > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${this.#cachedSummary.shapeCount} shape${this.#cachedSummary.shapeCount > 1 ? 's' : ''}</p></div>` : nothing}
+              ${this.#cachedSummary.shapesByKind.size > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${[...this.#cachedSummary.shapesByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).join(', ')}</p></div>` : nothing}
               ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p class="notes-body">${this._boardNotes}</p></div>` : nothing}
@@ -2292,6 +2589,30 @@ export class CoachBoard extends LitElement {
                   <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
               </button>
+
+              ${this._viewMode !== 'readonly' ? html`
+                <div class="bottom-bar-divider" role="separator" aria-hidden="true"></div>
+                <button class="icon-btn" aria-label="Zoom out (-)" title="Zoom out (-)"
+                        @click="${this.#zoomOut}">
+                  <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
+                    <path d="m1091.1 1078.1-241.31-309.38c76.914-79.898 120.61-186.03 122.25-296.92 1.6406-110.89-38.902-218.27-113.43-300.4-74.52-82.133-177.46-132.9-287.98-142.02-110.53-9.1211-220.39 24.082-307.37 92.887-86.98 68.805-144.57 168.08-161.14 277.74-16.562 109.66 9.1445 221.52 71.922 312.94 62.777 91.422 157.94 155.59 266.23 179.52 108.29 23.93 221.63 5.832 317.08-50.629l240.94 308.81c9.6836 12.352 23.883 20.344 39.469 22.207 15.586 1.8672 31.27-2.5508 43.594-12.27 12.16-9.6953 20.004-23.801 21.832-39.246 1.8242-15.445-2.5156-30.988-12.082-43.254zm-521.81-277.69c-69.402 7.3633-139.38-6.9688-200.3-41.023-60.918-34.059-109.78-86.164-139.86-149.14-30.078-62.98-39.895-133.73-28.09-202.52 11.801-68.789 44.637-132.23 93.988-181.58s112.79-82.188 181.58-93.988c68.789-11.805 139.54-1.9883 202.52 28.09 62.977 30.078 115.08 78.941 149.14 139.86 34.055 60.922 48.387 130.9 41.023 200.3-8.1484 76.777-42.371 148.44-96.969 203.03-54.594 54.598-126.25 88.82-203.03 96.969z"/>
+                    <path d="m334.69 416.62h399.94c26.715 0 48.375 26.664 48.375 48.281 0 26.664-21.66 48.281-48.375 48.281h-399.94c-26.715 0-48.375-26.664-48.375-48.281 0-26.664 21.66-48.281 48.375-48.281z"/>
+                  </svg>
+                </button>
+                <button class="zoom-level"
+                      aria-label="Reset zoom to 100% (0)"
+                      title="Reset zoom to 100% (0)"
+                        @click="${this.#resetView}">
+                  ${Math.round(this._viewTransform.scale * 100)}%
+                </button>
+                <button class="icon-btn" aria-label="Zoom in (=)" title="Zoom in (=)"
+                        @click="${this.#zoomIn}">
+                  <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
+                    <path d="m1091.1 1078.1-241.31-309.38c76.914-79.898 120.61-186.03 122.25-296.92 1.6406-110.89-38.902-218.27-113.43-300.4-74.52-82.133-177.46-132.9-287.98-142.02-110.53-9.1211-220.39 24.082-307.37 92.887-86.98 68.805-144.57 168.08-161.14 277.74-16.562 109.66 9.1445 221.52 71.922 312.94 62.777 91.422 157.94 155.59 266.23 179.52 108.29 23.93 221.63 5.832 317.08-50.629l240.94 308.81c9.6836 12.352 23.883 20.344 39.469 22.207 15.586 1.8672 31.27-2.5508 43.594-12.27 12.16-9.6953 20.004-23.801 21.832-39.246 1.8242-15.445-2.5156-30.988-12.082-43.254zm-521.81-277.69c-69.402 7.3633-139.38-6.9688-200.3-41.023-60.918-34.059-109.78-86.164-139.86-149.14-30.078-62.98-39.895-133.73-28.09-202.52 11.801-68.789 44.637-132.23 93.988-181.58s112.79-82.188 181.58-93.988c68.789-11.805 139.54-1.9883 202.52 28.09 62.977 30.078 115.08 78.941 149.14 139.86 34.055 60.922 48.387 130.9 41.023 200.3-8.1484 76.777-42.371 148.44-96.969 203.03-54.594 54.598-126.25 88.82-203.03 96.969z"/>
+                    <path d="m710.25 434.81h-144.38v-148.31c0.66797-8.4961-2.2422-16.883-8.0273-23.141s-13.922-9.8125-22.441-9.8125-16.656 3.5547-22.441 9.8125-8.6953 14.645-8.0273 23.141v148.31h-144.38c-11.055 0-21.266 5.8984-26.793 15.469-5.5273 9.5703-5.5273 21.367 0 30.938 5.5273 9.5703 15.738 15.469 26.793 15.469h144.38v148.31c0.80859 10.32 6.7891 19.527 15.883 24.465 9.0977 4.9414 20.074 4.9414 29.172 0 9.0938-4.9375 15.074-14.145 15.883-24.465v-148.31h144.38c11.055 0 21.266-5.8984 26.793-15.469 5.5273-9.5703 5.5273-21.367 0-30.938-5.5273-9.5703-15.738-15.469-26.793-15.469z"/>
+                  </svg>
+                </button>
+              ` : nothing}
             </div>
             <div class="bottom-center">
               ${!this._isMobile ? html`
@@ -2308,6 +2629,9 @@ export class CoachBoard extends LitElement {
                 <div class="dropdown-wrap">
                   <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
                           title="Pitch orientation"
+                          aria-haspopup="menu"
+                          aria-expanded="${this._fieldMenuOpen}"
+                          aria-controls="field-orientation-menu"
                           @click="${this.#toggleFieldMenu}">
                     <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14">
                       ${this.fieldOrientation === 'horizontal'
@@ -2318,7 +2642,8 @@ export class CoachBoard extends LitElement {
                     <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
                   </button>
                   ${this._fieldMenuOpen ? html`
-                    <div role="menu" aria-label="Pitch orientation">
+                    <div id="field-orientation-menu" role="menu" aria-label="Pitch orientation"
+                         @keydown="${this.#onFieldMenuKeyDown}">
                       <button role="menuitem"
                               @click="${() => this.#requestOrientation('horizontal')}">
                         <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14">
@@ -2355,25 +2680,18 @@ export class CoachBoard extends LitElement {
       <cb-dialogs
         .viewMode="${this._viewMode}"
         .animationFrameCount="${this.animationFrames.length}"
-        .boardNotes="${this._boardNotes}"
         @cb-import-confirm="${this.#confirmImport}"
         @cb-save-board-confirm="${this.#confirmSaveBoard}"
         @cb-save-board-skip="${this.#skipSaveBoard}"
         @cb-save-board-closed="${this.#onSaveBoardClosed}"
         @cb-new-board-confirm="${this.#confirmNewBoard}"
-        @cb-open-board="${this.#onOpenBoard}"
-        @cb-duplicate-board="${this.#onDuplicateBoard}"
-        @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
-        @cb-import-svg="${this.#importSvgFromMyBoards}"
-        @cb-export-all-boards="${this.#exportAllBoards}"
         @cb-confirm-delete-board="${this.#confirmDeleteBoard}"
         @cb-export-svg="${this.#exportSvg}"
         @cb-export-png="${this.#exportPng}"
         @cb-export-gif="${this.#exportGif}"
-        @cb-board-notes-input="${this.#onBoardNotesInput}"
-        @cb-board-summary-closed="${() => this.#saveToStorage()}"
         @cb-print-confirm="${this.#handlePrint}"
       ></cb-dialogs>
+
       <cb-share
         .players="${this.players}"
         .lines="${this.lines}"
@@ -2388,13 +2706,45 @@ export class CoachBoard extends LitElement {
         .playbackLoop="${this._playbackLoop}"
         .svgEl="${this._field?.svgEl ?? null}"
       ></cb-share>
-      <div class="rotate-overlay">
+      </div><!-- .app-board -->
+      </div><!-- .app-wrap -->
+
+      <!-- position:fixed elements must live OUTSIDE .app-wrap — the transform on
+           .app-wrap creates a new containing block, so anything fixed inside it
+           is positioned relative to .app-wrap, not the viewport. -->
+      <div class="rotate-overlay" aria-hidden="true">
         <svg viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
           <path d="M880.71 163.3V163.32L740.23 163.16L738.09 127.98L882.89 128L880.71 163.3ZM106.9 438.69H106.88L105.81 458.31L105.78 459.55L105.99 479.2C106.11 489.65 114.67 498.03 125.12 497.92C135.5 497.81 143.84 489.35 143.84 479L143.63 459.77L144.64 441.37L146.85 423.11L150.26 405.01L154.85 387.19L160.6 369.72L167.5 352.63L175.49 336.07L184.57 320.03L194.67 304.65L205.76 289.97L217.8 276.04L230.73 262.93L244.27 250.89L258.55 239.75L273.53 229.55L289.13 220.35L305.29 212.18L321.96 205.07L339.06 199.05L356.5 194.15L374.21 190.39L392.15 187.78L409.75 186.38L388.69 203.43C384.01 207.22 381.58 212.76 381.58 218.35C381.58 222.59 382.98 226.86 385.86 230.41C392.52 238.64 404.61 239.91 412.84 233.25L475.4 182.59C479.9 178.95 482.51 173.47 482.53 167.68V167.59C482.53 161.81 479.9 156.42 475.4 152.77L413.16 102.35C404.93 95.68 392.85 96.95 386.18 105.18C383.3 108.73 381.9 113 381.9 117.25C381.9 122.84 384.33 128.38 389.01 132.17L409.17 148.5H409.04L407.82 148.56L388.53 150.1L387.31 150.24L368.17 153.02L366.96 153.24L348.04 157.26L346.85 157.55L328.23 162.78L327.06 163.15L308.81 169.58L307.67 170.03L289.88 177.62L288.77 178.14L271.51 186.87L270.44 187.46L253.78 197.29L252.74 197.95L236.75 208.83L235.76 209.55L220.51 221.45L219.57 222.23L205.11 235.09L204.22 235.94L190.42 249.93L189.58 250.84L176.73 265.71L175.95 266.68L164.1 282.36L163.39 283.38L152.6 299.81L151.95 300.87L142.27 317.97L141.69 319.07L133.15 336.77L132.64 337.91L125.28 356.13L124.85 357.3L118.71 375.97L118.36 377.17L113.45 396.2L113.18 397.41L109.54 416.72L109.35 417.95L106.98 437.46L106.93 438.7H106.88H106.9V438.69ZM1034.12 127.99H1035.01C1048.17 128.42 1058.72 139.24 1058.72 152.52V850.85L562.25 850.87V152.52C562.25 139.24 572.79 128.42 585.96 127.99L699.84 128.01L703.25 183.42C703.87 193.49 712.21 201.33 722.3 201.33L898.64 201.38C908.72 201.36 917.06 193.52 917.69 183.46L921.13 127.99H1034.12ZM165.32 878.25V878.27L130.31 880.29L130.22 735.5L165.38 737.71V737.73L165.32 878.26V878.25ZM810.51 955.19H810.54C821.5 955.19 830.33 964.07 830.33 975.02C830.33 985.97 821.45 994.85 810.5 994.85C799.55 994.85 790.67 985.97 790.67 975.02C790.67 964.07 799.52 955.19 810.47 955.19H810.52H810.51ZM810.5 916.95H810.46C778.39 916.95 752.43 942.95 752.43 975.02C752.43 1007.09 778.42 1033.08 810.49 1033.08C842.56 1033.08 868.56 1007.08 868.56 975.02C868.56 942.96 842.59 916.95 810.52 916.95H810.5ZM1058.75 1031.75V1031.8C1058.75 1045.02 1048.2 1056.26 1035.04 1056.28L585.98 1056.3C572.82 1055.87 562.26 1045.04 562.26 1031.76V889.07L1058.74 889.11V1031.75H1058.75ZM153.36 521.44V521.46C153.47 521.44 153.36 521.44 153.36 521.44C121.46 522.14 95.39 546.56 92.24 577.77V577.84C92.01 580 91.87 1031.59 91.87 1031.59C91.87 1055.47 105.03 1076.19 124.65 1086.81L124.74 1086.86C133.33 1091.56 143.14 1094.56 153.58 1094.56L481.57 1094.36C492.12 1094.36 500.68 1085.81 500.68 1075.26C500.68 1064.71 492.23 1056.26 481.77 1056.16C481.51 1056.16 154.65 1056.16 154.65 1056.16C150.38 1056.16 146.37 1055.07 142.87 1053.15L142.82 1053.12C135.64 1049 130.71 1041.43 130.42 1032.66L130.35 918.55L185.58 915.17C195.64 914.55 203.48 906.22 203.5 896.15C203.5 896.06 203.57 719.78 203.57 719.78C203.57 709.7 195.73 701.35 185.67 700.73L130.22 697.28L130.29 581.75C131.64 569.45 142.04 559.9 154.67 559.89L481.58 559.71C492.13 559.69 500.69 551.14 500.69 540.59C500.69 530.04 492.14 521.48 481.58 521.48H153.36V521.5V521.47V521.44ZM586.84 89.74H586.79C552.59 89.74 524.79 117.08 524.04 151.11V1033.18C524.81 1067.22 552.62 1094.56 586.81 1094.56H1034.2C1068.39 1094.54 1096.21 1067.2 1096.96 1033.17V151.11C1096.19 117.07 1068.38 89.73 1034.19 89.73H586.84V89.74Z" fill="white"/>
         </svg>
       </div>
-      </div><!-- .app-board -->
-      </div><!-- .app-wrap -->
+
+      <!-- Side sheets: must live OUTSIDE .app-wrap for the same reason -->
+      <cb-side-sheet
+        ?open="${this._myBoardsOpen}"
+        heading="My Boards"
+        @close="${() => { this._myBoardsOpen = false; }}">
+        <cb-my-boards
+          .boards="${this._myBoards}"
+          @cb-open-board="${this.#onOpenBoard}"
+          @cb-duplicate-board="${this.#onDuplicateBoard}"
+          @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
+          @cb-import-svg="${this.#importSvgFromMyBoards}"
+          @cb-export-all-boards="${this.#exportAllBoards}">
+        </cb-my-boards>
+      </cb-side-sheet>
+
+      <cb-side-sheet
+        ?open="${this._boardSummaryOpen}"
+        heading="Board Summary"
+        @close="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
+        <cb-board-summary
+          .summary="${this._boardSummaryData}"
+          .boardNotes="${this._boardNotes}"
+          @cb-board-notes-input="${this.#onBoardNotesInput}"
+          @cb-board-summary-save="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
+        </cb-board-summary>
+      </cb-side-sheet>
+
       ${this._updateAvailable ? html`
         <div class="update-toast ${this._toastDismissing ? 'toast-dismissing' : ''}"
              role="status" aria-live="polite" aria-atomic="true">
@@ -2519,6 +2869,23 @@ export class CoachBoard extends LitElement {
     this.lines = this.lines.map(l => ids.has(l.id) ? { ...l, groupId: undefined } : l);
   }
 
+  #onZOrder(e: ZOrderEvent) {
+    const ids = this.selectedIds;
+    if (ids.size === 0) return;
+    this.#pushUndo();
+    const reorder = <T extends { id: string }>(arr: T[], toFront: boolean): T[] => {
+      const sel = arr.filter(i => ids.has(i.id));
+      const rest = arr.filter(i => !ids.has(i.id));
+      return toFront ? [...rest, ...sel] : [...sel, ...rest];
+    };
+    const front = e.direction === 'front';
+    this.players   = reorder(this.players, front);
+    this.equipment = reorder(this.equipment, front);
+    this.lines     = reorder(this.lines, front);
+    this.shapes    = reorder(this.shapes, front);
+    this.textItems = reorder(this.textItems, front);
+  }
+
   #expandSelectionToGroups(ids: Set<string>): Set<string> {
     const groupIds = new Set<string>();
     const allItems = [
@@ -2592,6 +2959,8 @@ export class CoachBoard extends LitElement {
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
 
+    const thumbnail = await this.#generateThumbnail();
+
     if (pendingAction === 'save-as') {
       const newBoard: SavedBoard = {
         ...this.#currentBoard,
@@ -2606,13 +2975,14 @@ export class CoachBoard extends LitElement {
         textItems: structuredClone(this.textItems),
         animationFrames: structuredClone(this.animationFrames),
         notes: this._boardNotes || undefined,
+        thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
-      await saveBoard(newBoard);
+      saveBoard(newBoard).catch(() => {});
       this.#currentBoard = newBoard;
       this._boardName = name;
       setActiveBoardId(newBoard.id);
     } else {
-      this.#currentBoard = { ...this.#currentBoard, name };
+      this.#currentBoard = { ...this.#currentBoard, name, ...(thumbnail && { thumbnail }) };
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
       if (pendingAction === 'new') {
@@ -2659,8 +3029,15 @@ export class CoachBoard extends LitElement {
     const linesByStyle = new Map<string, number>();
     for (const l of this.lines) {
       const hasArrow = l.arrowStart || l.arrowEnd;
-      const label = `${l.style === 'solid' ? 'Solid' : l.style === 'dashed' ? 'Dashed' : 'Wavy'}${hasArrow ? ' arrow' : ''}`;
+      const style = l.style === 'solid' ? 'Pass/Shoot' : l.style === 'dashed' ? 'Run' : 'Dribble';
+      const label = `${style}${hasArrow ? ' w/ Arrow' : ''}`;
       linesByStyle.set(label, (linesByStyle.get(label) ?? 0) + 1);
+    }
+
+    const shapesByKind = new Map<string, number>();
+    for (const sh of this.shapes) {
+      const label = sh.kind === 'rect' ? 'Rectangle' : 'Ellipse';
+      shapesByKind.set(label, (shapesByKind.get(label) ?? 0) + 1);
     }
 
     const pitchLabel = this.pitchType === 'half' ? 'Half Pitch (Def.)'
@@ -2679,7 +3056,7 @@ export class CoachBoard extends LitElement {
       dummiesByColor,
       polesByColor,
       linesByStyle,
-      shapeCount: this.shapes.length,
+      shapesByKind,
       textCount: this.textItems.length,
       frameCount: this.animationFrames.length,
     };
@@ -2687,7 +3064,8 @@ export class CoachBoard extends LitElement {
 
   #showBoardSummary() {
     this._menuOpen = false;
-    this._dialogs?.openBoardSummary(this.#getBoardSummary());
+    this._boardSummaryData = this.#getBoardSummary();
+    this._boardSummaryOpen = true;
   }
 
   #showPrintDialog() {
@@ -2702,6 +3080,8 @@ export class CoachBoard extends LitElement {
     this.#cachedSummary = this.#getBoardSummary();
     const host = this as unknown as HTMLElement;
     const savedTheme = this.fieldTheme;
+    const savedTransform = this._viewTransform;
+    this._viewTransform = { x: 0, y: 0, scale: 1 };
     if (printSummary) host.classList.add('print-summary');
     if (printWhiteBg) {
       host.classList.add('print-white-bg');
@@ -2714,6 +3094,7 @@ export class CoachBoard extends LitElement {
       cleaned = true;
       host.classList.remove('print-summary', 'print-white-bg');
       if (printWhiteBg) this.fieldTheme = savedTheme;
+      this._viewTransform = savedTransform;
       this.#isPrinting = false;
     };
     window.addEventListener('afterprint', cleanup, { once: true });
@@ -2760,7 +3141,7 @@ export class CoachBoard extends LitElement {
       ? (angleOrient === 'horizontal' ? 270 : 180)
       : (angleOrient === 'horizontal' ? 90 : 0);
 
-    this.players = template ? template.players.map(p => ({ ...p, id: uid('player'), angle: playerAngle(p.team) })) : [];
+    this.players = template ? template.players.map(p => ({ ...p, id: uid('player'), angle: p.angle ?? playerAngle(p.team) })) : [];
     this.lines = template ? template.lines.map(l => ({ ...l, id: uid('line') })) : [];
     this.equipment = template ? template.equipment.map(e => ({ ...e, id: uid('eq') })) : [];
     this.shapes = template ? template.shapes.map(s => ({ ...s, id: uid('shape') })) : [];
@@ -2786,24 +3167,32 @@ export class CoachBoard extends LitElement {
 
   async #showMyBoards() {
     this._menuOpen = false;
-    this._dialogs?.openMyBoards(await listBoards());
+    if (this.#currentBoard && !this.#currentBoard.thumbnail && this.#currentBoard.name !== 'Untitled Board') {
+      const thumb = await this.#generateThumbnail();
+      if (thumb && this.#currentBoard) {
+        this.#currentBoard = { ...this.#currentBoard, thumbnail: thumb };
+        saveBoard(this.#currentBoard).catch(() => {});
+      }
+    }
+    this._myBoards = await listBoards();
+    this._myBoardsOpen = true;
   }
 
   #handleOpenBoard(id: string) {
     if (id === this.#currentBoard?.id) {
-      this._dialogs?.closeMyBoards();
+      this._myBoardsOpen = false;
       return;
     }
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingOpenBoardId = id;
-      this._dialogs?.closeMyBoards();
+      this._myBoardsOpen = false;
       this._dialogs?.openSaveBoard('', 'open');
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
       deleteBoard(this.#currentBoard.id).catch(() => {});
     }
-    this._dialogs?.closeMyBoards();
+    this._myBoardsOpen = false;
     this.#doOpenBoard(id);
   }
 
@@ -2861,7 +3250,7 @@ export class CoachBoard extends LitElement {
       animationFrames: structuredClone(board.animationFrames),
     };
     await saveBoard(dup);
-    this._dialogs?.setMyBoards(await listBoards());
+    this._myBoards = await listBoards();
   }
 
   #handleDeleteBoard(board: SavedBoard) {
@@ -2875,14 +3264,14 @@ export class CoachBoard extends LitElement {
     this.#pendingDeleteBoard = null;
     this._dialogs?.closeDeleteBoard();
     await deleteBoard(id);
-    this._dialogs?.setMyBoards(await listBoards());
+    this._myBoards = await listBoards();
     if (id === this.#currentBoard?.id) {
       await this.#confirmNewBoard(new CustomEvent('', { detail: { pitchType: 'full' as PitchType, template: '' } }));
     }
   }
 
   #importSvgFromMyBoards() {
-    this._dialogs?.closeMyBoards();
+    this._myBoardsOpen = false;
     this.#importSvg();
   }
 
@@ -3180,9 +3569,41 @@ export class CoachBoard extends LitElement {
 
   // ── Field orientation ──────────────────────────────────────────
 
-  #toggleFieldMenu() {
-    this._fieldMenuOpen = !this._fieldMenuOpen;
+  #toggleFieldMenu(e: Event) {
+    const isOpening = !this._fieldMenuOpen;
+    this.#fieldMenuTrigger = e.currentTarget as HTMLElement;
+    this._fieldMenuOpen = isOpening;
+    if (isOpening) {
+      this.updateComplete.then(() => {
+        (this.renderRoot.querySelector('#field-orientation-menu [role="menuitem"]') as HTMLElement | null)?.focus();
+      });
+    }
   }
+
+  #onFieldMenuKeyDown = (e: KeyboardEvent) => {
+    const menu = e.currentTarget as HTMLElement;
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+    const current = items.indexOf(e.target as HTMLElement);
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        items[(current + 1) % items.length]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        items[(current - 1 + items.length) % items.length]?.focus();
+        break;
+      case 'Home': e.preventDefault(); items[0]?.focus(); break;
+      case 'End':  e.preventDefault(); items[items.length - 1]?.focus(); break;
+      case 'Escape':
+        e.preventDefault();
+        e.stopPropagation();
+        this._fieldMenuOpen = false;
+        this.#fieldMenuTrigger?.focus();
+        this.#fieldMenuTrigger = null;
+        break;
+    }
+  };
 
   #requestOrientation(orientation: FieldOrientation) {
     this._fieldMenuOpen = false;
@@ -3435,13 +3856,40 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerDown(e: PointerEvent) {
+    // Track all active pointers — used for pinch-to-zoom
+    this.#activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // Two-finger pinch — gated on non-readonly so shared/readonly views stay
+    // at the default view (zoom controls are hidden there too)
+    if (this.#activePointers.size === 2 && this._viewMode !== 'readonly') {
+      const pts = [...this.#activePointers.values()];
+      this.#pinchStartDist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      this.#pinchStartScale = this._viewTransform.scale;
+      this.#pinchStartPan = { x: this._viewTransform.x, y: this._viewTransform.y };
+      this.#panDrag = null;
+      return;
+    }
+
     if (this._viewMode === 'readonly') {
       this.#toggleReadonlyPlayback();
       return;
     }
     if (this.isPlaying) return;
-    if (!this._sidebarCollapsed) this._sidebarCollapsed = true;
+    if (!this._sidebarCollapsed && !this._sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
+
+    // Pan tool — use client-pixel delta so the SVG-unit/pixel ratio stays constant
+    // across the drag even as the viewBox shifts
+    if (this.activeTool === 'pan') {
+      const ctm = this._field.svgEl?.getScreenCTM();
+      this.#panDrag = {
+        startClientX: e.clientX, startClientY: e.clientY,
+        startVx: this._viewTransform.x, startVy: this._viewTransform.y,
+        svgPerPx: ctm ? 1 / Math.abs(ctm.a) : 1,
+      };
+      this._field.capturePointer(e.pointerId);
+      return;
+    }
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
       const hit = resolveHit(e.composedPath()[0]);
@@ -3455,6 +3903,13 @@ export class CoachBoard extends LitElement {
         else this.#addTextItem(pt.x, pt.y, 'Text');
         return;
       }
+    }
+
+    if (this.activeTool === 'measure') {
+      this._measureStart = { x: pt.x, y: pt.y };
+      this._measureEnd = { x: pt.x, y: pt.y };
+      this._field.capturePointer(e.pointerId);
+      return;
     }
 
     if (this.activeTool === 'draw-line') {
@@ -3481,7 +3936,8 @@ export class CoachBoard extends LitElement {
         }
       } else {
         this.selectedIds = new Set();
-        this._multiSelect = false;
+        // _multiSelect intentionally preserved — a miss should not exit
+        // the mode; user can exit explicitly via the toolbar or Escape
       }
       return;
     }
@@ -3603,6 +4059,35 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerMove(e: PointerEvent) {
+    this.#activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // Two-finger pinch
+    if (this.#activePointers.size === 2 && this.#pinchStartDist > 0) {
+      const pts = [...this.#activePointers.values()];
+      const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      const { maxX, maxY } = this.#getPanLimits();
+      const newScale = this.#clamp(this.#pinchStartScale * (dist / this.#pinchStartDist), 0.25, 8);
+      this._viewTransform = {
+        scale: newScale,
+        x: this.#clamp(this.#pinchStartPan.x, -maxX, maxX),
+        y: this.#clamp(this.#pinchStartPan.y, -maxY, maxY),
+      };
+      return;
+    }
+
+    // Pan drag
+    if (this.#panDrag) {
+      const dx = -(e.clientX - this.#panDrag.startClientX) * this.#panDrag.svgPerPx;
+      const dy = -(e.clientY - this.#panDrag.startClientY) * this.#panDrag.svgPerPx;
+      const { maxX, maxY } = this.#getPanLimits();
+      this._viewTransform = {
+        ...this._viewTransform,
+        x: this.#clamp(this.#panDrag.startVx + dx, -maxX, maxX),
+        y: this.#clamp(this.#panDrag.startVy + dy, -maxY, maxY),
+      };
+      return;
+    }
+
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
@@ -3611,6 +4096,16 @@ export class CoachBoard extends LitElement {
         this.ghost = null;
       } else {
         this.ghost = { x: pt.x, y: pt.y };
+      }
+      return;
+    }
+
+    if (this.activeTool === 'measure' && this._measureStart) {
+      if (e.shiftKey) {
+        const raw = axisConstrain(pt.x - this._measureStart.x, pt.y - this._measureStart.y, true);
+        this._measureEnd = { x: this._measureStart.x + raw.dx, y: this._measureStart.y + raw.dy };
+      } else {
+        this._measureEnd = { x: pt.x, y: pt.y };
       }
       return;
     }
@@ -3842,7 +4337,11 @@ export class CoachBoard extends LitElement {
     }
   }
 
-  #onPointerUp(_e: PointerEvent) {
+  #onPointerUp(e: PointerEvent) {
+    this.#activePointers.delete(e.pointerId);
+    if (this.#activePointers.size < 2) this.#pinchStartDist = 0;
+    this.#panDrag = null;
+
     if (this._marquee) {
       const m = this._marquee;
       this._marquee = null;
@@ -3983,7 +4482,10 @@ export class CoachBoard extends LitElement {
     );
   }
 
-  #onPointerLeave(_e: PointerEvent) {
+  #onPointerLeave(e: PointerEvent) {
+    this.#activePointers.delete(e.pointerId);
+    if (this.#activePointers.size < 2) this.#pinchStartDist = 0;
+    this.#panDrag = null;
     this.ghost = null;
     this._draw = null;
     this._shapeDraw = null;
@@ -4048,6 +4550,36 @@ export class CoachBoard extends LitElement {
       this.#pasteClipboard(3, 3);
       return;
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'g' && !e.shiftKey && this.selectedIds.size >= 2 && !inInput) {
+      e.preventDefault();
+      this.#onGroupItems(new GroupItemsEvent());
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'G' && e.shiftKey && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      this.#onUngroupItems(new UngroupItemsEvent());
+      return;
+    }
+    // Cmd+] / Cmd+Shift+] = bring to front  (industry standard: Figma, Sketch, Canva)
+    if ((e.metaKey || e.ctrlKey) && e.key === ']' && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      this.#onZOrder(new ZOrderEvent('front'));
+      return;
+    }
+    // Cmd+[ / Cmd+Shift+[ = send to back
+    if ((e.metaKey || e.ctrlKey) && e.key === '[' && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      this.#onZOrder(new ZOrderEvent('back'));
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'A' && e.shiftKey && !inInput) {
+      e.preventDefault();
+      this.selectedIds = new Set();
+      return;
+    }
+    // Zoom via the UI buttons only — Cmd+=/- conflicts with the browser's own zoom
+    // shortcuts, which change the viewport and break orientation media queries.
+    // Coaches can use the −/100%/+ controls in the bottom bar instead.
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedIds.size > 0) {
       if (inInput) return;
       this.#pushUndo();
@@ -4062,9 +4594,15 @@ export class CoachBoard extends LitElement {
     }
     if (e.key === 'Escape') {
       if (this._menuOpen) { this.#closeMenu(); return; }
+      if (this.activeTool === 'measure' && this._measureStart) {
+        this._measureStart = null;
+        this._measureEnd = null;
+        return;
+      }
       this.activeTool = 'select';
       this.ghost = null;
       this.selectedIds = new Set();
+      this._multiSelect = false;
       this.#lastPlacedId = null;
       return;
     }
@@ -4140,11 +4678,27 @@ export class CoachBoard extends LitElement {
         this.activeTool = 'add-text';
         this.selectedIds = new Set(); this.#lastPlacedId = null;
         break;
-      case 'r':
+      case 'm':
+        this.activeTool = 'measure';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'h':
+        this.activeTool = 'pan';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case ',':
         if (this.selectedIds.size > 0) {
           this.#onRotateItems(new RotateItemsEvent(-45));
         }
         break;
+      case '.':
+        if (this.selectedIds.size > 0) {
+          this.#onRotateItems(new RotateItemsEvent(45));
+        }
+        break;
+      case '=': this.#zoomIn();    break;
+      case '-': this.#zoomOut();   break;
+      case '0': this.#resetView(); break;
     }
   }
 

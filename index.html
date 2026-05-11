@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#16213e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -52,6 +52,10 @@
         --pt-color-red-250: #e87da0;
         --pt-color-red-200: #f87171;
         --pt-color-red-150: #fb8a8a;
+        /* Brand mark — the two greens in the CoachingBoard logo circle */
+        --pt-color-brand-green-dark:  #55964D;
+        --pt-color-brand-green-light: #60A957;
+
         --pt-color-green-600: #16a34a;
         --pt-color-green-700: #15803d;
         --pt-color-green-800: #116b33;
@@ -143,7 +147,9 @@
 
       html, body {
         height: 100%;
-        background: var(--pt-bg-body);
+        /* --pt-bg-toolbar colors the top/bottom safe-area zones on iOS PWA
+           where 100dvh doesn't reach (status bar and home indicator regions) */
+        background: var(--pt-bg-toolbar);
         color: var(--pt-text);
         font-family: system-ui, -apple-system, sans-serif;
       }

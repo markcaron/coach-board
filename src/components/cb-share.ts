@@ -208,12 +208,14 @@ export class CbShare extends LitElement {
   #shareCompressed: string = '';
   #shareShortId: string = '';
   #lastSharedData: string = '';
+  #returnFocus: HTMLElement | null = null;
 
   @query('dialog') private accessor _dialog!: HTMLDialogElement;
 
   // ── Public API ──────────────────────────────────────────────────
 
   async triggerShare() {
+    this.#returnFocus = document.activeElement as HTMLElement | null;
     const data = JSON.stringify({
       name: this.boardName || 'Untitled Board',
       players: this.players,
@@ -288,10 +290,19 @@ export class CbShare extends LitElement {
     this._shareUrl = this.#buildShareUrl();
   }
 
+  #closeDialog() {
+    this._dialog?.close();
+  }
+
+  #onDialogClose() {
+    this.#returnFocus?.focus();
+    this.#returnFocus = null;
+  }
+
   async #copyAndClose() {
     try {
       await navigator.clipboard.writeText(this._shareUrl);
-      this._dialog?.close();
+      this.#closeDialog();
     } catch { /* leave dialog open so URL remains visible for manual copy */ }
   }
 
@@ -347,20 +358,23 @@ export class CbShare extends LitElement {
 
   render() {
     return html`
-      <dialog>
+      <dialog @close="${this.#onDialogClose}">
         <div class="dialog-header">
           <h2>Share</h2>
           <button class="dialog-close" aria-label="Close" title="Close"
-                  @click="${() => this._dialog?.close()}">
+                  @click="${this.#closeDialog}">
             <svg viewBox="0 0 16 16" width="16" height="16">
               <path d="M 4,4 L 12,12 M 12,4 L 4,12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
           </button>
         </div>
         <div class="dialog-body">
-          <p>${this._shareMessage}</p>
+          <div aria-live="polite" aria-atomic="true">
+            <p>${this._shareMessage}</p>
+            ${this._shareUrl ? html`
+              <code class="share-url">${this._shareUrl}</code>` : nothing}
+          </div>
           ${this._shareUrl ? html`
-            <code class="share-url">${this._shareUrl}</code>
             <label class="share-editable-label">
               <input type="checkbox" .checked="${this._shareEditable}"
                      @change="${this.#onEditableChange}" />
@@ -368,7 +382,7 @@ export class CbShare extends LitElement {
             </label>
           ` : nothing}
           <div class="confirm-actions">
-            <button class="cancel-btn" @click="${() => this._dialog?.close()}">Close</button>
+            <button class="cancel-btn" @click="${this.#closeDialog}">Close</button>
             ${this._shareUrl ? html`
               <button class="confirm-success" @click="${this.#copyAndClose}">
                 <svg class="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

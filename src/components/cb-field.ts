@@ -14,6 +14,12 @@ export interface GhostCursor { x: number; y: number; }
 
 export interface DrawState { x1: number; y1: number; x2: number; y2: number; }
 
+export interface MeasureState {
+  x1: number; y1: number;
+  x2: number; y2: number;
+  unit: 'm' | 'yd';
+}
+
 export interface ShapeDrawState {
   kind: ShapeKind;
   startX: number; startY: number;
@@ -194,6 +200,18 @@ export class CbField extends LitElement {
       position: relative;
     }
 
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     .play-overlay {
       position: absolute;
       inset: 0;
@@ -202,6 +220,15 @@ export class CbField extends LitElement {
       justify-content: center;
       z-index: 5;
       cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    .play-overlay:focus-visible {
+      outline: 3px solid var(--pt-accent);
+      outline-offset: -3px;
+      border-radius: 0;
     }
 
     .play-overlay-btn {
@@ -253,20 +280,30 @@ export class CbField extends LitElement {
       display: block;
       width: 100%;
       height: 100%;
+      /* hand all gestures (pan, pinch) to JS — prevents browser native pinch from
+         changing window.innerWidth and firing the mobile breakpoint media query */
+      touch-action: none;
       cursor: default;
       user-select: none;
-      touch-action: none;
     }
 
     .svg-wrap > svg.tool-add-player,
-    .svg-wrap > svg.tool-add-equipment,
-    .svg-wrap > svg.tool-add-text {
+    .svg-wrap > svg.tool-add-equipment {
       cursor: none;
     }
 
+    .svg-wrap > svg.tool-add-text {
+      cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 1200 1200'><path fill='black' stroke='white' stroke-width='50' d='m843.75 1068.8c0 31.875-24.375 56.25-56.25 56.25h-26.25c-58.125 1.875-116.25-18.75-161.25-56.25-45 37.5-101.25 58.125-161.25 56.25h-26.25c-31.875 0-56.25-24.375-56.25-56.25s24.375-56.25 56.25-56.25h26.25c60 0 105-31.875 105-61.875v-106.88h-56.25c-31.875 0-56.25-24.375-56.25-56.25s24.375-56.25 56.25-56.25h56.25v-481.88c0-28.125-45-61.875-105-61.875h-26.25c-31.875 0-56.25-24.375-56.25-56.25s24.375-56.25 56.25-56.25h26.25c58.125-1.875 116.25 18.75 161.25 56.25 45-37.5 101.25-58.125 161.25-56.25h26.25c31.875 0 56.25 24.375 56.25 56.25s-24.375 56.25-56.25 56.25h-26.25c-60 0-105 31.875-105 61.875v481.88h56.25c31.875 0 56.25 24.375 56.25 56.25s-24.375 56.25-56.25 56.25h-56.25v108.75c0 28.125 45 61.875 105 61.875h26.25c31.875-1.875 56.25 22.5 56.25 54.375z'/></svg>") 12 12, text;
+    }
+
     .svg-wrap > svg.tool-draw-line,
-    .svg-wrap > svg.tool-draw-shape {
+    .svg-wrap > svg.tool-draw-shape,
+    .svg-wrap > svg.tool-measure {
       cursor: crosshair;
+    }
+
+    .svg-wrap > svg.tool-pan {
+      cursor: grab;
     }
 
 
@@ -300,10 +337,12 @@ export class CbField extends LitElement {
   @property({ attribute: false }) accessor ghost: GhostCursor | null = null;
   @property({ attribute: false }) accessor draw: DrawState | null = null;
   @property({ attribute: false }) accessor shapeDraw: ShapeDrawState | null = null;
+  @property({ attribute: false }) accessor measure: MeasureState | null = null;
   @property({ attribute: false }) accessor marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
 
   // ── Tool/editing settings ───────────────────────────────────────
   @property() accessor activeTool: Tool = 'select';
+  @property({ attribute: false }) accessor viewTransform: { x: number; y: number; scale: number } = { x: 0, y: 0, scale: 1 };
   @property() accessor playerColor: string = COLORS.playerBlue;
   @property() accessor playerTeam: Team = 'a';
   @property() accessor lineStyle: LineStyle = 'solid';
@@ -773,6 +812,56 @@ export class CbField extends LitElement {
             stroke="${previewColor}" stroke-width="0.25" stroke-dasharray="${dashAttr}"
             marker-end="url(#arrow-end-${previewMarkerId})"
             class="no-events" />
+    `;
+  }
+
+  #renderMeasureOverlay() {
+    const m = this.measure!;
+    const dx = m.x2 - m.x1;
+    const dy = m.y2 - m.y1;
+    const distM = Math.sqrt(dx * dx + dy * dy);
+    const displayDist = m.unit === 'yd' ? distM * 1.09361 : distM;
+    const mx = (m.x1 + m.x2) / 2;
+    const my = (m.y1 + m.y2) / 2;
+    const label = distM < 0.05 ? '' : `${displayDist.toFixed(1)}${m.unit}`;
+
+    const lineColor = this.fieldTheme === 'white' ? '#333' : 'white';
+    const textColor = this.fieldTheme === 'white' ? '#333' : 'white';
+    const bgColor = this.fieldTheme === 'white' ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.6)';
+
+    // Rotate the label to follow the line, keeping text right-side-up
+    const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+    const labelAngle = Math.abs(angleDeg) > 90 ? angleDeg + 180 : angleDeg;
+
+    // Pill dimensions scale with label length
+    const charW = 1.15;
+    const pillW = label.length * charW + 1.2;
+    const pillH = 2.4;
+
+    return svg`
+      <g class="measure-overlay no-events">
+        <line x1="${m.x1}" y1="${m.y1}" x2="${m.x2}" y2="${m.y2}"
+              stroke="${lineColor}" stroke-width="0.22"
+              stroke-dasharray="0.7,0.35" opacity="0.95" />
+        <circle cx="${m.x1}" cy="${m.y1}" r="0.38"
+                fill="${lineColor}" opacity="0.95" />
+        <circle cx="${m.x2}" cy="${m.y2}" r="0.38"
+                fill="${lineColor}" opacity="0.95" />
+        ${label ? svg`
+          <g transform="translate(${mx},${my}) rotate(${labelAngle})">
+            <rect x="${-pillW / 2}" y="${-pillH / 2}"
+                  width="${pillW}" height="${pillH}"
+                  rx="0.5" fill="${bgColor}" />
+            <text x="0" y="0"
+                  text-anchor="middle"
+                  dominant-baseline="central"
+                  font-size="1.8"
+                  font-family="system-ui,-apple-system,sans-serif"
+                  font-weight="700"
+                  fill="${textColor}">${label}</text>
+          </g>
+        ` : nothing}
+      </g>
     `;
   }
 
@@ -1259,10 +1348,14 @@ export class CbField extends LitElement {
 
   render() {
     const fd = getFieldDimensions(this.fieldOrientation, this.pitchType);
-    const vbX = -PADDING;
-    const vbY = -PADDING;
-    const vbW = fd.w + PADDING * 2;
-    const vbH = fd.h + PADDING * 2;
+    const baseW = fd.w + PADDING * 2;
+    const baseH = fd.h + PADDING * 2;
+    const zoomedW = baseW / this.viewTransform.scale;
+    const zoomedH = baseH / this.viewTransform.scale;
+    const vbX = -PADDING + (baseW - zoomedW) / 2 + this.viewTransform.x;
+    const vbY = -PADDING + (baseH - zoomedH) / 2 + this.viewTransform.y;
+    const vbW = zoomedW;
+    const vbH = zoomedH;
 
     return html`
       <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
@@ -1271,7 +1364,11 @@ export class CbField extends LitElement {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="${vbX} ${vbY} ${vbW} ${vbH}"
             preserveAspectRatio="xMidYMid meet"
-            class="tool-${this.activeTool}">
+            class="tool-${this.activeTool}"
+            role="application"
+            aria-label="Tactical board canvas"
+            aria-describedby="cb-field-instructions">
+            <title>Tactical board canvas</title>
 
             ${this.#renderDefs()}
 
@@ -1317,6 +1414,8 @@ export class CbField extends LitElement {
               ${this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
               ${this.draw ? this.#renderDrawPreview() : nothing}
             </g>
+
+            ${this.measure ? this.#renderMeasureOverlay() : nothing}
 
             ${this.animationMode && this.activeFrameIndex > 0 && !this.isPlaying && this.viewMode !== 'readonly' ? this.#renderGhostsAndTrails() : nothing}
 
@@ -1384,8 +1483,14 @@ export class CbField extends LitElement {
               : nothing}
           </svg>
         </div>
+        <p id="cb-field-instructions" class="visually-hidden">
+          Use the toolbar to add players, draw arrows, and place equipment. Tap or click the field to place elements.
+        </p>
         ${this.viewMode === 'readonly' && this.animationFrames.length > 1 ? html`
-          <div class="play-overlay" @click="${() => this.dispatchEvent(new CustomEvent('cb-field-play-overlay-click', { bubbles: true, composed: true }))}">
+          <button class="play-overlay"
+                  aria-label="${this.isPlaying ? 'Pause animation' : 'Play animation'}"
+                  aria-pressed="${this.isPlaying}"
+                  @click="${() => this.dispatchEvent(new CustomEvent('cb-field-play-overlay-click', { bubbles: true, composed: true }))}">
             ${this.showPlayOverlay ? html`
               <div class="play-overlay-btn ${this.playBtnAnim}">
                 ${this.pauseFlash ? html`
@@ -1400,7 +1505,7 @@ export class CbField extends LitElement {
                 `}
               </div>
             ` : nothing}
-          </div>
+          </button>
         ` : nothing}
       </div>
     `;
