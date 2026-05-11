@@ -107,6 +107,13 @@ export class UngroupItemsEvent extends Event {
   }
 }
 
+export class ZOrderEvent extends Event {
+  static readonly eventName = 'z-order' as const;
+  constructor(public readonly direction: 'front' | 'back') {
+    super(ZOrderEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 export class DeleteItemsEvent extends Event {
   static readonly eventName = 'delete-items' as const;
   constructor() {
@@ -177,7 +184,7 @@ const LINE_STYLES: { label: string; symbol: string; value: LineStyle }[] = [
   { label: 'Dribble',     symbol: '〜', value: 'wavy' },
 ];
 
-type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'dummy-color' | 'pole-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping' | 'ctx-panel';
+type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'dummy-color' | 'pole-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping' | 'z-order' | 'ctx-panel';
 
 @customElement('cb-toolbar')
 export class CbToolbar extends LitElement {
@@ -2776,6 +2783,41 @@ export class CbToolbar extends LitElement {
                 Distribute vertical
               </button>
             ` : nothing}
+          </div>
+        ` : nothing}
+      </div>
+      <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
+        <button class="ctx-icon-btn has-submenu" title="Z-order" aria-label="Z-order"
+                aria-haspopup="menu"
+                aria-expanded="${this._openMenu === 'z-order'}"
+                @click="${(e: Event) => this.#onCtxArrangeClick('z-order', e)}">
+          <svg class="icon" viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor">
+            <rect x="200" y="900" width="700" height="500" rx="40"/>
+            <rect x="500" y="550" width="700" height="500" rx="40" opacity="0.6"/>
+            <rect x="800" y="200" width="700" height="500" rx="40" opacity="0.3"/>
+          </svg>
+        </button>
+        ${this._openMenu === 'z-order' ? html`
+          <div role="menu" id="menu-ctx-z-order" aria-label="Z-order"
+               @keydown="${this.#onMenuKeyDown}">
+            <button role="menuitem" tabindex="-1"
+                    @click="${() => { this._openMenu = null; this.dispatchEvent(new ZOrderEvent('front')); }}">
+              <svg class="icon" viewBox="0 0 1600 1600" width="17" height="17" fill="currentColor">
+                <rect x="200" y="900" width="700" height="500" rx="40" opacity="0.3"/>
+                <rect x="500" y="550" width="700" height="500" rx="40" opacity="0.5"/>
+                <rect x="800" y="200" width="700" height="500" rx="40"/>
+              </svg>
+              Bring to front <span class="tool-shortcut-hint">(⌘⇧])</span>
+            </button>
+            <button role="menuitem" tabindex="-1"
+                    @click="${() => { this._openMenu = null; this.dispatchEvent(new ZOrderEvent('back')); }}">
+              <svg class="icon" viewBox="0 0 1600 1600" width="17" height="17" fill="currentColor">
+                <rect x="200" y="900" width="700" height="500" rx="40"/>
+                <rect x="500" y="550" width="700" height="500" rx="40" opacity="0.5"/>
+                <rect x="800" y="200" width="700" height="500" rx="40" opacity="0.3"/>
+              </svg>
+              Send to back <span class="tool-shortcut-hint">(⌘⇧[)</span>
+            </button>
           </div>
         ` : nothing}
       </div>
