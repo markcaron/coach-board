@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 (2026-05-11)
+
+### Bug Fixes
+
+- **iOS input zoom** (#186): Increased `font-size` on all `<input>`, `<select>`, and `<textarea>` elements from `0.85rem` (~13.6px) to `1rem` (16px). iOS Safari auto-zooms when a focused form control has `font-size < 16px`, which was cropping dialogs and leaving users in a zoomed state. Affects the Save Board input, New Board selects, Pitch Theme and Unit selects, playback speed select, player number input, text content input, font select, and rotation input.
+
 ## 1.4.0 — SD Wave (2026-05-10)
 
 ### Features

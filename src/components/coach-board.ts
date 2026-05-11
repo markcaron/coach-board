@@ -843,7 +843,7 @@ export class CoachBoard extends LitElement {
       min-height: 44px;
       padding: 6px 26px 6px 10px;
       font: inherit;
-      font-size: 0.85rem;
+      font-size: 1rem;
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ccc'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
