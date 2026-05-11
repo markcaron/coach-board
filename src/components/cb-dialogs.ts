@@ -422,7 +422,7 @@ export class CbDialogs extends LitElement {
     /* ── My Boards side sheet ──────────────────────────────────── */
 
     .side-sheet-backdrop {
-      position: fixed;
+      position: absolute;
       inset: 0;
       z-index: 50;
       background: rgba(0, 0, 0, 0.4);
@@ -437,7 +437,7 @@ export class CbDialogs extends LitElement {
     }
 
     .side-sheet {
-      position: fixed;
+      position: absolute;
       top: 0;
       bottom: 0;
       right: 0;
@@ -841,19 +841,11 @@ export class CbDialogs extends LitElement {
 
   closeNewBoard() { this._newBoardDialog?.close(); }
 
-  openMyBoards(boards: SavedBoard[]) {
-    this._myBoards = boards;
-    this._myBoardsOpen = true;
-    this.updateComplete.then(() => {
-      const sheet = this.renderRoot.querySelector('.side-sheet') as HTMLElement | null;
-      const first = sheet?.querySelector<HTMLElement>('button:not([disabled])');
-      first?.focus();
-    });
-  }
+  openMyBoards(boards: SavedBoard[]) { this._myBoards = boards; }
 
   setMyBoards(boards: SavedBoard[]) { this._myBoards = boards; }
 
-  closeMyBoards() { this._myBoardsOpen = false; }
+  closeMyBoards() { /* managed by coach-board.ts */ }
 
   openDeleteConfirm(name: string) {
     this._deleteBoardName = name;

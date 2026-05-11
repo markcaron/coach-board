@@ -179,6 +179,258 @@ export class CoachBoard extends LitElement {
       transform: translateX(0);
     }
 
+    /* My Boards open: whole view slides left by the sheet width */
+    .app-wrap.my-boards-open {
+      transform: translateX(calc(var(--panel-w) * -1 - var(--my-boards-w, min(400px, 100vw))));
+    }
+
+    /* ── My Boards side sheet (position:fixed, outside .app-wrap) ── */
+    .my-boards-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 420ms cubic-bezier(0.33, 1, 0.68, 1);
+    }
+
+    .my-boards-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .my-boards-sheet {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      z-index: 51;
+      width: var(--my-boards-w, min(400px, 100vw));
+      background: white;
+      color: var(--pt-color-navy-800, #16213e);
+      color-scheme: light;
+      border-left: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: -2px 0 24px rgba(0, 0, 0, 0.15);
+      transform: translateX(100%);
+      transition: transform 420ms cubic-bezier(0.33, 1, 0.68, 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .my-boards-sheet.open { transform: translateX(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .app-wrap.my-boards-open,
+      .my-boards-sheet,
+      .my-boards-backdrop { transition: none; }
+    }
+
+    .my-boards-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 20px 18px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      flex-shrink: 0;
+    }
+
+    .my-boards-header h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--pt-color-navy-800, #16213e);
+      margin: 0;
+    }
+
+    .my-boards-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: rgba(0, 0, 0, 0.55);
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .my-boards-close:hover { background: rgba(0, 0, 0, 0.06); color: rgba(0,0,0,0.85); }
+    .my-boards-close:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
+      background: rgba(78, 168, 222, 0.08);
+    }
+
+    .my-boards-body {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Section A: board list */
+    .my-boards-section {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .my-boards-section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(0, 0, 0, 0.55);
+      padding: 4px 20px 8px;
+    }
+
+    /* Section B: data / actions */
+    .my-boards-data {
+      padding: 6px 0;
+    }
+
+    .my-boards-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 20px;
+    }
+
+    /* Board list — menu-nav button style */
+    .my-boards-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .my-boards-list li { display: flex; align-items: center; padding: 0 8px 0 0; }
+
+    .my-boards-list .board-open-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 13px 20px;
+      background: transparent;
+      border: none;
+      color: var(--pt-color-navy-800, #16213e);
+      font: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-align: left;
+      min-width: 0;
+    }
+
+    .my-boards-list .board-open-btn:hover { background: rgba(78, 168, 222, 0.08); }
+    .my-boards-list .board-open-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
+      border-radius: 6px;
+      background: rgba(78, 168, 222, 0.08);
+    }
+
+    .my-boards-list .board-icon { flex-shrink: 0; opacity: 0.5; }
+
+    .my-boards-list .board-title {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--pt-color-navy-800, #16213e);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .my-boards-list .board-date {
+      font-size: 0.72rem;
+      color: rgba(0, 0, 0, 0.45);
+      margin-top: 5px;
+    }
+
+    .my-boards-list .action-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: none;
+      color: rgba(0, 0, 0, 0.4);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 40px;
+      min-height: 40px;
+    }
+
+    .my-boards-list .action-btn:hover { background: rgba(0, 0, 0, 0.06); color: rgba(0,0,0,0.7); }
+    .my-boards-list .action-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
+      background: rgba(78, 168, 222, 0.08);
+    }
+
+    .my-boards-list .delete-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: none;
+      color: rgba(220, 38, 38, 0.55);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 40px;
+      min-height: 40px;
+    }
+
+    .my-boards-list .delete-btn:hover { background: rgba(220, 38, 38, 0.08); color: #dc2626; }
+    .my-boards-list .delete-btn:focus-visible {
+      outline: 2px solid #dc2626;
+      outline-offset: -2px;
+      background: rgba(220, 38, 38, 0.08);
+    }
+
+    /* Alerts */
+    .mb-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px 20px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .mb-alert svg { flex-shrink: 0; margin-top: 1px; }
+
+    .mb-alert-warning { color: #7a4f00; }
+    .mb-alert-info { color: rgba(0, 0, 0, 0.6); }
+
+    /* Action buttons — match menu-nav button */
+    .mb-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 13px 20px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: var(--pt-color-navy-800, #16213e);
+      font: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .mb-action-btn:hover { background: rgba(78, 168, 222, 0.08); }
+    .mb-action-btn:focus-visible { outline: 2px solid var(--pt-accent); outline-offset: -4px; }
+    .mb-action-btn svg { opacity: 0.7; flex-shrink: 0; }
+
     .app-board {
       grid-column: 2;
       height: 100dvh;
@@ -1088,6 +1340,8 @@ export class CoachBoard extends LitElement {
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
+  @state() private accessor _myBoardsOpen: boolean = false;
+  @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _rotateHandleId: string | null = null;
   @state() private accessor _animationMode: boolean = false;
   @state() accessor animationFrames: AnimationFrame[] = [];
@@ -1837,7 +2091,7 @@ export class CoachBoard extends LitElement {
     const t = this.activeTool;
     const isReadonly = this._viewMode === 'readonly';
     return html`
-      <div class="app-wrap ${this._menuOpen ? 'menu-open' : ''}">
+      <div class="app-wrap ${this._menuOpen ? 'menu-open' : ''} ${this._myBoardsOpen ? 'my-boards-open' : ''}">
       ${this.#renderMenuPanel()}<!-- grid col 1: left panel -->
       <div class="app-board"><!-- grid col 2 -->
 
@@ -2484,6 +2738,100 @@ export class CoachBoard extends LitElement {
       </div>
       </div><!-- .app-board -->
       </div><!-- .app-wrap -->
+      <div class="my-boards-backdrop ${this._myBoardsOpen ? 'open' : ''}"
+           @click="${() => { this._myBoardsOpen = false; }}"></div>
+      <div class="my-boards-sheet ${this._myBoardsOpen ? 'open' : ''}"
+           role="dialog"
+           aria-modal="${this._myBoardsOpen}"
+           aria-hidden="${!this._myBoardsOpen}"
+           aria-labelledby="my-boards-title"
+           @keydown="${(e: KeyboardEvent) => { if (e.key === 'Escape') this._myBoardsOpen = false; }}">
+        <div class="my-boards-header">
+          <h2 id="my-boards-title">My Boards</h2>
+          <button class="my-boards-close" aria-label="Close My Boards"
+                  @click="${() => { this._myBoardsOpen = false; }}">
+            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/>
+            </svg>
+          </button>
+        </div>
+        <div class="my-boards-body">
+
+          <!-- Section A: Saved Boards -->
+          <div class="my-boards-section">
+            ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
+              <div class="my-boards-section-label">Saved Boards</div>
+              <ul class="my-boards-list">
+                ${this._myBoards.filter(b => b.name !== 'Untitled Board').map(b => html`
+                  <li>
+                    <button class="board-open-btn" aria-label="Open ${b.name}"
+                            @click="${() => this.#handleOpenBoard(b.id)}">
+                      <svg class="board-icon" viewBox="0 0 1200 1200" width="22" height="22" aria-hidden="true" fill="currentColor">
+                        <path d="m1050.2 206.34h-900.37c-50.016 0-90.703 40.688-90.703 90.703v605.86c0 50.016 40.688 90.703 90.703 90.703h900.42c50.016 0 90.703-40.688 90.703-90.703v-605.81c0-50.062-40.734-90.75-90.75-90.75zm58.875 696.56c0 32.484-26.391 58.875-58.875 58.875h-900.37c-32.484 0-58.875-26.391-58.875-58.875v-605.81c0-32.484 26.391-58.875 58.875-58.875h900.42c32.484 0 58.875 26.391 58.875 58.875v605.81z"/>
+                      </svg>
+                      <div class="board-info">
+                        <div class="board-title">${b.name}</div>
+                        <div class="board-date">${new Date(b.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${b.pitchType === 'half' ? 'Half (Def.)' : b.pitchType === 'half-attack' ? 'Half (Att.)' : b.pitchType === 'open' ? 'Open Grass' : 'Full Pitch'}</div>
+                      </div>
+                    </button>
+                    <button class="action-btn" title="Duplicate ${b.name}" aria-label="Duplicate ${b.name}"
+                            @click="${() => this.#onDuplicateBoard(new CustomEvent('', { detail: { board: b } }) as CustomEvent<{ board: SavedBoard }>)}">
+                      <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
+                        <rect x="5" y="5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                        <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
+                            @click="${() => this.#onHandleDeleteBoard(new CustomEvent('', { detail: { board: b } }) as CustomEvent<{ board: SavedBoard }>)}">
+                      <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
+                        <path d="M5 2V1h6v1h4v2H1V2h4zm1 4v7h1V6H6zm3 0v7h1V6H9zM2 5l1 10h10l1-10H2z"/>
+                      </svg>
+                    </button>
+                  </li>
+                `)}
+              </ul>
+            ` : html`
+              <div class="mb-alert mb-alert-warning">
+                <svg viewBox="0 0 1200 1200" width="18" height="18" fill="#d97706">
+                  <path d="m600 431.77c-18.637 0-33.75 15.113-33.75 33.75v233.36c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-233.36c0-18.637-15.113-33.75-33.75-33.75z"/>
+                  <path d="m600 789.56c-18.637 0-33.75 15.113-33.75 33.75v20.625c0 18.637 15.113 33.75 33.75 33.75s33.75-15.113 33.75-33.75v-20.625c0-18.637-15.113-33.75-33.75-33.75z"/>
+                  <path d="m1102.7 847.57-401.81-624.9c-22.164-34.426-59.887-55.012-100.88-55.012s-78.711 20.586-100.88 55.051v0.039062l-401.81 624.82c-24.113 37.461-25.762 83.211-4.3867 122.36 21.336 39.113 60.711 62.477 105.3 62.477h803.62c44.551 0 83.926-23.363 105.3-62.477 21.297-39.188 19.648-84.898-4.4648-122.36zm-54.863 89.965c-9.3359 17.137-26.551 27.336-46.051 27.336h-803.59c-19.5 0-36.711-10.164-46.051-27.336-9.3359-17.102-8.625-37.086 1.9141-53.512l401.81-624.83c19.688-30.523 68.551-30.523 88.273 0l401.81 624.82c10.539 16.426 11.215 36.414 1.875 53.516z"/>
+                </svg>
+                No saved boards yet.
+              </div>
+            `}
+          </div>
+
+          <!-- Section B: Data / Import / Export -->
+          <div class="my-boards-data">
+            <div class="mb-alert mb-alert-info">
+              <svg viewBox="0 0 1200 1200" width="18" height="18" fill="rgba(0,0,0,0.4)">
+                <path d="m600 112.5c-129.29 0-253.29 51.363-344.71 142.79-91.422 91.426-142.79 215.42-142.79 344.71s51.363 253.29 142.79 344.71c91.426 91.422 215.42 142.79 344.71 142.79s253.29-51.363 344.71-142.79c91.422-91.426 142.79-215.42 142.79-344.71-0.14453-129.25-51.555-253.16-142.95-344.55-91.395-91.391-215.3-142.8-344.55-142.95zm0 900c-109.4 0-214.32-43.461-291.68-120.82-77.359-77.355-120.82-182.28-120.82-291.68s43.461-214.32 120.82-291.68c77.355-77.359 182.28-120.82 291.68-120.82s214.32 43.461 291.68 120.82c77.359 77.355 120.82 182.28 120.82 291.68-0.11719 109.37-43.617 214.22-120.95 291.55s-182.18 120.83-291.55 120.95z"/>
+                <path d="m675 812.5h-37.5v-312.5c0-9.9453-3.9492-19.484-10.984-26.516-7.0312-7.0352-16.57-10.984-26.516-10.984h-25c-11.887 0.003906-23.066 5.6445-30.137 15.203-7.0664 9.5586-9.1836 21.898-5.707 33.266s12.137 20.414 23.344 24.383v277.15h-37.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h150c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/>
+                <path d="m650 350c0 27.613-22.387 50-50 50s-50-22.387-50-50 22.387-50 50-50 50 22.387 50 50z"/>
+              </svg>
+              All board data is saved to your browser's local storage. Exporting boards as backup SVGs is the best way to keep backups.
+            </div>
+            <button class="mb-action-btn" @click="${() => this.#importSvgFromMyBoards()}">
+              <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor">
+                <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
+                <path d="m600 862.5c16.566-0.027344 32.449-6.6211 44.164-18.336 11.715-11.715 18.309-27.598 18.336-44.164v-566.55l197.5 164.55c12.738 10.59 29.156 15.695 45.656 14.199 16.496-1.5 31.727-9.4844 42.344-22.199 10.59-12.738 15.695-29.156 14.199-45.656-1.5-16.496-9.4844-31.727-22.199-42.344l-300-250c-3.1562-2.2227-6.5039-4.1641-10-5.8008-2.2656-1.4922-4.6172-2.8477-7.0508-4.0508-14.562-6.1289-30.984-6.1289-45.551 0-2.5508 1.1875-5.0234 2.5391-7.3984 4.0508-3.5 1.6328-6.8438 3.5742-10 5.8008l-300 250c-13.23 11.031-21.32 27.035-22.359 44.23-1.0391 17.195 5.0664 34.055 16.871 46.602 11.805 12.543 28.262 19.66 45.488 19.668 14.613-0.035156 28.758-5.1641 40-14.5l197.5-164.55v566.55c0.027344 16.566 6.6211 32.449 18.336 44.164 11.715 11.715 27.598 18.309 44.164 18.336z"/>
+              </svg>
+              Import from SVG
+            </button>
+            ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
+              <button class="mb-action-btn" @click="${() => this.#exportAllBoards()}">
+                <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor">
+                  <path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
+                  <path d="m600 37.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v566.55l-197.5-164.55c-12.738-10.59-29.156-15.695-45.656-14.199-16.496 1.5-31.727 9.4844-42.344 22.199-10.59 12.738-15.695 29.156-14.199 45.656 1.5 16.496 9.4844 31.727 22.199 42.344l300 250c3.1484 2.2344 6.4961 4.1758 10 5.8008 2.2852 1.5312 4.6758 2.9023 7.1484 4.0977 14.566 6.1328 30.988 6.1328 45.551 0 2.4141-1.2031 4.7539-2.5547 7-4.0469 3.5039-1.6289 6.8477-3.5703 10-5.8008l300-250c13.23-11.004 21.336-26.977 22.41-44.148 1.0742-17.176-4.9766-34.031-16.73-46.598-11.758-12.566-28.172-19.73-45.379-19.805-14.613 0.027344-28.762 5.1562-40 14.5l-197.5 164.55v-566.55c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/>
+                </svg>
+                Export All Boards
+              </button>
+            ` : nothing}
+          </div>
+
+        </div>
+      </div>
       ${this._updateAvailable ? html`
         <div class="update-toast ${this._toastDismissing ? 'toast-dismissing' : ''}"
              role="status" aria-live="polite" aria-atomic="true">
@@ -2892,24 +3240,25 @@ export class CoachBoard extends LitElement {
 
   async #showMyBoards() {
     this._menuOpen = false;
-    this._dialogs?.openMyBoards(await listBoards());
+    this._myBoards = await listBoards();
+    this._myBoardsOpen = true;
   }
 
   #handleOpenBoard(id: string) {
     if (id === this.#currentBoard?.id) {
-      this._dialogs?.closeMyBoards();
+      this._myBoardsOpen = false;
       return;
     }
     if (!this.#isBoardSaved && !this.#isBoardEmpty) {
       this.#pendingOpenBoardId = id;
-      this._dialogs?.closeMyBoards();
+      this._myBoardsOpen = false;
       this._dialogs?.openSaveBoard('', 'open');
       return;
     }
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
       deleteBoard(this.#currentBoard.id).catch(() => {});
     }
-    this._dialogs?.closeMyBoards();
+    this._myBoardsOpen = false;
     this.#doOpenBoard(id);
   }
 
@@ -2967,7 +3316,7 @@ export class CoachBoard extends LitElement {
       animationFrames: structuredClone(board.animationFrames),
     };
     await saveBoard(dup);
-    this._dialogs?.setMyBoards(await listBoards());
+    this._myBoards = await listBoards();
   }
 
   #handleDeleteBoard(board: SavedBoard) {
@@ -2981,14 +3330,14 @@ export class CoachBoard extends LitElement {
     this.#pendingDeleteBoard = null;
     this._dialogs?.closeDeleteBoard();
     await deleteBoard(id);
-    this._dialogs?.setMyBoards(await listBoards());
+    this._myBoards = await listBoards();
     if (id === this.#currentBoard?.id) {
       await this.#confirmNewBoard(new CustomEvent('', { detail: { pitchType: 'full' as PitchType, template: '' } }));
     }
   }
 
   #importSvgFromMyBoards() {
-    this._dialogs?.closeMyBoards();
+    this._myBoardsOpen = false;
     this.#importSvg();
   }
 
