@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 /**
  * Generic slide-in side sheet shell.
@@ -172,7 +173,7 @@ export class CbSideSheet extends LitElement {
       <div class="sheet ${this.open ? 'open' : ''}"
            role="dialog"
            aria-modal="true"
-           ?aria-hidden="${!this.open}"
+           aria-hidden="${ifDefined(!this.open ? 'true' : undefined)}"
            aria-labelledby="${this.#titleId}"
            @keydown="${this.#onKeydown}">
         <div class="sheet-header">

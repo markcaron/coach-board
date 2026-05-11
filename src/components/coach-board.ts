@@ -3,6 +3,7 @@ import { toolShortcutHintStyle } from '../lib/shared-styles.js';
 import { customElement, state, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { guard } from 'lit/directives/guard.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
@@ -1124,6 +1125,7 @@ export class CoachBoard extends LitElement {
   @state() accessor pitchType: PitchType = 'full';
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
+  #fieldMenuTrigger: HTMLElement | null = null;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | 'more' | null = null;
   @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
   #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1981,7 +1983,11 @@ export class CoachBoard extends LitElement {
     `;
 
     return html`
-      <div class="menu-panel" ?aria-hidden="${!this._menuOpen}" role="navigation" aria-label="Main menu">
+      <div class="menu-panel"
+           aria-hidden="${ifDefined(!this._menuOpen ? 'true' : undefined)}"
+           ?inert="${!this._menuOpen}"
+           role="navigation"
+           aria-label="Main menu">
 
         <div class="menu-header">
           <svg class="menu-logo" viewBox="0 0 1600 1600" aria-hidden="true">
@@ -3563,8 +3569,15 @@ export class CoachBoard extends LitElement {
 
   // ── Field orientation ──────────────────────────────────────────
 
-  #toggleFieldMenu() {
-    this._fieldMenuOpen = !this._fieldMenuOpen;
+  #toggleFieldMenu(e: Event) {
+    const isOpening = !this._fieldMenuOpen;
+    this.#fieldMenuTrigger = e.currentTarget as HTMLElement;
+    this._fieldMenuOpen = isOpening;
+    if (isOpening) {
+      this.updateComplete.then(() => {
+        (this.renderRoot.querySelector('#field-orientation-menu [role="menuitem"]') as HTMLElement | null)?.focus();
+      });
+    }
   }
 
   #onFieldMenuKeyDown = (e: KeyboardEvent) => {
@@ -3586,7 +3599,8 @@ export class CoachBoard extends LitElement {
         e.preventDefault();
         e.stopPropagation();
         this._fieldMenuOpen = false;
-        (this.renderRoot.querySelector('.bottom-center .dropdown-wrap > button') as HTMLElement)?.focus();
+        this.#fieldMenuTrigger?.focus();
+        this.#fieldMenuTrigger = null;
         break;
     }
   };
