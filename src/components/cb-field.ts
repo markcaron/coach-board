@@ -200,6 +200,18 @@ export class CbField extends LitElement {
       position: relative;
     }
 
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     .play-overlay {
       position: absolute;
       inset: 0;
@@ -208,6 +220,15 @@ export class CbField extends LitElement {
       justify-content: center;
       z-index: 5;
       cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    .play-overlay:focus-visible {
+      outline: 3px solid var(--pt-accent);
+      outline-offset: -3px;
+      border-radius: 0;
     }
 
     .play-overlay-btn {
@@ -1343,7 +1364,11 @@ export class CbField extends LitElement {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="${vbX} ${vbY} ${vbW} ${vbH}"
             preserveAspectRatio="xMidYMid meet"
-            class="tool-${this.activeTool}">
+            class="tool-${this.activeTool}"
+            role="application"
+            aria-label="Tactical board canvas"
+            aria-describedby="cb-field-instructions">
+            <title>Tactical board canvas</title>
 
             ${this.#renderDefs()}
 
@@ -1458,8 +1483,14 @@ export class CbField extends LitElement {
               : nothing}
           </svg>
         </div>
+        <p id="cb-field-instructions" class="visually-hidden">
+          Use the toolbar to add players, draw arrows, and place equipment. Tap or click the field to place elements.
+        </p>
         ${this.viewMode === 'readonly' && this.animationFrames.length > 1 ? html`
-          <div class="play-overlay" @click="${() => this.dispatchEvent(new CustomEvent('cb-field-play-overlay-click', { bubbles: true, composed: true }))}">
+          <button class="play-overlay"
+                  aria-label="${this.isPlaying ? 'Pause animation' : 'Play animation'}"
+                  aria-pressed="${this.isPlaying}"
+                  @click="${() => this.dispatchEvent(new CustomEvent('cb-field-play-overlay-click', { bubbles: true, composed: true }))}">
             ${this.showPlayOverlay ? html`
               <div class="play-overlay-btn ${this.playBtnAnim}">
                 ${this.pauseFlash ? html`
@@ -1474,7 +1505,7 @@ export class CbField extends LitElement {
                 `}
               </div>
             ` : nothing}
-          </div>
+          </button>
         ` : nothing}
       </div>
     `;
