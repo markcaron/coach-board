@@ -2789,6 +2789,8 @@ export class CoachBoard extends LitElement {
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
 
+    const thumbnail = await this.#generateThumbnail();
+
     if (pendingAction === 'save-as') {
       const newBoard: SavedBoard = {
         ...this.#currentBoard,
@@ -2803,15 +2805,16 @@ export class CoachBoard extends LitElement {
         textItems: structuredClone(this.textItems),
         animationFrames: structuredClone(this.animationFrames),
         notes: this._boardNotes || undefined,
+        thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
       await saveBoard(newBoard);
       this.#currentBoard = newBoard;
       this._boardName = name;
       setActiveBoardId(newBoard.id);
     } else {
-      this.#currentBoard = { ...this.#currentBoard, name };
+      this.#currentBoard = { ...this.#currentBoard, name, ...(thumbnail && { thumbnail }) };
       this._boardName = name;
-      saveBoard(this.#currentBoard).catch(() => {});
+      await saveBoard(this.#currentBoard);
       if (pendingAction === 'new') {
         this._dialogs?.openNewBoard();
       } else if (pendingAction === 'open') {
@@ -2991,6 +2994,13 @@ export class CoachBoard extends LitElement {
 
   async #showMyBoards() {
     this._menuOpen = false;
+    if (this.#currentBoard && !this.#currentBoard.thumbnail && this.#currentBoard.name !== 'Untitled Board') {
+      const thumb = await this.#generateThumbnail();
+      if (thumb && this.#currentBoard) {
+        this.#currentBoard = { ...this.#currentBoard, thumbnail: thumb };
+        saveBoard(this.#currentBoard).catch(() => {});
+      }
+    }
     this._myBoards = await listBoards();
     this._myBoardsOpen = true;
   }
