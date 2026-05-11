@@ -301,7 +301,7 @@ export class CoachBoard extends LitElement {
         transform: translateY(-50%);
         transition: none;
       }
-      .sidebar-handle { display: none; }
+      .sidebar .sidebar-handle { display: none; }
     }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
