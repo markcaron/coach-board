@@ -292,6 +292,16 @@ export class CoachBoard extends LitElement {
       .update-toast.toast-dismissing { animation: none; }
     }
 
+    /* ── Locked sidebar (JS-driven, .sidebar-locked class) ────────── */
+    /* Applied when the SVG's left edge clears the sidebar's right edge.
+       Keeps sidebar floating exactly where it is — no drawer slide. */
+    .sidebar.sidebar-locked,
+    .sidebar.sidebar-locked.sidebar--collapsed {
+      transform: translateY(-50%);
+      transition: none;
+    }
+    .sidebar.sidebar-locked .sidebar-handle { display: none; }
+
     /* ── Floating left sidebar (tool palette) ─────────────────── */
     /* Absolutely positioned over .board-area so the field canvas
        is one seamless surface — no flex-sibling boundary to seam */
@@ -1084,6 +1094,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _playbackLoop: boolean = true;
 
   @query('cb-field') private accessor _field!: CbField;
+  @query('.sidebar') private accessor _sidebar!: HTMLElement;
   @query('cb-share') private accessor _share!: CbShare;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('cb-dialogs') private accessor _dialogs!: CbDialogs;  @state() private accessor _boardName: string = 'Untitled Board';
@@ -1115,7 +1126,7 @@ export class CoachBoard extends LitElement {
       this._fieldMenuOpen = false;
     }
     // Close sidebar tool dropdown when clicking outside the sidebar
-    if (this._sidebarMenu && !path.includes(this.renderRoot.querySelector('.sidebar') as EventTarget)) {
+    if (this._sidebarMenu && !path.includes(this._sidebar as EventTarget)) {
       this._sidebarMenu = null;
     }
   };
@@ -1217,10 +1228,30 @@ export class CoachBoard extends LitElement {
   #onSidebarPointerLeave = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
     if (this._sidebarMenu !== null) return;
+    if (this._sidebar?.classList.contains('sidebar-locked')) return;
     this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
+  #sidebarLockObserver: ResizeObserver | null = null;
+
+  #updateSidebarLock() {
+    // Defer one frame so SVG aspect-ratio layout is settled
+    requestAnimationFrame(() => {
+      const sidebar = this._sidebar;
+      const svgEl = this._field?.svgEl;
+      if (!sidebar || !svgEl) return;
+      const sidebarRight = sidebar.getBoundingClientRect().right;
+      // getScreenCTM().e is the screen x of the SVG origin (x=0 = left field
+      // boundary line) — this accounts for preserveAspectRatio centering that
+      // getBoundingClientRect() on the element itself misses
+      const ctm = svgEl.getScreenCTM();
+      const fieldLeft = ctm ? ctm.e : svgEl.getBoundingClientRect().left;
+      const locked = fieldLeft > sidebarRight + 8; // 8px clearance from field line
+      sidebar.classList.toggle('sidebar-locked', locked);
+      if (locked) this._sidebarCollapsed = false;
+    });
+  }
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
     this._isMobile = e.matches;
@@ -1690,6 +1721,15 @@ export class CoachBoard extends LitElement {
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
     this._isMobile = this.#mobileQuery.matches;
     this._sidebarCollapsed = this.#mobileQuery.matches;
+    this.updateComplete.then(() => {
+      this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
+      const boardArea = this.renderRoot.querySelector('.board-area');
+      if (boardArea) this.#sidebarLockObserver.observe(boardArea);
+      // Also observe the SVG directly — its rendered size changes on both
+      // width and height resizes (aspect-ratio scaling)
+      const svgEl = this._field?.svgEl;
+      if (svgEl) this.#sidebarLockObserver.observe(svgEl);
+    });
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -1710,6 +1750,8 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    this.#sidebarLockObserver?.disconnect();
+    this.#sidebarLockObserver = null;
     if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
@@ -3442,7 +3484,7 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    if (!this._sidebarCollapsed) this._sidebarCollapsed = true;
+    if (!this._sidebarCollapsed && !this._sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
