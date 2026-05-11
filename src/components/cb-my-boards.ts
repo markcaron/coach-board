@@ -31,10 +31,8 @@ export class CbMyBoards extends LitElement {
     }
 
     .section-label {
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
       color: rgba(0, 0, 0, 0.55);
       padding: 4px 20px 8px;
     }
@@ -111,8 +109,8 @@ export class CbMyBoards extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-width: 40px;
-      min-height: 40px;
+      min-width: 44px;
+      min-height: 44px;
     }
 
     .action-btn:hover {
@@ -137,8 +135,8 @@ export class CbMyBoards extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-width: 40px;
-      min-height: 40px;
+      min-width: 44px;
+      min-height: 44px;
     }
 
     .delete-btn:hover {

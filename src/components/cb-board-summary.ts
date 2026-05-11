@@ -118,7 +118,7 @@ export class CbBoardSummary extends LitElement {
     }
 
     .save-btn:hover {
-      background: var(--pt-success-btn-hover, #15803d);
+      filter: brightness(0.88);
     }
 
     .save-btn:focus-visible {
@@ -144,6 +144,7 @@ export class CbBoardSummary extends LitElement {
       font-weight: 600;
       color: var(--pt-accent, #4ea8de);
       cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .show-more-btn:hover {

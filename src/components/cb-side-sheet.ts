@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 
 /**
  * Generic slide-in side sheet shell.
@@ -13,6 +13,11 @@ import { customElement, property } from 'lit/decorators.js';
  *  - Setting `inert` on any content that should be blocked while the sheet is open.
  *  - Translating the main layout via a CSS class (e.g. `.sheet-open`) so the
  *    board slides left to visually "push" content aside.
+ *  - Placing <cb-side-sheet> outside any transformed ancestor (e.g. outside
+ *    .app-wrap) so position:fixed uses the viewport as its containing block.
+ *
+ * Focus: on open, focus moves to the × close button; on close, focus returns
+ * to the element that was focused when the sheet opened.
  *
  * Slot: default slot is the panel body content.
  */
@@ -68,7 +73,7 @@ export class CbSideSheet extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 24px 20px 18px;
+      padding: 18px 16px 14px 20px;
       border-bottom: 1px solid rgba(0, 0, 0, 0.08);
       flex-shrink: 0;
     }
@@ -80,12 +85,13 @@ export class CbSideSheet extends LitElement {
       color: var(--pt-color-navy-800, #16213e);
     }
 
+    /* 44×44 px touch target (WCAG 2.5.5) */
     .sheet-close {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
+      width: 44px;
+      height: 44px;
       background: transparent;
       border: none;
       border-radius: 6px;
@@ -93,6 +99,7 @@ export class CbSideSheet extends LitElement {
       cursor: pointer;
       padding: 0;
       font: inherit;
+      flex-shrink: 0;
       transition: background 0.12s, color 0.12s;
     }
 
@@ -104,7 +111,7 @@ export class CbSideSheet extends LitElement {
     .sheet-close:focus-visible {
       outline: 2px solid var(--pt-accent);
       outline-offset: -2px;
-      background: rgba(78, 168, 222, 0.08);
+      background: color-mix(in srgb, var(--pt-accent) 8%, transparent);
     }
 
     /* ── Body (slotted content) ───────────────────────────────────── */
@@ -128,6 +135,21 @@ export class CbSideSheet extends LitElement {
   @property({ type: Boolean }) open = false;
   @property() heading = '';
 
+  @query('.sheet-close') private _closeBtn!: HTMLButtonElement;
+
+  #returnFocus: HTMLElement | null = null;
+
+  override updated(changed: Map<PropertyKey, unknown>) {
+    if (!changed.has('open')) return;
+    if (this.open) {
+      this.#returnFocus = document.activeElement as HTMLElement | null;
+      this.updateComplete.then(() => this._closeBtn?.focus());
+    } else {
+      this.#returnFocus?.focus();
+      this.#returnFocus = null;
+    }
+  }
+
   #close() {
     this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));
   }
@@ -145,8 +167,8 @@ export class CbSideSheet extends LitElement {
            @click="${this.#close}"></div>
       <div class="sheet ${this.open ? 'open' : ''}"
            role="dialog"
-           aria-modal="${this.open}"
-           aria-hidden="${!this.open}"
+           aria-modal="true"
+           ?aria-hidden="${!this.open}"
            aria-labelledby="cb-side-sheet-title"
            @keydown="${this.#onKeydown}">
         <div class="sheet-header">
