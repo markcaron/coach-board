@@ -253,9 +253,11 @@ export class CbField extends LitElement {
       display: block;
       width: 100%;
       height: 100%;
+      /* hand all gestures (pan, pinch) to JS — prevents browser native pinch from
+         changing window.innerWidth and firing the mobile breakpoint media query */
+      touch-action: none;
       cursor: default;
       user-select: none;
-      touch-action: none;
     }
 
     .svg-wrap > svg.tool-add-player,
@@ -311,6 +313,7 @@ export class CbField extends LitElement {
 
   // ── Tool/editing settings ───────────────────────────────────────
   @property() accessor activeTool: Tool = 'select';
+  @property({ attribute: false }) accessor viewTransform: { x: number; y: number; scale: number } = { x: 0, y: 0, scale: 1 };
   @property() accessor playerColor: string = COLORS.playerBlue;
   @property() accessor playerTeam: Team = 'a';
   @property() accessor lineStyle: LineStyle = 'solid';
@@ -1266,10 +1269,14 @@ export class CbField extends LitElement {
 
   render() {
     const fd = getFieldDimensions(this.fieldOrientation, this.pitchType);
-    const vbX = -PADDING;
-    const vbY = -PADDING;
-    const vbW = fd.w + PADDING * 2;
-    const vbH = fd.h + PADDING * 2;
+    const baseW = fd.w + PADDING * 2;
+    const baseH = fd.h + PADDING * 2;
+    const zoomedW = baseW / this.viewTransform.scale;
+    const zoomedH = baseH / this.viewTransform.scale;
+    const vbX = -PADDING + (baseW - zoomedW) / 2 + this.viewTransform.x;
+    const vbY = -PADDING + (baseH - zoomedH) / 2 + this.viewTransform.y;
+    const vbW = zoomedW;
+    const vbH = zoomedH;
 
     return html`
       <div class="field-area ${this.fieldTheme === 'white' ? 'theme-white' : ''}">
