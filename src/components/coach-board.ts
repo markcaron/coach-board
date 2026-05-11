@@ -628,6 +628,46 @@ export class CoachBoard extends LitElement {
       margin: 4px 0;
     }
 
+    .unit-toggle {
+      display: flex;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .unit-toggle button {
+      background: transparent;
+      border: none;
+      color: var(--pt-text-muted);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 5px 10px;
+      cursor: pointer;
+      min-height: 32px;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .unit-toggle button:first-child {
+      border-right: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .unit-toggle button:hover {
+      background: var(--pt-border);
+      color: var(--pt-text);
+    }
+
+    .unit-toggle button[aria-pressed="true"] {
+      background: var(--pt-bg-surface);
+      color: var(--pt-text);
+    }
+
+    .unit-toggle button:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
+    }
+
     .context-bar cb-toolbar {
       flex: 1;
       min-width: 0;
@@ -1138,6 +1178,7 @@ export class CoachBoard extends LitElement {
   @state() accessor _shapeDraw: ShapeDrawState | null = null;
   @state() private accessor _measureStart: { x: number; y: number } | null = null;
   @state() private accessor _measureEnd: { x: number; y: number } | null = null;
+  @state() private accessor _measureUnit: 'm' | 'yd' = (localStorage.getItem('cb-measure-unit') as 'm' | 'yd') ?? 'm';
   @state() accessor _marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #onDocClickForMenu = (e: PointerEvent) => {
@@ -1330,7 +1371,7 @@ export class CoachBoard extends LitElement {
 
   get #measureState(): MeasureState | null {
     if (!this._measureStart || !this._measureEnd) return null;
-    return { x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y };
+    return { x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y, unit: this._measureUnit };
   }
 
   #saveToStorage() {
@@ -1987,6 +2028,15 @@ export class CoachBoard extends LitElement {
             </cb-toolbar>
           ` : nothing}
           <div class="context-bar-right">
+            ${this.activeTool === 'measure' ? html`
+              <div class="unit-toggle" role="group" aria-label="Distance unit">
+                <button aria-pressed="${this._measureUnit === 'm'}"
+                        @click="${() => { this._measureUnit = 'm'; localStorage.setItem('cb-measure-unit', 'm'); }}">m</button>
+                <button aria-pressed="${this._measureUnit === 'yd'}"
+                        @click="${() => { this._measureUnit = 'yd'; localStorage.setItem('cb-measure-unit', 'yd'); }}">yd</button>
+              </div>
+              <span class="context-divider" role="separator" aria-hidden="true"></span>
+            ` : nothing}
             <label class="visually-hidden" for="ctx-theme-select">Pitch theme</label>
             <select id="ctx-theme-select" class="theme-select"
                     @change="${this.#onThemeChange}">

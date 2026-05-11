@@ -14,7 +14,11 @@ export interface GhostCursor { x: number; y: number; }
 
 export interface DrawState { x1: number; y1: number; x2: number; y2: number; }
 
-export interface MeasureState { x1: number; y1: number; x2: number; y2: number; }
+export interface MeasureState {
+  x1: number; y1: number;
+  x2: number; y2: number;
+  unit: 'm' | 'yd';
+}
 
 export interface ShapeDrawState {
   kind: ShapeKind;
@@ -791,10 +795,11 @@ export class CbField extends LitElement {
     const m = this.measure!;
     const dx = m.x2 - m.x1;
     const dy = m.y2 - m.y1;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const distM = Math.sqrt(dx * dx + dy * dy);
+    const displayDist = m.unit === 'yd' ? distM * 1.09361 : distM;
     const mx = (m.x1 + m.x2) / 2;
     const my = (m.y1 + m.y2) / 2;
-    const label = dist < 0.05 ? '' : `${dist.toFixed(1)}m`;
+    const label = distM < 0.05 ? '' : `${displayDist.toFixed(1)}${m.unit}`;
 
     const lineColor = this.fieldTheme === 'white' ? '#333' : 'white';
     const textColor = this.fieldTheme === 'white' ? '#333' : 'white';
