@@ -3794,7 +3794,12 @@ export class CoachBoard extends LitElement {
     }
 
     if (this.activeTool === 'measure' && this._measureStart) {
-      this._measureEnd = { x: pt.x, y: pt.y };
+      if (e.shiftKey) {
+        const raw = axisConstrain(pt.x - this._measureStart.x, pt.y - this._measureStart.y, true);
+        this._measureEnd = { x: this._measureStart.x + raw.dx, y: this._measureStart.y + raw.dy };
+      } else {
+        this._measureEnd = { x: pt.x, y: pt.y };
+      }
       return;
     }
 
