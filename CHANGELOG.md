@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 (2026-05-11)
+
+### Bug Fixes
+
+- **My Boards title overflow** (#185): Long board names overflowed into the duplicate and delete buttons. Root cause: `.board-info` (the flex child containing the title and date) lacked `min-width: 0`, preventing `text-overflow: ellipsis` from firing. Added `min-width: 0; overflow: hidden` to `.board-info` in `cb-my-boards.ts`.
+
 ## 1.5.0 — Washington Spirit (2026-05-11)
 
 ### Features

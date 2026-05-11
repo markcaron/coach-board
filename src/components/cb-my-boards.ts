@@ -102,6 +102,11 @@ export class CbMyBoards extends LitElement {
       object-fit: contain;
     }
 
+    .board-info {
+      min-width: 0;
+      overflow: hidden;
+    }
+
     .board-title {
       font-size: 0.9rem;
       font-weight: 500;
