@@ -253,12 +253,11 @@ export class CbField extends LitElement {
       display: block;
       width: 100%;
       height: 100%;
-      touch-action: none; /* hand all gestures (pan, pinch) to our JS — prevents browser
-                             native pinch from changing window.innerWidth and firing the
-                             mobile breakpoint media query */
+      /* hand all gestures (pan, pinch) to JS — prevents browser native pinch from
+         changing window.innerWidth and firing the mobile breakpoint media query */
+      touch-action: none;
       cursor: default;
       user-select: none;
-      touch-action: none;
     }
 
     .svg-wrap > svg.tool-add-player,

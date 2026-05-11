@@ -806,7 +806,7 @@ export class CoachBoard extends LitElement {
     .bottom-bar-divider {
       width: 1px;
       height: 24px;
-      background: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.15); /* matches .context-divider */
       flex-shrink: 0;
       margin: 0 2px;
     }
@@ -876,7 +876,7 @@ export class CoachBoard extends LitElement {
       padding: 4px 6px;
       text-align: center;
       background: none;
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 4px;
       color: var(--pt-text-muted);
       cursor: pointer;
@@ -3721,8 +3721,9 @@ export class CoachBoard extends LitElement {
     // Track all active pointers — used for pinch-to-zoom
     this.#activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
 
-    // Two-finger pinch: capture start state regardless of active tool
-    if (this.#activePointers.size === 2) {
+    // Two-finger pinch — gated on non-readonly so shared/readonly views stay
+    // at the default view (zoom controls are hidden there too)
+    if (this.#activePointers.size === 2 && this._viewMode !== 'readonly') {
       const pts = [...this.#activePointers.values()];
       this.#pinchStartDist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
       this.#pinchStartScale = this._viewTransform.scale;
@@ -4326,7 +4327,9 @@ export class CoachBoard extends LitElement {
     );
   }
 
-  #onPointerLeave(_e: PointerEvent) {
+  #onPointerLeave(e: PointerEvent) {
+    this.#activePointers.delete(e.pointerId);
+    if (this.#activePointers.size < 2) this.#pinchStartDist = 0;
     this.#panDrag = null;
     this.ghost = null;
     this._draw = null;
