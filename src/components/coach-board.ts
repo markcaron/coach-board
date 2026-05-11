@@ -2814,14 +2814,14 @@ export class CoachBoard extends LitElement {
         notes: this._boardNotes || undefined,
         thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
-      await saveBoard(newBoard);
+      saveBoard(newBoard).catch(() => {});
       this.#currentBoard = newBoard;
       this._boardName = name;
       setActiveBoardId(newBoard.id);
     } else {
       this.#currentBoard = { ...this.#currentBoard, name, ...(thumbnail && { thumbnail }) };
       this._boardName = name;
-      await saveBoard(this.#currentBoard);
+      saveBoard(this.#currentBoard).catch(() => {});
       if (pendingAction === 'new') {
         this._dialogs?.openNewBoard();
       } else if (pendingAction === 'open') {
