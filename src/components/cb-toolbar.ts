@@ -820,6 +820,11 @@ export class CbToolbar extends LitElement {
       border-color: transparent;
     }
 
+    .tool-shortcut-hint {
+      opacity: 0.5;
+      font-size: 0.8em;
+    }
+
     .ctx-sep {
       width: 40px;
       border: none;
