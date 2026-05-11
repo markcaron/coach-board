@@ -4164,22 +4164,14 @@ export class CoachBoard extends LitElement {
       this.#onUngroupItems(new UngroupItemsEvent());
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === '[' && !e.shiftKey && this.selectedIds.size > 0 && !inInput) {
-      e.preventDefault();
-      this.#onRotateItems(new RotateItemsEvent(-45));
-      return;
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === ']' && !e.shiftKey && this.selectedIds.size > 0 && !inInput) {
-      e.preventDefault();
-      this.#onRotateItems(new RotateItemsEvent(45));
-      return;
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === ']' && e.shiftKey && this.selectedIds.size > 0 && !inInput) {
+    // Cmd+] / Cmd+Shift+] = bring to front  (industry standard: Figma, Sketch, Canva)
+    if ((e.metaKey || e.ctrlKey) && e.key === ']' && this.selectedIds.size > 0 && !inInput) {
       e.preventDefault();
       this.#onZOrder(new ZOrderEvent('front'));
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === '[' && e.shiftKey && this.selectedIds.size > 0 && !inInput) {
+    // Cmd+[ / Cmd+Shift+[ = send to back
+    if ((e.metaKey || e.ctrlKey) && e.key === '[' && this.selectedIds.size > 0 && !inInput) {
       e.preventDefault();
       this.#onZOrder(new ZOrderEvent('back'));
       return;
@@ -4286,9 +4278,14 @@ export class CoachBoard extends LitElement {
         this.activeTool = 'pan';
         this.selectedIds = new Set(); this.#lastPlacedId = null;
         break;
-      case 'r':
+      case ',':
         if (this.selectedIds.size > 0) {
           this.#onRotateItems(new RotateItemsEvent(-45));
+        }
+        break;
+      case '.':
+        if (this.selectedIds.size > 0) {
+          this.#onRotateItems(new RotateItemsEvent(45));
         }
         break;
     }
