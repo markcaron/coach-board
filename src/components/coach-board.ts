@@ -1236,15 +1236,18 @@ export class CoachBoard extends LitElement {
   #sidebarLockObserver: ResizeObserver | null = null;
 
   #updateSidebarLock() {
-    // Defer one frame so SVG aspect-ratio layout (which responds to both
-    // width and height changes) is settled before reading getBoundingClientRect
+    // Defer one frame so SVG aspect-ratio layout is settled
     requestAnimationFrame(() => {
       const sidebar = this.renderRoot.querySelector('.sidebar') as HTMLElement | null;
       const svgEl = this._field?.svgEl;
       if (!sidebar || !svgEl) return;
       const sidebarRight = sidebar.getBoundingClientRect().right;
-      const svgLeft = svgEl.getBoundingClientRect().left;
-      const locked = svgLeft > sidebarRight + 8; // 8px clearance
+      // getScreenCTM().e is the screen x of the SVG origin (x=0 = left field
+      // boundary line) — this accounts for preserveAspectRatio centering that
+      // getBoundingClientRect() on the element itself misses
+      const ctm = svgEl.getScreenCTM();
+      const fieldLeft = ctm ? ctm.e : svgEl.getBoundingClientRect().left;
+      const locked = fieldLeft > sidebarRight + 8; // 8px clearance from field line
       sidebar.classList.toggle('sidebar-locked', locked);
       if (locked) this._sidebarCollapsed = false;
     });
