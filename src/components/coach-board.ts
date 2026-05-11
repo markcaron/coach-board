@@ -22,7 +22,7 @@ import './cb-timeline.js';
 import './cb-dialogs.js';
 import type { CbDialogs, BoardSummary, PendingBoardAction } from './cb-dialogs.js';
 import './cb-field.js';
-import type { CbField, GhostCursor, DrawState, ShapeDrawState } from './cb-field.js';
+import type { CbField, GhostCursor, DrawState, ShapeDrawState, MeasureState } from './cb-field.js';
 import './cb-share.js';
 import type { CbShare } from './cb-share.js';
 import type { FrameSelectEvent, FrameDeleteEvent, SpeedChangeEvent } from './cb-timeline.js';
@@ -92,7 +92,7 @@ interface Snapshot {
 const MAX_HISTORY = 50;
 
 /** Tools housed in the More submenu — drives aria-pressed on the More button */
-const MORE_TOOLS: Tool[] = ['add-text'];
+const MORE_TOOLS: Tool[] = ['add-text', 'measure'];
 
 function isModifier(e: PointerEvent | MouseEvent): boolean {
   return e.shiftKey || e.metaKey || e.ctrlKey;
@@ -1136,6 +1136,8 @@ export class CoachBoard extends LitElement {
   #shapeResizeDrag: ShapeResizeDragState | null = null;
   @state() accessor _draw: DrawState | null = null;
   @state() accessor _shapeDraw: ShapeDrawState | null = null;
+  @state() private accessor _measureStart: { x: number; y: number } | null = null;
+  @state() private accessor _measureEnd: { x: number; y: number } | null = null;
   @state() accessor _marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
   #onDocClickForMenu = (e: PointerEvent) => {
@@ -1791,6 +1793,10 @@ export class CoachBoard extends LitElement {
     }
     if (changedProperties.has('activeTool')) {
       this._sidebarCollapsed = false;
+      if (this.activeTool !== 'measure') {
+        this._measureStart = null;
+        this._measureEnd = null;
+      }
     }
   }
 
@@ -1898,6 +1904,7 @@ export class CoachBoard extends LitElement {
             .ghost="${this.ghost}"
             .draw="${this._draw}"
             .shapeDraw="${this._shapeDraw}"
+            .measure="${this._measureStart && this._measureEnd ? ({ x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y } as MeasureState) : null}"
             .marquee="${this._marquee}"
             .activeTool="${this.activeTool}"
             .playerColor="${this.playerColor}"
@@ -2252,9 +2259,10 @@ export class CoachBoard extends LitElement {
                   <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m1010.5 347.39c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26h-31.594c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-31.594l-0.046874-505.26zm-94.734-126.32h63.141v63.141h-63.141zm-694.74 0h63.141v63.141h-63.141zm63.141 757.87h-63.141v-63.141h63.141zm694.74 0h-63.141v-63.141h63.141zm-63.141-126.32h-31.594c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-31.594v-505.22h31.594c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26z"/><path d="m789.47 378.94h-378.94c-17.438 0-31.594 14.156-31.594 31.594v63.141c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-31.594h126.32v378.94c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-378.94h126.32v31.594c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-63.141c0-17.438-14.156-31.594-31.594-31.594z"/></svg>
                   Text <span class="tool-shortcut-hint">(T)</span>
                 </button>
-                <button role="menuitem" tabindex="-1" aria-disabled="true" @click="${(e: Event) => e.preventDefault()}">
+                <button role="menuitem" tabindex="-1"
+                        @click="${() => { this.activeTool = 'measure'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg viewBox="0 0 1200 1200" width="17" height="17" fill="currentColor"><path d="m1139.3 40.5c-14.25-5.625-30-2.625-40.875 8.25l-1050 1049.6c-10.875 10.875-13.875 27-8.25 40.875s19.5 23.25 34.5 23.25h1050c20.625 0 37.5-16.875 37.5-37.5v-1050c0-15-9-28.875-23.25-34.5zm-51.75 1047h-922.13l97.125-97.125 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 59.625-59.625 38.625 38.625c7.5 7.5 16.875 10.875 26.625 10.875s19.125-3.75 26.625-10.875c14.625-14.625 14.625-38.25 0-52.875l-38.625-38.625 97.125-97.125v922.13z"/><path d="m951.74 565.5c-13.875-5.625-30-2.625-40.875 8.25l-337.5 337.5c-10.875 10.875-13.875 27-8.25 40.875s19.5 23.25 34.5 23.25h337.5c20.625 0 37.5-16.875 37.5-37.5v-337.5c0-15-9-28.875-23.25-34.5zm-51.75 334.5h-209.63l209.63-209.63z"/><path d="m75 750h98.625c20.625 0 37.5-16.875 37.5-37.5s-16.875-37.5-37.5-37.5h-8.25l509.63-509.63v8.25c0 20.625 16.875 37.5 37.5 37.5s37.5-16.875 37.5-37.5v-98.625c0-20.625-16.875-37.5-37.5-37.5h-98.625c-20.625 0-37.5 16.875-37.5 37.5s16.875 37.5 37.5 37.5h8.25l-509.63 509.63v-8.25c0-20.625-16.875-37.5-37.5-37.5s-37.5 16.875-37.5 37.5v98.625c0 20.625 16.875 37.5 37.5 37.5z"/></svg>
-                  Measure <span class="tool-shortcut-hint">(coming soon)</span>
+                  Measure <span class="tool-shortcut-hint">(M)</span>
                 </button>
               </div>
             ` : nothing}
@@ -2294,6 +2302,7 @@ export class CoachBoard extends LitElement {
               .ghost="${this.ghost}"
               .draw="${this._draw}"
               .shapeDraw="${this._shapeDraw}"
+              .measure="${this._measureStart && this._measureEnd ? ({ x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y } as MeasureState) : null}"
               .marquee="${this._marquee}"
               .activeTool="${this.activeTool}"
               .playerColor="${this.playerColor}"
@@ -3613,6 +3622,12 @@ export class CoachBoard extends LitElement {
       }
     }
 
+    if (this.activeTool === 'measure') {
+      this._measureStart = { x: pt.x, y: pt.y };
+      this._measureEnd = { x: pt.x, y: pt.y };
+      return;
+    }
+
     if (this.activeTool === 'draw-line') {
       this._draw = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
       this._field.capturePointer(e.pointerId);
@@ -3769,6 +3784,11 @@ export class CoachBoard extends LitElement {
       } else {
         this.ghost = { x: pt.x, y: pt.y };
       }
+      return;
+    }
+
+    if (this.activeTool === 'measure' && this._measureStart) {
+      this._measureEnd = { x: pt.x, y: pt.y };
       return;
     }
 
@@ -4323,6 +4343,10 @@ export class CoachBoard extends LitElement {
         break;
       case 't':
         this.activeTool = 'add-text';
+        this.selectedIds = new Set(); this.#lastPlacedId = null;
+        break;
+      case 'm':
+        this.activeTool = 'measure';
         this.selectedIds = new Set(); this.#lastPlacedId = null;
         break;
       case 'h':
