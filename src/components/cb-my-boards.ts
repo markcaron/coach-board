@@ -85,9 +85,9 @@ export class CbMyBoards extends LitElement {
 
     .board-thumb-wrap {
       flex-shrink: 0;
-      width: 44px;
-      height: 30px;
-      border-radius: 3px;
+      width: 88px;
+      height: 60px;
+      border-radius: 4px;
       overflow: hidden;
       background: rgba(0, 0, 0, 0.08);
       display: flex;

@@ -1649,9 +1649,16 @@ export class CoachBoard extends LitElement {
       svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
       svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
 
-      const THUMB_W = 160;
+      const ZOOM = 0.8;
+      const cropW = vb.width * ZOOM;
+      const cropH = vb.height * ZOOM;
+      const cropX = vb.x + (vb.width - cropW) / 2;
+      const cropY = vb.y + (vb.height - cropH) / 2;
+      svgClone.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`);
+
+      const THUMB_W = 320;
       const w = THUMB_W;
-      const h = Math.round(vb.height * (THUMB_W / vb.width));
+      const h = Math.round(cropH * (THUMB_W / cropW));
       svgClone.setAttribute('width', String(w));
       svgClone.setAttribute('height', String(h));
 
