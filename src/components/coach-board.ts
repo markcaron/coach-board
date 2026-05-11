@@ -12,7 +12,7 @@ import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getAct
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
-import { ToolChangedEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
+import { ToolChangedEvent, PlayerUpdateEvent, EquipmentUpdateEvent, LineUpdateEvent, ShapeUpdateEvent, TextUpdateEvent, AlignItemsEvent, GroupItemsEvent, UngroupItemsEvent, ZOrderEvent, SaveSvgEvent, DeleteItemsEvent, MultiSelectToggleEvent, RotateItemsEvent, AutoNumberToggleEvent } from './cb-toolbar.js';
 import type { AlignAction } from './cb-toolbar.js';
 
 import './cb-toolbar.js';
@@ -1955,6 +1955,7 @@ export class CoachBoard extends LitElement {
               @ungroup-items="${this.#onUngroupItems}"
               @delete-items="${this.#onDeleteItems}"
               @rotate-items="${this.#onRotateItems}"
+              @z-order="${this.#onZOrder}"
               @auto-number-toggle="${this.#onAutoNumberToggle}">
             </cb-toolbar>
           ` : nothing}
@@ -2261,7 +2262,8 @@ export class CoachBoard extends LitElement {
               @group-items="${this.#onGroupItems}"
               @ungroup-items="${this.#onUngroupItems}"
               @delete-items="${this.#onDeleteItems}"
-              @rotate-items="${this.#onRotateItems}">
+              @rotate-items="${this.#onRotateItems}"
+              @z-order="${this.#onZOrder}">
             </cb-toolbar>
           ` : nothing}
 
@@ -2608,6 +2610,23 @@ export class CoachBoard extends LitElement {
     this.shapes = this.shapes.map(s => ids.has(s.id) ? { ...s, groupId: undefined } : s);
     this.textItems = this.textItems.map(t => ids.has(t.id) ? { ...t, groupId: undefined } : t);
     this.lines = this.lines.map(l => ids.has(l.id) ? { ...l, groupId: undefined } : l);
+  }
+
+  #onZOrder(e: ZOrderEvent) {
+    const ids = this.selectedIds;
+    if (ids.size === 0) return;
+    this.#pushUndo();
+    const reorder = <T extends { id: string }>(arr: T[], toFront: boolean): T[] => {
+      const sel = arr.filter(i => ids.has(i.id));
+      const rest = arr.filter(i => !ids.has(i.id));
+      return toFront ? [...rest, ...sel] : [...sel, ...rest];
+    };
+    const front = e.direction === 'front';
+    this.players   = reorder(this.players, front);
+    this.equipment = reorder(this.equipment, front);
+    this.lines     = reorder(this.lines, front);
+    this.shapes    = reorder(this.shapes, front);
+    this.textItems = reorder(this.textItems, front);
   }
 
   #expandSelectionToGroups(ids: Set<string>): Set<string> {
@@ -4150,14 +4169,16 @@ export class CoachBoard extends LitElement {
       this.#onUngroupItems(new UngroupItemsEvent());
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === '[' && this.selectedIds.size > 0 && !inInput) {
-      e.preventDefault();
-      this.#onRotateItems(new RotateItemsEvent(-45));
-      return;
-    }
+    // Cmd+] / Cmd+Shift+] = bring to front  (industry standard: Figma, Sketch, Canva)
     if ((e.metaKey || e.ctrlKey) && e.key === ']' && this.selectedIds.size > 0 && !inInput) {
       e.preventDefault();
-      this.#onRotateItems(new RotateItemsEvent(45));
+      this.#onZOrder(new ZOrderEvent('front'));
+      return;
+    }
+    // Cmd+[ / Cmd+Shift+[ = send to back
+    if ((e.metaKey || e.ctrlKey) && e.key === '[' && this.selectedIds.size > 0 && !inInput) {
+      e.preventDefault();
+      this.#onZOrder(new ZOrderEvent('back'));
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'A' && e.shiftKey && !inInput) {
@@ -4262,9 +4283,14 @@ export class CoachBoard extends LitElement {
         this.activeTool = 'pan';
         this.selectedIds = new Set(); this.#lastPlacedId = null;
         break;
-      case 'r':
+      case ',':
         if (this.selectedIds.size > 0) {
           this.#onRotateItems(new RotateItemsEvent(-45));
+        }
+        break;
+      case '.':
+        if (this.selectedIds.size > 0) {
+          this.#onRotateItems(new RotateItemsEvent(45));
         }
         break;
     }

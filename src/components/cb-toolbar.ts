@@ -107,6 +107,13 @@ export class UngroupItemsEvent extends Event {
   }
 }
 
+export class ZOrderEvent extends Event {
+  static readonly eventName = 'z-order' as const;
+  constructor(public readonly direction: 'front' | 'back') {
+    super(ZOrderEvent.eventName, { bubbles: true, composed: true });
+  }
+}
+
 export class DeleteItemsEvent extends Event {
   static readonly eventName = 'delete-items' as const;
   constructor() {
@@ -177,7 +184,7 @@ const LINE_STYLES: { label: string; symbol: string; value: LineStyle }[] = [
   { label: 'Dribble',     symbol: '〜', value: 'wavy' },
 ];
 
-type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'dummy-color' | 'pole-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping' | 'ctx-panel';
+type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'dummy-color' | 'pole-color' | 'line-color' | 'shape-style' | 'text-size' | 'align' | 'grouping' | 'z-order' | 'ctx-panel';
 
 @customElement('cb-toolbar')
 export class CbToolbar extends LitElement {
@@ -811,6 +818,11 @@ export class CbToolbar extends LitElement {
     .ctx-icon-btn.danger:hover {
       background: rgba(251, 138, 138, 0.1);
       border-color: transparent;
+    }
+
+    .tool-shortcut-hint {
+      opacity: 0.5;
+      font-size: 0.8em;
     }
 
     .ctx-sep {
@@ -1686,7 +1698,7 @@ export class CbToolbar extends LitElement {
           </div>
           <div class="edit-bar-right">
             ${this.#hasRotatable ? html`
-            <button title="Rotate counter-clockwise (R)" aria-label="Rotate counter-clockwise (R)"
+            <button title="Rotate counter-clockwise (,)" aria-label="Rotate counter-clockwise (,)"
                     @click="${this.#rotateItems}">
               <svg class="icon" viewBox="0 0 1600 1600" width="16" height="16" fill="currentColor">
                 <path d="M228.987 616.493C253.987 627.993 283.987 616.493 295.487 591.993C376.487 415.007 554.993 299.993 749.98 299.993C821.98 299.993 891.98 314.993 957.487 344.493C1022.99 373.993 1080.99 416.493 1128.5 469.993L1288.5 649.993H1100.01C1072.51 649.993 1050.01 672.493 1050.01 699.993C1050.01 727.493 1072.51 749.993 1100.01 749.993H1400.01C1406.51 749.993 1412.51 748.493 1418.51 746.493C1421.01 745.493 1422.51 743.993 1425.01 742.493C1428.01 740.993 1431.01 739.493 1433.51 737.493C1433.51 737.493 1434.01 736.493 1434.51 736.493C1437.01 733.993 1438.51 730.993 1440.51 728.493C1442.51 725.993 1444.51 723.493 1445.51 720.493C1446.51 718.493 1446.51 715.493 1447.51 713.493C1448.51 709.493 1450.01 705.493 1450.01 701.493V400C1450.01 372.5 1427.51 350 1400.01 350C1372.51 350 1350.01 372.5 1350.01 400V568.493L1203.5 403.507C1146 339.007 1077 288.507 998.513 253C920.019 217.5 836.02 199.5 750.02 199.5C516.02 199.5 301.527 336.993 204.513 549.5C193.013 574.5 204.513 604.5 229.513 616L228.987 616.493Z"/>
@@ -2301,7 +2313,7 @@ export class CbToolbar extends LitElement {
     }
   }
 
-  #onCtxArrangeClick(menu: 'align' | 'grouping', e: Event) {
+  #onCtxArrangeClick(menu: 'align' | 'grouping' | 'z-order', e: Event) {
     e.stopPropagation();
     if (this._openMenu === menu) {
       this._openMenu = null;
@@ -2334,7 +2346,7 @@ export class CbToolbar extends LitElement {
     const selType = this.#selectionType;
     const hasGroupA = selType !== 'none' && selType !== 'mixed';
     const isPanelOpen = this._openMenu === 'ctx-panel';
-    const hasControlsAboveDelete = hasGroupA || this.#hasRotatable || this.selectedItems.length >= 2;
+    const hasControlsAboveDelete = hasGroupA || this.#hasRotatable || this.selectedItems.length >= 1;
 
     return html`
       ${hasGroupA ? html`
@@ -2351,7 +2363,7 @@ export class CbToolbar extends LitElement {
       ` : nothing}
 
       ${this.#hasRotatable ? html`
-        <button class="ctx-icon-btn" title="Rotate counter-clockwise (R)" aria-label="Rotate counter-clockwise (R)"
+        <button class="ctx-icon-btn" title="Rotate counter-clockwise (,)" aria-label="Rotate counter-clockwise (,)"
                 @click="${this.#rotateItems}">
           <svg viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor">
             <path fill-rule="evenodd" clip-rule="evenodd" d="M499.473 830.5C538.018 830.5 569.473 861.954 569.473 900.5C569.473 939.046 538.018 970.5 499.473 970.5H355.517L485.928 1117.21L485.934 1117.22C531.557 1168.59 587.248 1209.41 650.205 1237.76L653.157 1239.08C715.222 1266.54 781.403 1280.5 849.5 1280.5C1036.65 1280.5 1208.05 1170.07 1285.8 1000.18L1285.84 1000.09L1285.88 1000C1301.95 965.785 1343.64 949.635 1378.85 965.83C1413.61 981.822 1429.87 1023.53 1413.68 1058.8L1413.68 1058.81C1313.41 1278.47 1091.79 1420.5 849.986 1420.5C761.159 1420.5 674.349 1401.9 593.251 1365.22L593.248 1365.22C512.236 1328.57 440.953 1276.4 381.577 1209.8L381.564 1209.78L381.552 1209.77L270 1084.15V1200C270 1233.51 246.227 1261.66 214.69 1268.44L213.613 1271.49H199.473C160.927 1271.49 129.473 1240.04 129.473 1201.49V900C129.473 892.225 132.464 883.57 132.569 883.149L132.899 881.832L133.21 881.057C133.243 880.906 133.293 880.671 133.361 880.328C133.565 879.311 134.117 876.288 135.403 873.072L135.734 872.279C136.521 870.474 137.395 868.981 138.101 867.874C138.911 866.603 139.724 865.498 140.285 864.75C141.08 863.69 141.136 863.638 141.604 863.004C141.907 862.593 141.92 862.548 141.823 862.71L142.067 862.302L142.332 861.906C143.925 859.516 146.516 855.537 149.972 851.777L150.035 851.652L157.188 844.5H158.75C159.582 844.025 160.281 843.672 160.778 843.424C161.395 843.115 161.624 843.005 161.755 842.942L161.879 842.859C163.278 841.927 168.358 838.076 174.095 835.617L175.26 835.118L176.479 834.77C181.066 833.459 185.503 832.796 188.753 832.331C188.995 832.262 189.18 832.208 189.502 832.113C189.786 832.03 190.189 831.912 190.62 831.792C192.352 831.311 195.526 830.5 199.473 830.5H499.473Z"/>
@@ -2360,7 +2372,7 @@ export class CbToolbar extends LitElement {
         </button>
       ` : nothing}
 
-      ${this.selectedItems.length >= 2 ? html`
+      ${this.selectedItems.length >= 1 ? html`
         <hr class="ctx-sep" />
         ${this.#renderSidebarArrangement()}
       ` : nothing}
@@ -2692,6 +2704,7 @@ export class CbToolbar extends LitElement {
     const count = this.selectedItems.length;
     const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as unknown as Record<string, unknown>).groupId);
     return html`
+      ${count >= 2 ? html`
       <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
         <button class="ctx-icon-btn has-submenu" title="Grouping" aria-label="Grouping"
                 aria-haspopup="menu"
@@ -2707,13 +2720,13 @@ export class CbToolbar extends LitElement {
             <button role="menuitem" tabindex="-1"
                     @click="${() => { this._openMenu = null; this.dispatchEvent(new GroupItemsEvent()); }}">
               <svg class="icon" viewBox="0 0 1200 1200" width="17" height="17"><path d="m92.305 184.62c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.316-92.316-92.305-92.316-50.988 0-92.305 41.328-92.305 92.305 0 50.977 41.328 92.316 92.305 92.316zm0 1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.316-92.305 92.305 0 50.988 41.328 92.305 92.305 92.305zm1015.4 0c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.305-92.305-92.305-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.305 92.305 92.305zm0-1015.4c50.977 0 92.305-41.328 92.305-92.305 0-50.977-41.328-92.316-92.305-92.316-50.977 0-92.305 41.328-92.305 92.305 0 50.977 41.316 92.316 92.305 92.316zm-969.24-46.164h923.07v923.07h-923.07zm992.32-92.305h-1061.5c-23.074 0-23.074 0-23.074 23.074v1061.5c0 23.074 0 23.074 23.074 23.074h1061.5c23.074 0 23.074 0 23.074-23.074l0.003906-1061.5c0-23.074 0-23.074-23.074-23.074zm-438.47 830.77h-369.23v-369.23h369.23zm69.238-461.55h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074l0.003906-507.69c0-23.078 0-23.078-23.078-23.078zm115.38 276.93h-369.23v-369.23h369.23zm69.227-461.53h-507.7c-23.074 0-23.074 0-23.074 23.074v507.7c0 23.074 0 23.074 23.074 23.074h507.7c23.074 0 23.074 0 23.074-23.074v-507.7c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
-              Group
+              Group <span class="tool-shortcut-hint">(⌘G)</span>
             </button>
             ${hasGroup ? html`
               <button role="menuitem" tabindex="-1"
                       @click="${() => { this._openMenu = null; this.dispatchEvent(new UngroupItemsEvent()); }}">
                 <svg class="icon" viewBox="0 0 1200 1200" width="17" height="17"><path d="m369.23 184.62c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0.003906 46.156 46.152 92.305 92.305 92.305zm738.47-738.45c46.152 0 92.305-46.152 92.305-92.305s-46.152-92.316-92.305-92.316c-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.316 92.305 92.316zm0 738.45c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.156 46.152 92.305 92.305 92.305zm-276.92-461.53c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm-738.47-738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0.003906-92.305 46.141-92.305 92.293 0 46.152 46.152 92.316 92.305 92.316zm0 738.46c46.152 0 92.305-46.152 92.305-92.305 0-46.152-46.152-92.305-92.305-92.305-46.152 0-92.305 46.152-92.305 92.305 0 46.152 46.152 92.305 92.305 92.305zm692.32-138.46h-646.16v-646.16h646.15v646.16zm69.227-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074l0.003906-784.62c0-23.078 0-23.078-23.078-23.078zm207.7 461.55h-646.16v-646.16h646.15v646.16zm69.23-738.47h-784.62c-23.074 0-23.074 0-23.074 23.074v784.62c0 23.074 0 23.074 23.074 23.074h784.62c23.074 0 23.074 0 23.074-23.074v-784.62c0-23.074 0-23.074-23.074-23.074z" fill="currentColor"/></svg>
-                Ungroup
+                Ungroup <span class="tool-shortcut-hint">(⌘⇧G)</span>
               </button>
             ` : nothing}
           </div>
@@ -2776,6 +2789,36 @@ export class CbToolbar extends LitElement {
                 Distribute vertical
               </button>
             ` : nothing}
+          </div>
+        ` : nothing}
+      </div>
+      ` : nothing}
+      <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
+        <button class="ctx-icon-btn has-submenu" title="Z-order" aria-label="Z-order"
+                aria-haspopup="menu"
+                aria-expanded="${this._openMenu === 'z-order'}"
+                @click="${(e: Event) => this.#onCtxArrangeClick('z-order', e)}">
+          <svg class="icon" viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor">
+            <path d="m939.85 639.97-97.859 65.398 165.53 96.852-407.52 271.68-407.52-271.68 165.53-96.852-97.859-65.398-235.71 144.13c-29.184 17.855-28.176 19.117 0 36.227l548.4 366.28c27.168 17.855 27.168 17.855 54.336 0l548.4-366.28c28.176-17.113 29.184-18.359 0-36.227zm-312.68-627.14c-27.168-17.102-27.168-17.102-54.336 0l-548.4 366.28c-28.176 17.113-28.176 18.863 0 36.227l548.4 366.28c27.168 17.102 27.168 17.102 54.336 0l548.4-366.28c27.422-18.109 27.168-18.109 0-36.227z"/>
+          </svg>
+        </button>
+        ${this._openMenu === 'z-order' ? html`
+          <div role="menu" id="menu-ctx-z-order" aria-label="Z-order"
+               @keydown="${this.#onMenuKeyDown}">
+            <button role="menuitem" tabindex="-1"
+                    @click="${() => { this._openMenu = null; this.dispatchEvent(new ZOrderEvent('front')); }}">
+              <svg class="icon" viewBox="0 0 1200 1200" width="17" height="17" fill="currentColor">
+                <path d="m939.85 639.97-97.859 65.398 165.53 96.852-407.52 271.68-407.52-271.68 165.53-96.852-97.859-65.398-235.71 144.13c-29.184 17.855-28.176 19.117 0 36.227l548.4 366.28c27.168 17.855 27.168 17.855 54.336 0l548.4-366.28c28.176-17.113 29.184-18.359 0-36.227zm-312.68-627.14c-27.168-17.102-27.168-17.102-54.336 0l-548.4 366.28c-28.176 17.113-28.176 18.863 0 36.227l548.4 366.28c27.168 17.102 27.168 17.102 54.336 0l548.4-366.28c27.422-18.109 27.168-18.109 0-36.227z"/>
+              </svg>
+              Bring to front <span class="tool-shortcut-hint">(⌘])</span>
+            </button>
+            <button role="menuitem" tabindex="-1"
+                    @click="${() => { this._openMenu = null; this.dispatchEvent(new ZOrderEvent('back')); }}">
+              <svg class="icon" viewBox="0 0 1200 1200" width="17" height="17" fill="currentColor">
+                <path d="m600 126.42 407.98 271.98-407.98 271.99-407.98-271.99zm335.45 512.73-335.45 222.62-341.5-220.61-234.71 143.05c-28.199 17.375-28.199 17.125 0 36.266l549 366.67c27.203 17.125 27.203 17.125 54.395 0l549-366.67c28.199-19.141 28.199-19.141 0-36.266zm-308.25-625.56c-27.203-18.133-27.203-18.133-54.406 0l-549 366.67c-28.199 17.125-28.199 17.125 0 36.266l549 366.67c27.203 18.133 27.203 18.133 54.395 0l549-366.67c28.199-19.141 28.199-19.141 0-36.266z"/>
+              </svg>
+              Send to back <span class="tool-shortcut-hint">(⌘[)</span>
+            </button>
           </div>
         ` : nothing}
       </div>
