@@ -84,6 +84,9 @@ interface Snapshot {
 
 const MAX_HISTORY = 50;
 
+/** Tools housed in the More submenu — drives aria-pressed on the More button */
+const MORE_TOOLS: Tool[] = ['add-text'];
+
 function isModifier(e: PointerEvent | MouseEvent): boolean {
   return e.shiftKey || e.metaKey || e.ctrlKey;
 }
@@ -2210,7 +2213,7 @@ export class CoachBoard extends LitElement {
             <button class="sidebar-tool has-submenu"
                     title="More tools"
                     aria-label="More tools"
-                    aria-pressed="${(['add-text'] as string[]).includes(t)}"
+                    aria-pressed="${MORE_TOOLS.includes(t)}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'more'}"
                     tabindex="${this._sidebarFocusIndex === 4 ? 0 : -1}"
