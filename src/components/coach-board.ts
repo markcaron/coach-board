@@ -1328,6 +1328,11 @@ export class CoachBoard extends LitElement {
     return this._myBoardsOpen || this._boardSummaryOpen;
   }
 
+  get #measureState(): MeasureState | null {
+    if (!this._measureStart || !this._measureEnd) return null;
+    return { x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y };
+  }
+
   #saveToStorage() {
     if (!this.#currentBoard) return;
     this.#currentBoard = {
@@ -1904,7 +1909,7 @@ export class CoachBoard extends LitElement {
             .ghost="${this.ghost}"
             .draw="${this._draw}"
             .shapeDraw="${this._shapeDraw}"
-            .measure="${this._measureStart && this._measureEnd ? ({ x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y } as MeasureState) : null}"
+            .measure="${this.#measureState}"
             .marquee="${this._marquee}"
             .activeTool="${this.activeTool}"
             .playerColor="${this.playerColor}"
@@ -2302,7 +2307,7 @@ export class CoachBoard extends LitElement {
               .ghost="${this.ghost}"
               .draw="${this._draw}"
               .shapeDraw="${this._shapeDraw}"
-              .measure="${this._measureStart && this._measureEnd ? ({ x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y } as MeasureState) : null}"
+              .measure="${this.#measureState}"
               .marquee="${this._marquee}"
               .activeTool="${this.activeTool}"
               .playerColor="${this.playerColor}"
@@ -3625,6 +3630,7 @@ export class CoachBoard extends LitElement {
     if (this.activeTool === 'measure') {
       this._measureStart = { x: pt.x, y: pt.y };
       this._measureEnd = { x: pt.x, y: pt.y };
+      this._field.capturePointer(e.pointerId);
       return;
     }
 
@@ -4266,6 +4272,11 @@ export class CoachBoard extends LitElement {
     }
     if (e.key === 'Escape') {
       if (this._menuOpen) { this.#closeMenu(); return; }
+      if (this.activeTool === 'measure' && this._measureStart) {
+        this._measureStart = null;
+        this._measureEnd = null;
+        return;
+      }
       this.activeTool = 'select';
       this.ghost = null;
       this.selectedIds = new Set();

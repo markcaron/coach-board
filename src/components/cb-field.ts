@@ -270,7 +270,8 @@ export class CbField extends LitElement {
     }
 
     .svg-wrap > svg.tool-draw-line,
-    .svg-wrap > svg.tool-draw-shape {
+    .svg-wrap > svg.tool-draw-shape,
+    .svg-wrap > svg.tool-measure {
       cursor: crosshair;
     }
 
@@ -822,8 +823,9 @@ export class CbField extends LitElement {
             <rect x="${-pillW / 2}" y="${-pillH / 2}"
                   width="${pillW}" height="${pillH}"
                   rx="0.5" fill="${bgColor}" />
-            <text x="0" y="0.5"
+            <text x="0" y="0"
                   text-anchor="middle"
+                  dominant-baseline="central"
                   font-size="1.8"
                   font-family="system-ui,-apple-system,sans-serif"
                   font-weight="700"
