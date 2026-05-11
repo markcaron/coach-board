@@ -3102,7 +3102,7 @@ export class CoachBoard extends LitElement {
       ? (angleOrient === 'horizontal' ? 270 : 180)
       : (angleOrient === 'horizontal' ? 90 : 0);
 
-    this.players = template ? template.players.map(p => ({ ...p, id: uid('player'), angle: playerAngle(p.team) })) : [];
+    this.players = template ? template.players.map(p => ({ ...p, id: uid('player'), angle: p.angle ?? playerAngle(p.team) })) : [];
     this.lines = template ? template.lines.map(l => ({ ...l, id: uid('line') })) : [];
     this.equipment = template ? template.equipment.map(e => ({ ...e, id: uid('eq') })) : [];
     this.shapes = template ? template.shapes.map(s => ({ ...s, id: uid('shape') })) : [];
