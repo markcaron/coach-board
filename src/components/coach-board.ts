@@ -292,17 +292,15 @@ export class CoachBoard extends LitElement {
       .update-toast.toast-dismissing { animation: none; }
     }
 
-    /* ── Locked sidebar at wide viewports ──────────────────────── */
-    /* ≥1100px: sidebar stays floating exactly where it is — just locked
-       open. No collapse, no drawer slide, grab handle hidden. */
-    @media (min-width: 1100px) {
-      .sidebar,
-      .sidebar.sidebar--collapsed {
-        transform: translateY(-50%);
-        transition: none;
-      }
-      .sidebar .sidebar-handle { display: none; }
+    /* ── Locked sidebar (JS-driven, .sidebar-locked class) ────────── */
+    /* Applied when the SVG's left edge clears the sidebar's right edge.
+       Keeps sidebar floating exactly where it is — no drawer slide. */
+    .sidebar.sidebar-locked,
+    .sidebar.sidebar-locked.sidebar--collapsed {
+      transform: translateY(-50%);
+      transition: none;
     }
+    .sidebar.sidebar-locked .sidebar-handle { display: none; }
 
     /* ── Floating left sidebar (tool palette) ─────────────────── */
     /* Absolutely positioned over .board-area so the field canvas
@@ -1229,15 +1227,24 @@ export class CoachBoard extends LitElement {
   #onSidebarPointerLeave = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
     if (this._sidebarMenu !== null) return;
-    if (this.#wideQuery.matches) return; // pinned — never auto-collapse
+    const sidebar = this.renderRoot.querySelector('.sidebar');
+    if (sidebar?.classList.contains('sidebar-locked')) return;
     this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
-  #wideQuery   = window.matchMedia('(min-width: 1100px)');
-  #onWideChange = (e: MediaQueryListEvent) => {
-    if (e.matches) this._sidebarCollapsed = false;
-  };
+  #sidebarLockObserver: ResizeObserver | null = null;
+
+  #updateSidebarLock() {
+    const sidebar = this.renderRoot.querySelector('.sidebar') as HTMLElement | null;
+    const svgEl = this._field?.svgEl;
+    if (!sidebar || !svgEl) return;
+    const sidebarRight = sidebar.getBoundingClientRect().right;
+    const svgLeft = svgEl.getBoundingClientRect().left;
+    const locked = svgLeft > sidebarRight + 8; // 8px clearance
+    sidebar.classList.toggle('sidebar-locked', locked);
+    if (locked) this._sidebarCollapsed = false;
+  }
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
     this._isMobile = e.matches;
@@ -1705,9 +1712,15 @@ export class CoachBoard extends LitElement {
     document.addEventListener('keydown', this.#boundKeyDown);
     document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
-    this.#wideQuery.addEventListener('change', this.#onWideChange);
     this._isMobile = this.#mobileQuery.matches;
-    this._sidebarCollapsed = this.#mobileQuery.matches && !this.#wideQuery.matches;
+    this._sidebarCollapsed = this.#mobileQuery.matches;
+    this.updateComplete.then(() => {
+      const boardArea = this.renderRoot.querySelector('.board-area');
+      if (boardArea) {
+        this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
+        this.#sidebarLockObserver.observe(boardArea);
+      }
+    });
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -1728,7 +1741,8 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
-    this.#wideQuery.removeEventListener('change', this.#onWideChange);
+    this.#sidebarLockObserver?.disconnect();
+    this.#sidebarLockObserver = null;
     if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
@@ -3461,7 +3475,8 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    if (!this._sidebarCollapsed && !this.#wideQuery.matches) this._sidebarCollapsed = true;
+    const sidebar = this.renderRoot.querySelector('.sidebar');
+    if (!this._sidebarCollapsed && !sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
