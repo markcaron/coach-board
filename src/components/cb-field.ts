@@ -14,6 +14,12 @@ export interface GhostCursor { x: number; y: number; }
 
 export interface DrawState { x1: number; y1: number; x2: number; y2: number; }
 
+export interface MeasureState {
+  x1: number; y1: number;
+  x2: number; y2: number;
+  unit: 'm' | 'yd';
+}
+
 export interface ShapeDrawState {
   kind: ShapeKind;
   startX: number; startY: number;
@@ -270,7 +276,8 @@ export class CbField extends LitElement {
     }
 
     .svg-wrap > svg.tool-draw-line,
-    .svg-wrap > svg.tool-draw-shape {
+    .svg-wrap > svg.tool-draw-shape,
+    .svg-wrap > svg.tool-measure {
       cursor: crosshair;
     }
 
@@ -309,6 +316,7 @@ export class CbField extends LitElement {
   @property({ attribute: false }) accessor ghost: GhostCursor | null = null;
   @property({ attribute: false }) accessor draw: DrawState | null = null;
   @property({ attribute: false }) accessor shapeDraw: ShapeDrawState | null = null;
+  @property({ attribute: false }) accessor measure: MeasureState | null = null;
   @property({ attribute: false }) accessor marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
 
   // ── Tool/editing settings ───────────────────────────────────────
@@ -783,6 +791,56 @@ export class CbField extends LitElement {
             stroke="${previewColor}" stroke-width="0.25" stroke-dasharray="${dashAttr}"
             marker-end="url(#arrow-end-${previewMarkerId})"
             class="no-events" />
+    `;
+  }
+
+  #renderMeasureOverlay() {
+    const m = this.measure!;
+    const dx = m.x2 - m.x1;
+    const dy = m.y2 - m.y1;
+    const distM = Math.sqrt(dx * dx + dy * dy);
+    const displayDist = m.unit === 'yd' ? distM * 1.09361 : distM;
+    const mx = (m.x1 + m.x2) / 2;
+    const my = (m.y1 + m.y2) / 2;
+    const label = distM < 0.05 ? '' : `${displayDist.toFixed(1)}${m.unit}`;
+
+    const lineColor = this.fieldTheme === 'white' ? '#333' : 'white';
+    const textColor = this.fieldTheme === 'white' ? '#333' : 'white';
+    const bgColor = this.fieldTheme === 'white' ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.6)';
+
+    // Rotate the label to follow the line, keeping text right-side-up
+    const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+    const labelAngle = Math.abs(angleDeg) > 90 ? angleDeg + 180 : angleDeg;
+
+    // Pill dimensions scale with label length
+    const charW = 1.15;
+    const pillW = label.length * charW + 1.2;
+    const pillH = 2.4;
+
+    return svg`
+      <g class="measure-overlay no-events">
+        <line x1="${m.x1}" y1="${m.y1}" x2="${m.x2}" y2="${m.y2}"
+              stroke="${lineColor}" stroke-width="0.22"
+              stroke-dasharray="0.7,0.35" opacity="0.95" />
+        <circle cx="${m.x1}" cy="${m.y1}" r="0.38"
+                fill="${lineColor}" opacity="0.95" />
+        <circle cx="${m.x2}" cy="${m.y2}" r="0.38"
+                fill="${lineColor}" opacity="0.95" />
+        ${label ? svg`
+          <g transform="translate(${mx},${my}) rotate(${labelAngle})">
+            <rect x="${-pillW / 2}" y="${-pillH / 2}"
+                  width="${pillW}" height="${pillH}"
+                  rx="0.5" fill="${bgColor}" />
+            <text x="0" y="0"
+                  text-anchor="middle"
+                  dominant-baseline="central"
+                  font-size="1.8"
+                  font-family="system-ui,-apple-system,sans-serif"
+                  font-weight="700"
+                  fill="${textColor}">${label}</text>
+          </g>
+        ` : nothing}
+      </g>
     `;
   }
 
@@ -1331,6 +1389,8 @@ export class CbField extends LitElement {
               ${this.lines.filter(l => !this.selectedIds.has(l.id) && this.#isLineVisible(l.id)).map(l => this.#renderLine(l))}
               ${this.draw ? this.#renderDrawPreview() : nothing}
             </g>
+
+            ${this.measure ? this.#renderMeasureOverlay() : nothing}
 
             ${this.animationMode && this.activeFrameIndex > 0 && !this.isPlaying && this.viewMode !== 'readonly' ? this.#renderGhostsAndTrails() : nothing}
 
