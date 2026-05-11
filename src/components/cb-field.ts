@@ -269,6 +269,10 @@ export class CbField extends LitElement {
       cursor: crosshair;
     }
 
+    .svg-wrap > svg.tool-pan {
+      cursor: grab;
+    }
+
 
     .no-events { pointer-events: none; }
     .cursor-pointer { cursor: pointer; }

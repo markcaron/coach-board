@@ -314,5 +314,5 @@ export interface AnimationFrame {
   visibleShapeIds?: string[];
 }
 
-export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text';
+export type Tool = 'select' | 'add-player' | 'draw-line' | 'add-equipment' | 'draw-shape' | 'add-text' | 'pan';
 export type EquipmentKind = 'ball' | 'cone' | 'coach' | 'goal' | 'mini-goal' | 'popup-goal' | 'dummy' | 'pole';
