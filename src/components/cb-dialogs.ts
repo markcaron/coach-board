@@ -419,6 +419,170 @@ export class CbDialogs extends LitElement {
       outline-offset: 2px;
     }
 
+    /* ── My Boards side sheet ──────────────────────────────────── */
+
+    .side-sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .side-sheet-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .side-sheet {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      z-index: 51;
+      width: min(400px, 100vw);
+      background: var(--pt-bg-inverted);
+      color: var(--pt-text-on-inverted);
+      border-left: 1px solid var(--pt-border-on-inverted);
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+      transform: translateX(100%);
+      transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .side-sheet.open {
+      transform: translateX(0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .side-sheet, .side-sheet-backdrop { transition: none; }
+    }
+
+    .side-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--pt-border-on-inverted);
+      flex-shrink: 0;
+    }
+
+    .side-sheet-header h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--pt-text-on-inverted);
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .side-sheet-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--pt-text-on-inverted);
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.12s;
+    }
+
+    .side-sheet-close:hover { background: rgba(0, 0, 0, 0.08); }
+
+    .side-sheet-close:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .side-sheet-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Light-bg overrides for the side sheet */
+    .side-sheet .boards-list {
+      border-bottom-color: var(--pt-border-on-inverted);
+      max-height: none;
+    }
+
+    .side-sheet .boards-list .board-open-btn {
+      background: white;
+      border-color: var(--pt-border-on-inverted);
+      color: var(--pt-text-on-inverted);
+    }
+
+    .side-sheet .boards-list .board-open-btn:hover {
+      background: var(--pt-field-area-white);
+    }
+
+    .side-sheet .boards-list .board-icon { color: var(--pt-text-on-inverted); }
+    .side-sheet .boards-list .board-title { color: var(--pt-text-on-inverted); }
+
+    .side-sheet .boards-list .board-date { color: rgba(0, 0, 0, 0.5); }
+
+    .side-sheet .boards-list .action-btn { color: rgba(0, 0, 0, 0.4); }
+
+    .side-sheet .boards-list .action-btn:hover {
+      background: rgba(0, 0, 0, 0.07);
+    }
+
+    .side-sheet .boards-list .delete-btn { color: var(--pt-danger); }
+
+    .side-sheet .boards-list .delete-btn:hover {
+      background: rgba(220, 38, 38, 0.1);
+    }
+
+    .side-sheet .section-label { color: var(--pt-text-on-inverted); }
+
+    .side-sheet .import-svg-btn {
+      color: var(--pt-text-on-inverted);
+      border-color: var(--pt-border-on-inverted);
+      background: white;
+    }
+
+    .side-sheet .import-svg-btn:hover {
+      background: var(--pt-field-area-white);
+    }
+
+    .side-sheet .cancel-btn {
+      color: var(--pt-text-on-inverted);
+      border-color: var(--pt-border-on-inverted);
+      background: transparent;
+    }
+
+    .side-sheet .cancel-btn:hover {
+      background: var(--pt-field-area-white);
+    }
+
+    .side-sheet .alert-warning {
+      background: rgba(253, 216, 53, 0.12);
+      border-color: rgba(253, 216, 53, 0.6);
+      color: #7a5800;
+    }
+
+    .side-sheet .alert-info {
+      background: rgba(126, 87, 194, 0.08);
+      border-color: rgba(126, 87, 194, 0.35);
+      color: #5c3d99;
+      margin-top: 0;
+    }
+
+    .side-sheet .boards-action-row { margin-top: 0; }
+
+    /* ── (end side sheet) ─────────────────────────────────────── */
+
     .alert-warning {
       display: flex;
       align-items: flex-start;
@@ -641,7 +805,7 @@ export class CbDialogs extends LitElement {
   @query('#import-error-dialog') private accessor _importErrorDialog!: HTMLDialogElement;
   @query('#save-board-dialog') private accessor _saveBoardDialog!: HTMLDialogElement;
   @query('#new-board-dialog') private accessor _newBoardDialog!: HTMLDialogElement;
-  @query('#my-boards-dialog') private accessor _myBoardsDialog!: HTMLDialogElement;
+  @state() private accessor _myBoardsOpen: boolean = false;
   @query('#delete-board-dialog') private accessor _deleteBoardDialog!: HTMLDialogElement;
   @query('#export-dialog') private accessor _exportDialog!: HTMLDialogElement;
   @query('#board-summary-dialog') private accessor _boardSummaryDialog!: HTMLDialogElement;
@@ -679,12 +843,17 @@ export class CbDialogs extends LitElement {
 
   openMyBoards(boards: SavedBoard[]) {
     this._myBoards = boards;
-    requestAnimationFrame(() => this._myBoardsDialog?.showModal());
+    this._myBoardsOpen = true;
+    this.updateComplete.then(() => {
+      const sheet = this.renderRoot.querySelector('.side-sheet') as HTMLElement | null;
+      const first = sheet?.querySelector<HTMLElement>('button:not([disabled])');
+      first?.focus();
+    });
   }
 
   setMyBoards(boards: SavedBoard[]) { this._myBoards = boards; }
 
-  closeMyBoards() { this._myBoardsDialog?.close(); }
+  closeMyBoards() { this._myBoardsOpen = false; }
 
   openDeleteConfirm(name: string) {
     this._deleteBoardName = name;
@@ -844,15 +1013,22 @@ export class CbDialogs extends LitElement {
         </div>
       </dialog>
 
-      <dialog id="my-boards-dialog">
-        <div class="dialog-header">
-          <h2>My Boards</h2>
-          <button class="dialog-close" aria-label="Close" title="Close"
-                  @click="${() => this._myBoardsDialog?.close()}">
+      <div class="side-sheet-backdrop ${this._myBoardsOpen ? 'open' : ''}"
+           @click="${() => this.closeMyBoards()}"></div>
+      <div class="side-sheet ${this._myBoardsOpen ? 'open' : ''}"
+           role="dialog"
+           aria-modal="${this._myBoardsOpen}"
+           aria-hidden="${!this._myBoardsOpen}"
+           aria-labelledby="my-boards-title"
+           @keydown="${(e: KeyboardEvent) => { if (e.key === 'Escape') this.closeMyBoards(); }}">
+        <div class="side-sheet-header">
+          <h2 id="my-boards-title">My Boards</h2>
+          <button class="side-sheet-close" aria-label="Close My Boards"
+                  @click="${() => this.closeMyBoards()}">
             ${this.#closeIcon()}
           </button>
         </div>
-        <div class="dialog-body">
+        <div class="side-sheet-body">
           ${this._myBoards.filter(b => b.name !== 'Untitled Board').length ? html`
             <h3 class="section-label">Saved Boards</h3>
             <ul class="boards-list">
@@ -924,10 +1100,10 @@ export class CbDialogs extends LitElement {
             ` : nothing}
           </div>
           <div class="confirm-actions end">
-            <button class="cancel-btn" @click="${() => this._myBoardsDialog?.close()}">Close</button>
+            <button class="cancel-btn" @click="${() => this.closeMyBoards()}">Close</button>
           </div>
         </div>
-      </dialog>
+      </div>
 
       <dialog id="delete-board-dialog">
         <div class="dialog-header">
