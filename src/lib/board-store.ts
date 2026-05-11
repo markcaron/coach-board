@@ -19,6 +19,8 @@ export interface SavedBoard {
   textItems: TextItem[];
   animationFrames: AnimationFrame[];
   notes?: string;
+  /** Base64 JPEG data URL (~160 px wide) generated on every auto-save. */
+  thumbnail?: string;
 }
 
 const DB_NAME = 'coach-board-db';

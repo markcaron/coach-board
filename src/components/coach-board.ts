@@ -1344,7 +1344,13 @@ export class CoachBoard extends LitElement {
       notes: this._boardNotes || undefined,
     };
     if (this.#saveTimer) clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(() => {
+    this.#saveTimer = setTimeout(async () => {
+      if (this.#currentBoard?.name !== 'Untitled Board') {
+        const thumb = await this.#generateThumbnail();
+        if (thumb && this.#currentBoard) {
+          this.#currentBoard = { ...this.#currentBoard, thumbnail: thumb };
+        }
+      }
       saveBoard(this.#currentBoard!).catch(() => {});
       this.#saveTimer = null;
     }, 500);
@@ -1627,6 +1633,57 @@ export class CoachBoard extends LitElement {
       }, 'image/png');
     };
     img.src = svgUrl;
+  }
+
+  async #generateThumbnail(): Promise<string | undefined> {
+    try {
+      const svgEl = this._field?.svgEl;
+      if (!svgEl) return undefined;
+      const vb = svgEl.viewBox.baseVal;
+      if (!vb.width || !vb.height) return undefined;
+
+      const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
+      svgClone.querySelectorAll('[data-kind="rotate"]').forEach(el => el.remove());
+      svgClone.querySelectorAll('[stroke-dasharray="0.5,0.3"], [stroke-dasharray="0.4,0.25"]').forEach(el => el.remove());
+      svgClone.querySelectorAll('[data-kind="line-start"], [data-kind="line-end"], [data-kind="line-control"]').forEach(el => el.remove());
+      svgClone.querySelectorAll(`[stroke="${COLORS.annotation}"]`).forEach(el => el.remove());
+      svgClone.querySelectorAll('[stroke="transparent"]').forEach(el => el.remove());
+
+      const ZOOM = 0.8;
+      const cropW = vb.width * ZOOM;
+      const cropH = vb.height * ZOOM;
+      const cropX = vb.x + (vb.width - cropW) / 2;
+      const cropY = vb.y + (vb.height - cropH) / 2;
+      svgClone.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`);
+
+      const THUMB_W = 320;
+      const w = THUMB_W;
+      const h = Math.round(cropH * (THUMB_W / cropW));
+      svgClone.setAttribute('width', String(w));
+      svgClone.setAttribute('height', String(h));
+
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgClone);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      return new Promise<string | undefined>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(svgUrl);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(undefined); };
+        img.src = svgUrl;
+      });
+    } catch {
+      return undefined;
+    }
   }
 
   async #saveGif() {
@@ -2739,6 +2796,8 @@ export class CoachBoard extends LitElement {
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
 
+    const thumbnail = await this.#generateThumbnail();
+
     if (pendingAction === 'save-as') {
       const newBoard: SavedBoard = {
         ...this.#currentBoard,
@@ -2753,13 +2812,14 @@ export class CoachBoard extends LitElement {
         textItems: structuredClone(this.textItems),
         animationFrames: structuredClone(this.animationFrames),
         notes: this._boardNotes || undefined,
+        thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
-      await saveBoard(newBoard);
+      saveBoard(newBoard).catch(() => {});
       this.#currentBoard = newBoard;
       this._boardName = name;
       setActiveBoardId(newBoard.id);
     } else {
-      this.#currentBoard = { ...this.#currentBoard, name };
+      this.#currentBoard = { ...this.#currentBoard, name, ...(thumbnail && { thumbnail }) };
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
       if (pendingAction === 'new') {
@@ -2941,6 +3001,13 @@ export class CoachBoard extends LitElement {
 
   async #showMyBoards() {
     this._menuOpen = false;
+    if (this.#currentBoard && !this.#currentBoard.thumbnail && this.#currentBoard.name !== 'Untitled Board') {
+      const thumb = await this.#generateThumbnail();
+      if (thumb && this.#currentBoard) {
+        this.#currentBoard = { ...this.#currentBoard, thumbnail: thumb };
+        saveBoard(this.#currentBoard).catch(() => {});
+      }
+    }
     this._myBoards = await listBoards();
     this._myBoardsOpen = true;
   }
