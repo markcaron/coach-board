@@ -3,6 +3,7 @@ import { toolShortcutHintStyle } from '../lib/shared-styles.js';
 import { customElement, state, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { guard } from 'lit/directives/guard.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
@@ -1124,6 +1125,7 @@ export class CoachBoard extends LitElement {
   @state() accessor pitchType: PitchType = 'full';
   @state() accessor ghost: GhostCursor | null = null;
   @state() private accessor _fieldMenuOpen: boolean = false;
+  #fieldMenuTrigger: HTMLElement | null = null;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | 'more' | null = null;
   @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
   #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1981,7 +1983,11 @@ export class CoachBoard extends LitElement {
     `;
 
     return html`
-      <div class="menu-panel" aria-hidden="${!this._menuOpen}" role="navigation" aria-label="Main menu">
+      <div class="menu-panel"
+           aria-hidden="${ifDefined(!this._menuOpen ? 'true' : undefined)}"
+           ?inert="${!this._menuOpen}"
+           role="navigation"
+           aria-label="Main menu">
 
         <div class="menu-header">
           <svg class="menu-logo" viewBox="0 0 1600 1600" aria-hidden="true">
@@ -2204,6 +2210,7 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'select' || t === 'pan'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'select'}"
+                    aria-controls="sidebar-menu-select"
                     tabindex="${this._sidebarFocusIndex === 0 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('select', 0); }}">
               ${t === 'pan'
@@ -2214,7 +2221,7 @@ export class CoachBoard extends LitElement {
               ${this.selectedIds.size > 0 ? html`<span class="sidebar-badge">${this.selectedIds.size}</span>` : nothing}
             </button>
             ${this._sidebarMenu === 'select' ? html`
-              <div role="menu" aria-label="Select tool" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-select" role="menu" aria-label="Select tool" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'select'; this._multiSelect = false; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg viewBox="0 0 1600 1600" width="16" height="16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1394.44 730.688C1402.62 733.625 1402.87 745.063 1395.06 748.437L944.634 944.624L748.447 1395.05C745.322 1402.3 733.822 1403.61 730.384 1393.61L364.571 376.733C361.884 369.233 369.134 361.796 376.821 364.608L1394.44 730.688Z" fill="currentColor"/></svg>
@@ -2245,12 +2252,13 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'add-player'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'player'}"
+                    aria-controls="sidebar-menu-player"
                     tabindex="${this._sidebarFocusIndex === 1 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('player', 1); }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m0 431.26 225 168.74v-200.16l-120.14-165.19z"/><path d="m1095.1 234.66-120.14 165.19v198.56l225-167.16z"/><path d="m1065.7 179.39c-9.9844-18.703-27.422-32.344-48-37.453l-267.71-66.938c0 82.828-67.172 150-150 150s-150-67.172-150-150l-267.71 66.938c-20.578 5.1562-38.016 18.75-48 37.453l-9.8438 18.469 134.44 184.87c2.3438 3.1875 3.5625 7.0781 3.5625 11.062v731.26h675l0.09375-731.29c0-3.9844 1.2656-7.8281 3.5625-11.062l134.44-184.87-9.8438-18.469zm-615.66 870.61h-112.5v-75h112.5zm318.74-581.26c-31.078 0-56.25-25.172-56.25-56.25 0-31.078 25.172-56.25 56.25-56.25 31.078 0 56.25 25.172 56.25 56.25 0 31.078-25.172 56.25-56.25 56.25z"/></svg>
             </button>
             ${this._sidebarMenu === 'player' ? html`
-              <div role="menu" aria-label="Add Player" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-player" role="menu" aria-label="Add Player" @keydown="${this.#onSidebarMenuKeyDown}">
                 ${(this.fieldTheme === 'white'
                   ? [{ label: 'Team A', color: COLORS.playerBlueW, team: 'a' as const }, { label: 'Team B', color: COLORS.playerRedW, team: 'b' as const }, { label: 'Neutral', color: COLORS.playerYellowW, team: 'neutral' as const }]
                   : [{ label: 'Team A', color: COLORS.playerBlue, team: 'a' as const }, { label: 'Team B', color: COLORS.playerRed, team: 'b' as const }, { label: 'Neutral', color: COLORS.playerYellow, team: 'neutral' as const }]
@@ -2282,12 +2290,13 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'add-equipment'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'equipment'}"
+                    aria-controls="sidebar-menu-equipment"
                     tabindex="${this._sidebarFocusIndex === 2 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('equipment', 2); }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20"><path d="m1125 1050v75h-1050v-75c0-63.75 48.75-112.5 112.5-112.5h825c63.75 0 112.5 48.75 112.5 112.5zm-461.26-975h-131.26l-285 825h708.74z" fill="currentColor"/></svg>
             </button>
             ${this._sidebarMenu === 'equipment' ? html`
-              <div role="menu" aria-label="Add Equipment" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-equipment" role="menu" aria-label="Add Equipment" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-equipment'; this.equipmentKind = 'ball'; this.selectedIds = new Set(); this._multiSelect = false; this._sidebarMenu = null; }}">
                   <svg class="icon" viewBox="0 0 1200 1200" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
@@ -2370,12 +2379,13 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${t === 'draw-line' || t === 'draw-shape'}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'draw'}"
+                    aria-controls="sidebar-menu-draw"
                     tabindex="${this._sidebarFocusIndex === 3 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('draw', 3); }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m349.6 604.3-88.301 88.551c-9.75 9.6992-9.75 25.613 0.050781 35.352l17.699 17.699-123.65 123.95c-4.6992 4.6992-7.3008 11.113-7.3008 17.699 0 6.6016 2.6484 12.949 7.3516 17.699l53.102 53-79.602 79.75c-9.75 9.75-9.75 25.602 0.050781 35.352 4.8984 4.8984 11.25 7.3008 17.648 7.3008 6.3984 0 12.801-2.4492 17.699-7.3516l79.602-79.801 53.102 53c4.8984 4.8867 11.25 7.3008 17.648 7.3008s12.801-2.4609 17.699-7.3008l123.6-123.95 17.699 17.699c4.6992 4.6875 11.051 7.3008 17.648 7.3008 6.6484 0 13-2.7109 17.699-7.3008l88.301-88.562z"/><path d="m1060.9 325.05-150.74-150.3c-19.262-19.449-43.211-43.648-70.461-43.648-11.789 0-22.551 4.5-31.051 13.051l-70.637 70.801-88.551-88.301c-4.6992-4.6484-11.051-7.3008-17.648-7.3008-6.6484 0-13 2.6484-17.699 7.3516l-282.42 283.2c-9.6992 9.75-9.6992 25.602 0.050781 35.352 9.8008 9.6992 25.602 9.8008 35.352-0.050781l264.8-265.5 70.801 70.648-317.75 318.55 247.85 247.2 428.15-429.25c9-8.8008 17.488-17.148 17.488-30.898-0.035157-13.754-8.5352-22.102-17.535-30.902z"/></svg>
             </button>
             ${this._sidebarMenu === 'draw' ? html`
-              <div role="menu" aria-label="Draw" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-draw" role="menu" aria-label="Draw" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'solid'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg class="icon" viewBox="0 0 32 12" width="32" height="12">
@@ -2426,6 +2436,7 @@ export class CoachBoard extends LitElement {
                     aria-pressed="${MORE_TOOLS.includes(t)}"
                     aria-haspopup="menu"
                     aria-expanded="${this._sidebarMenu === 'more'}"
+                    aria-controls="sidebar-menu-more"
                     tabindex="${this._sidebarFocusIndex === 4 ? 0 : -1}"
                     @click="${(e: Event) => { e.stopPropagation(); this.#openSidebarMenu('more', 4); }}">
               <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor">
@@ -2435,7 +2446,7 @@ export class CoachBoard extends LitElement {
               </svg>
             </button>
             ${this._sidebarMenu === 'more' ? html`
-              <div role="menu" aria-label="More tools" @keydown="${this.#onSidebarMenuKeyDown}">
+              <div id="sidebar-menu-more" role="menu" aria-label="More tools" @keydown="${this.#onSidebarMenuKeyDown}">
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'add-text'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m1010.5 347.39c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-126.32c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26h-31.594c-17.438 0-31.594 14.156-31.594 31.594v126.32c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h126.32c17.438 0 31.594-14.156 31.594-31.594v-126.32c0-17.438-14.156-31.594-31.594-31.594h-31.594l-0.046874-505.26zm-94.734-126.32h63.141v63.141h-63.141zm-694.74 0h63.141v63.141h-63.141zm63.141 757.87h-63.141v-63.141h63.141zm694.74 0h-63.141v-63.141h63.141zm-63.141-126.32h-31.594c-17.438 0-31.594 14.156-31.594 31.594v31.594h-505.22v-31.594c0-17.438-14.156-31.594-31.594-31.594h-31.594v-505.22h31.594c17.438 0 31.594-14.156 31.594-31.594v-31.594h505.26v31.594c0 17.438 14.156 31.594 31.594 31.594h31.594v505.26z"/><path d="m789.47 378.94h-378.94c-17.438 0-31.594 14.156-31.594 31.594v63.141c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-31.594h126.32v378.94c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-378.94h126.32v31.594c0 17.438 14.156 31.594 31.594 31.594s31.594-14.156 31.594-31.594v-63.141c0-17.438-14.156-31.594-31.594-31.594z"/></svg>
@@ -2618,6 +2629,9 @@ export class CoachBoard extends LitElement {
                 <div class="dropdown-wrap">
                   <button aria-label="${this.fieldOrientation === 'horizontal' ? 'Horizontal pitch' : 'Vertical pitch'}"
                           title="Pitch orientation"
+                          aria-haspopup="menu"
+                          aria-expanded="${this._fieldMenuOpen}"
+                          aria-controls="field-orientation-menu"
                           @click="${this.#toggleFieldMenu}">
                     <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14">
                       ${this.fieldOrientation === 'horizontal'
@@ -2628,7 +2642,8 @@ export class CoachBoard extends LitElement {
                     <span class="caret ${this._fieldMenuOpen ? 'open' : ''}"></span>
                   </button>
                   ${this._fieldMenuOpen ? html`
-                    <div role="menu" aria-label="Pitch orientation">
+                    <div id="field-orientation-menu" role="menu" aria-label="Pitch orientation"
+                         @keydown="${this.#onFieldMenuKeyDown}">
                       <button role="menuitem"
                               @click="${() => this.#requestOrientation('horizontal')}">
                         <svg class="icon" viewBox="0 0 1200 1200" width="14" height="14">
@@ -2697,7 +2712,7 @@ export class CoachBoard extends LitElement {
       <!-- position:fixed elements must live OUTSIDE .app-wrap — the transform on
            .app-wrap creates a new containing block, so anything fixed inside it
            is positioned relative to .app-wrap, not the viewport. -->
-      <div class="rotate-overlay">
+      <div class="rotate-overlay" aria-hidden="true">
         <svg viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
           <path d="M880.71 163.3V163.32L740.23 163.16L738.09 127.98L882.89 128L880.71 163.3ZM106.9 438.69H106.88L105.81 458.31L105.78 459.55L105.99 479.2C106.11 489.65 114.67 498.03 125.12 497.92C135.5 497.81 143.84 489.35 143.84 479L143.63 459.77L144.64 441.37L146.85 423.11L150.26 405.01L154.85 387.19L160.6 369.72L167.5 352.63L175.49 336.07L184.57 320.03L194.67 304.65L205.76 289.97L217.8 276.04L230.73 262.93L244.27 250.89L258.55 239.75L273.53 229.55L289.13 220.35L305.29 212.18L321.96 205.07L339.06 199.05L356.5 194.15L374.21 190.39L392.15 187.78L409.75 186.38L388.69 203.43C384.01 207.22 381.58 212.76 381.58 218.35C381.58 222.59 382.98 226.86 385.86 230.41C392.52 238.64 404.61 239.91 412.84 233.25L475.4 182.59C479.9 178.95 482.51 173.47 482.53 167.68V167.59C482.53 161.81 479.9 156.42 475.4 152.77L413.16 102.35C404.93 95.68 392.85 96.95 386.18 105.18C383.3 108.73 381.9 113 381.9 117.25C381.9 122.84 384.33 128.38 389.01 132.17L409.17 148.5H409.04L407.82 148.56L388.53 150.1L387.31 150.24L368.17 153.02L366.96 153.24L348.04 157.26L346.85 157.55L328.23 162.78L327.06 163.15L308.81 169.58L307.67 170.03L289.88 177.62L288.77 178.14L271.51 186.87L270.44 187.46L253.78 197.29L252.74 197.95L236.75 208.83L235.76 209.55L220.51 221.45L219.57 222.23L205.11 235.09L204.22 235.94L190.42 249.93L189.58 250.84L176.73 265.71L175.95 266.68L164.1 282.36L163.39 283.38L152.6 299.81L151.95 300.87L142.27 317.97L141.69 319.07L133.15 336.77L132.64 337.91L125.28 356.13L124.85 357.3L118.71 375.97L118.36 377.17L113.45 396.2L113.18 397.41L109.54 416.72L109.35 417.95L106.98 437.46L106.93 438.7H106.88H106.9V438.69ZM1034.12 127.99H1035.01C1048.17 128.42 1058.72 139.24 1058.72 152.52V850.85L562.25 850.87V152.52C562.25 139.24 572.79 128.42 585.96 127.99L699.84 128.01L703.25 183.42C703.87 193.49 712.21 201.33 722.3 201.33L898.64 201.38C908.72 201.36 917.06 193.52 917.69 183.46L921.13 127.99H1034.12ZM165.32 878.25V878.27L130.31 880.29L130.22 735.5L165.38 737.71V737.73L165.32 878.26V878.25ZM810.51 955.19H810.54C821.5 955.19 830.33 964.07 830.33 975.02C830.33 985.97 821.45 994.85 810.5 994.85C799.55 994.85 790.67 985.97 790.67 975.02C790.67 964.07 799.52 955.19 810.47 955.19H810.52H810.51ZM810.5 916.95H810.46C778.39 916.95 752.43 942.95 752.43 975.02C752.43 1007.09 778.42 1033.08 810.49 1033.08C842.56 1033.08 868.56 1007.08 868.56 975.02C868.56 942.96 842.59 916.95 810.52 916.95H810.5ZM1058.75 1031.75V1031.8C1058.75 1045.02 1048.2 1056.26 1035.04 1056.28L585.98 1056.3C572.82 1055.87 562.26 1045.04 562.26 1031.76V889.07L1058.74 889.11V1031.75H1058.75ZM153.36 521.44V521.46C153.47 521.44 153.36 521.44 153.36 521.44C121.46 522.14 95.39 546.56 92.24 577.77V577.84C92.01 580 91.87 1031.59 91.87 1031.59C91.87 1055.47 105.03 1076.19 124.65 1086.81L124.74 1086.86C133.33 1091.56 143.14 1094.56 153.58 1094.56L481.57 1094.36C492.12 1094.36 500.68 1085.81 500.68 1075.26C500.68 1064.71 492.23 1056.26 481.77 1056.16C481.51 1056.16 154.65 1056.16 154.65 1056.16C150.38 1056.16 146.37 1055.07 142.87 1053.15L142.82 1053.12C135.64 1049 130.71 1041.43 130.42 1032.66L130.35 918.55L185.58 915.17C195.64 914.55 203.48 906.22 203.5 896.15C203.5 896.06 203.57 719.78 203.57 719.78C203.57 709.7 195.73 701.35 185.67 700.73L130.22 697.28L130.29 581.75C131.64 569.45 142.04 559.9 154.67 559.89L481.58 559.71C492.13 559.69 500.69 551.14 500.69 540.59C500.69 530.04 492.14 521.48 481.58 521.48H153.36V521.5V521.47V521.44ZM586.84 89.74H586.79C552.59 89.74 524.79 117.08 524.04 151.11V1033.18C524.81 1067.22 552.62 1094.56 586.81 1094.56H1034.2C1068.39 1094.54 1096.21 1067.2 1096.96 1033.17V151.11C1096.19 117.07 1068.38 89.73 1034.19 89.73H586.84V89.74Z" fill="white"/>
         </svg>
@@ -3554,9 +3569,41 @@ export class CoachBoard extends LitElement {
 
   // ── Field orientation ──────────────────────────────────────────
 
-  #toggleFieldMenu() {
-    this._fieldMenuOpen = !this._fieldMenuOpen;
+  #toggleFieldMenu(e: Event) {
+    const isOpening = !this._fieldMenuOpen;
+    this.#fieldMenuTrigger = e.currentTarget as HTMLElement;
+    this._fieldMenuOpen = isOpening;
+    if (isOpening) {
+      this.updateComplete.then(() => {
+        (this.renderRoot.querySelector('#field-orientation-menu [role="menuitem"]') as HTMLElement | null)?.focus();
+      });
+    }
   }
+
+  #onFieldMenuKeyDown = (e: KeyboardEvent) => {
+    const menu = e.currentTarget as HTMLElement;
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+    const current = items.indexOf(e.target as HTMLElement);
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        items[(current + 1) % items.length]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        items[(current - 1 + items.length) % items.length]?.focus();
+        break;
+      case 'Home': e.preventDefault(); items[0]?.focus(); break;
+      case 'End':  e.preventDefault(); items[items.length - 1]?.focus(); break;
+      case 'Escape':
+        e.preventDefault();
+        e.stopPropagation();
+        this._fieldMenuOpen = false;
+        this.#fieldMenuTrigger?.focus();
+        this.#fieldMenuTrigger = null;
+        break;
+    }
+  };
 
   #requestOrientation(orientation: FieldOrientation) {
     this._fieldMenuOpen = false;

@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 /**
  * Generic slide-in side sheet shell.
@@ -135,6 +136,10 @@ export class CbSideSheet extends LitElement {
   @property({ type: Boolean }) open = false;
   @property() heading = '';
 
+  get #titleId() {
+    return `cb-side-sheet-title-${this.heading.toLowerCase().replace(/\s+/g, '-')}`;
+  }
+
   @query('.sheet-close') private _closeBtn!: HTMLButtonElement;
 
   #returnFocus: HTMLElement | null = null;
@@ -168,11 +173,11 @@ export class CbSideSheet extends LitElement {
       <div class="sheet ${this.open ? 'open' : ''}"
            role="dialog"
            aria-modal="true"
-           ?aria-hidden="${!this.open}"
-           aria-labelledby="cb-side-sheet-title"
+           aria-hidden="${ifDefined(!this.open ? 'true' : undefined)}"
+           aria-labelledby="${this.#titleId}"
            @keydown="${this.#onKeydown}">
         <div class="sheet-header">
-          <h2 id="cb-side-sheet-title">${this.heading}</h2>
+          <h2 id="${this.#titleId}">${this.heading}</h2>
           <button class="sheet-close" aria-label="Close ${this.heading}"
                   @click="${this.#close}">
             <svg viewBox="0 0 20 20" width="16" height="16" fill="none"

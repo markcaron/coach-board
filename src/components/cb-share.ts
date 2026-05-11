@@ -369,9 +369,12 @@ export class CbShare extends LitElement {
           </button>
         </div>
         <div class="dialog-body">
-          <p>${this._shareMessage}</p>
+          <div aria-live="polite" aria-atomic="true">
+            <p>${this._shareMessage}</p>
+            ${this._shareUrl ? html`
+              <code class="share-url">${this._shareUrl}</code>` : nothing}
+          </div>
           ${this._shareUrl ? html`
-            <code class="share-url">${this._shareUrl}</code>
             <label class="share-editable-label">
               <input type="checkbox" .checked="${this._shareEditable}"
                      @change="${this.#onEditableChange}" />
