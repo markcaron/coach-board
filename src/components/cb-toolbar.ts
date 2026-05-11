@@ -1,4 +1,5 @@
 import { LitElement, html, svg, css, nothing, type PropertyValues } from 'lit';
+import { toolShortcutHintStyle } from '../lib/shared-styles.js';
 import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle, FieldTheme } from '../lib/types.js';
@@ -188,7 +189,7 @@ type MenuId = 'player' | 'line' | 'equipment' | 'color' | 'cone-color' | 'dummy-
 
 @customElement('cb-toolbar')
 export class CbToolbar extends LitElement {
-  static styles = css`
+  static styles = [toolShortcutHintStyle, css`
     *, *::before, *::after {
       box-sizing: border-box;
     }
@@ -820,11 +821,6 @@ export class CbToolbar extends LitElement {
       border-color: transparent;
     }
 
-    .tool-shortcut-hint {
-      opacity: 0.5;
-      font-size: 0.8em;
-    }
-
     .ctx-sep {
       width: 40px;
       border: none;
@@ -1256,7 +1252,7 @@ export class CbToolbar extends LitElement {
       min-width: 24px;
     }
 
-  `;
+  `];
 
   @property({ type: String, reflect: true })
   accessor activeTool: Tool = 'select';
