@@ -803,6 +803,14 @@ export class CoachBoard extends LitElement {
       justify-self: start;
     }
 
+    .bottom-bar-divider {
+      width: 1px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.18);
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
     .bottom-center {
       display: flex;
       gap: 8px;
@@ -860,6 +868,30 @@ export class CoachBoard extends LitElement {
       pointer-events: none;
     }
 
+    .zoom-level {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      min-width: 40px;
+      padding: 4px 6px;
+      text-align: center;
+      background: none;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      color: var(--pt-text-muted);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .zoom-level:hover {
+      background: var(--pt-border);
+      color: var(--pt-text);
+    }
+
+    .zoom-level:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
 
     .theme-select {
       background: var(--pt-bg-surface);
@@ -1099,6 +1131,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
+  @state() private accessor _viewTransform = { x: 0, y: 0, scale: 1 };
   @state() private accessor _myBoardsOpen: boolean = false;
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _boardSummaryOpen: boolean = false;
@@ -1138,6 +1171,15 @@ export class CoachBoard extends LitElement {
   @state() accessor _shapeDraw: ShapeDrawState | null = null;
   @state() accessor _marquee: { x1: number; y1: number; x2: number; y2: number } | null = null;
   #boundKeyDown = this.#onKeyDown.bind(this);
+  #boundWheel = (e: WheelEvent) => this.#onWheel(e);
+  #boundTouchStart = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+
+  // Pan/pinch tracking
+  #panDrag: { startClientX: number; startClientY: number; startVx: number; startVy: number; svgPerPx: number } | null = null;
+  #activePointers = new Map<number, { clientX: number; clientY: number }>();
+  #pinchStartDist = 0;
+  #pinchStartScale = 1;
+  #pinchStartPan = { x: 0, y: 0 };
   #onDocClickForMenu = (e: PointerEvent) => {
     const path = e.composedPath();
     // Field orientation dropdown still uses a popup, close it on outside click
@@ -1260,6 +1302,13 @@ export class CoachBoard extends LitElement {
       const sidebar = this._sidebar;
       const svgEl = this._field?.svgEl;
       if (!sidebar || !svgEl) return;
+
+      // When zoomed/panned, getScreenCTM().e reflects the shifted SVG origin,
+      // not the actual field position on screen. Skip the recalculation so the
+      // lock state from zoom=1 is preserved — changing it at high zoom causes
+      // spurious `locked` transitions and can cascade into orientation changes.
+      if (this._viewTransform.scale !== 1 || this._viewTransform.x !== 0 || this._viewTransform.y !== 0) return;
+
       const sidebarRight = sidebar.getBoundingClientRect().right;
       // getScreenCTM().e is the screen x of the SVG origin (x=0 = left field
       // boundary line) — this accounts for preserveAspectRatio centering that
@@ -1517,6 +1566,57 @@ export class CoachBoard extends LitElement {
     this.requestUpdate();
   }
 
+  // ── View transform (zoom / pan) ────────────────────────────────────────
+
+  #clamp(v: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  #getPanLimits() {
+    const fd = getFieldDimensions(this.fieldOrientation, this.pitchType);
+    return { maxX: fd.w * 0.75, maxY: fd.h * 0.75 };
+  }
+
+  #applyZoom(newScale: number) {
+    const s = this.#clamp(newScale, 0.25, 8);
+    const { maxX, maxY } = this.#getPanLimits();
+    this._viewTransform = {
+      scale: s,
+      x: this.#clamp(this._viewTransform.x, -maxX, maxX),
+      y: this.#clamp(this._viewTransform.y, -maxY, maxY),
+    };
+  }
+
+  #zoomIn()    { this.#applyZoom(this._viewTransform.scale * 1.25); }
+  #zoomOut()   { this.#applyZoom(this._viewTransform.scale / 1.25); }
+  #resetView() { this._viewTransform = { x: 0, y: 0, scale: 1 }; }
+
+  #onWheel(e: WheelEvent) {
+    if (e.ctrlKey || e.metaKey) {
+      // Always prevent the browser from zoom-scaling the viewport, regardless of
+      // where the pinch/ctrl-wheel lands (toolbar, sidebar, etc.)
+      e.preventDefault();
+      if (this._viewMode === 'readonly') return;
+      const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+      this.#applyZoom(this._viewTransform.scale * factor);
+    } else {
+      // Plain scroll: only pan the field if the event target is within the field area
+      if (this._viewMode === 'readonly') return;
+      const fieldEl = this._field;
+      if (!fieldEl || !e.composedPath().includes(fieldEl)) return;
+      const { maxX, maxY } = this.#getPanLimits();
+      const ctm = fieldEl.svgEl?.getScreenCTM();
+      const svgPerPx = ctm ? 1 / Math.abs(ctm.a) : 1;
+      this._viewTransform = {
+        ...this._viewTransform,
+        x: this.#clamp(this._viewTransform.x + e.deltaX * svgPerPx, -maxX, maxX),
+        y: this.#clamp(this._viewTransform.y + e.deltaY * svgPerPx, -maxY, maxY),
+      };
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   #undo() {
     if (this.#undoStack.length === 0) return;
     this.#redoStack.push(this.#snapshot());
@@ -1752,6 +1852,13 @@ export class CoachBoard extends LitElement {
       // width and height resizes (aspect-ratio scaling)
       const svgEl = this._field?.svgEl;
       if (svgEl) this.#sidebarLockObserver.observe(svgEl);
+      // Prevent browser-level pinch/zoom across the ENTIRE page, not just the field.
+      // A ctrlKey+wheel anywhere on chrome (toolbar, sidebar) would otherwise still
+      // change the viewport and trigger orientation media queries.
+      // passive:false is required so e.preventDefault() is honoured.
+      document.addEventListener('wheel', this.#boundWheel, { passive: false });
+      // Belt-and-suspenders for touch devices (older Safari ignores touch-action on SVG)
+      document.addEventListener('touchstart', this.#boundTouchStart, { passive: false });
     });
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
@@ -1772,6 +1879,8 @@ export class CoachBoard extends LitElement {
     super.disconnectedCallback();
     document.removeEventListener('keydown', this.#boundKeyDown);
     document.removeEventListener('pointerdown', this.#onDocClickForMenu);
+    document.removeEventListener('wheel', this.#boundWheel);
+    document.removeEventListener('touchstart', this.#boundTouchStart);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
@@ -1900,6 +2009,7 @@ export class CoachBoard extends LitElement {
             .shapeDraw="${this._shapeDraw}"
             .marquee="${this._marquee}"
             .activeTool="${this.activeTool}"
+            .viewTransform="${this._viewTransform}"
             .playerColor="${this.playerColor}"
             .playerTeam="${this.playerTeam}"
             .lineStyle="${this.lineStyle}"
@@ -2296,6 +2406,7 @@ export class CoachBoard extends LitElement {
               .shapeDraw="${this._shapeDraw}"
               .marquee="${this._marquee}"
               .activeTool="${this.activeTool}"
+              .viewTransform="${this._viewTransform}"
               .playerColor="${this.playerColor}"
               .playerTeam="${this.playerTeam}"
               .lineStyle="${this.lineStyle}"
@@ -2386,6 +2497,30 @@ export class CoachBoard extends LitElement {
                   <path d="M 14,6 L 6,6 A 4,4 0 0 0 6,14 L 9,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
               </button>
+
+              ${this._viewMode !== 'readonly' ? html`
+                <div class="bottom-bar-divider" role="separator" aria-hidden="true"></div>
+                <button class="icon-btn" aria-label="Zoom out" title="Zoom out"
+                        @click="${this.#zoomOut}">
+                  <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
+                    <path d="m1091.1 1078.1-241.31-309.38c76.914-79.898 120.61-186.03 122.25-296.92 1.6406-110.89-38.902-218.27-113.43-300.4-74.52-82.133-177.46-132.9-287.98-142.02-110.53-9.1211-220.39 24.082-307.37 92.887-86.98 68.805-144.57 168.08-161.14 277.74-16.562 109.66 9.1445 221.52 71.922 312.94 62.777 91.422 157.94 155.59 266.23 179.52 108.29 23.93 221.63 5.832 317.08-50.629l240.94 308.81c9.6836 12.352 23.883 20.344 39.469 22.207 15.586 1.8672 31.27-2.5508 43.594-12.27 12.16-9.6953 20.004-23.801 21.832-39.246 1.8242-15.445-2.5156-30.988-12.082-43.254zm-521.81-277.69c-69.402 7.3633-139.38-6.9688-200.3-41.023-60.918-34.059-109.78-86.164-139.86-149.14-30.078-62.98-39.895-133.73-28.09-202.52 11.801-68.789 44.637-132.23 93.988-181.58s112.79-82.188 181.58-93.988c68.789-11.805 139.54-1.9883 202.52 28.09 62.977 30.078 115.08 78.941 149.14 139.86 34.055 60.922 48.387 130.9 41.023 200.3-8.1484 76.777-42.371 148.44-96.969 203.03-54.594 54.598-126.25 88.82-203.03 96.969z"/>
+                    <path d="m334.69 416.62h399.94c26.715 0 48.375 26.664 48.375 48.281 0 26.664-21.66 48.281-48.375 48.281h-399.94c-26.715 0-48.375-26.664-48.375-48.281 0-26.664 21.66-48.281 48.375-48.281z"/>
+                  </svg>
+                </button>
+                <button class="zoom-level"
+                      aria-label="Reset zoom to 100%"
+                      title="Reset zoom to 100%"
+                        @click="${this.#resetView}">
+                  ${Math.round(this._viewTransform.scale * 100)}%
+                </button>
+                <button class="icon-btn" aria-label="Zoom in" title="Zoom in"
+                        @click="${this.#zoomIn}">
+                  <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
+                    <path d="m1091.1 1078.1-241.31-309.38c76.914-79.898 120.61-186.03 122.25-296.92 1.6406-110.89-38.902-218.27-113.43-300.4-74.52-82.133-177.46-132.9-287.98-142.02-110.53-9.1211-220.39 24.082-307.37 92.887-86.98 68.805-144.57 168.08-161.14 277.74-16.562 109.66 9.1445 221.52 71.922 312.94 62.777 91.422 157.94 155.59 266.23 179.52 108.29 23.93 221.63 5.832 317.08-50.629l240.94 308.81c9.6836 12.352 23.883 20.344 39.469 22.207 15.586 1.8672 31.27-2.5508 43.594-12.27 12.16-9.6953 20.004-23.801 21.832-39.246 1.8242-15.445-2.5156-30.988-12.082-43.254zm-521.81-277.69c-69.402 7.3633-139.38-6.9688-200.3-41.023-60.918-34.059-109.78-86.164-139.86-149.14-30.078-62.98-39.895-133.73-28.09-202.52 11.801-68.789 44.637-132.23 93.988-181.58s112.79-82.188 181.58-93.988c68.789-11.805 139.54-1.9883 202.52 28.09 62.977 30.078 115.08 78.941 149.14 139.86 34.055 60.922 48.387 130.9 41.023 200.3-8.1484 76.777-42.371 148.44-96.969 203.03-54.594 54.598-126.25 88.82-203.03 96.969z"/>
+                    <path d="m710.25 434.81h-144.38v-148.31c0.66797-8.4961-2.2422-16.883-8.0273-23.141s-13.922-9.8125-22.441-9.8125-16.656 3.5547-22.441 9.8125-8.6953 14.645-8.0273 23.141v148.31h-144.38c-11.055 0-21.266 5.8984-26.793 15.469-5.5273 9.5703-5.5273 21.367 0 30.938 5.5273 9.5703 15.738 15.469 26.793 15.469h144.38v148.31c0.80859 10.32 6.7891 19.527 15.883 24.465 9.0977 4.9414 20.074 4.9414 29.172 0 9.0938-4.9375 15.074-14.145 15.883-24.465v-148.31h144.38c11.055 0 21.266-5.8984 26.793-15.469 5.5273-9.5703 5.5273-21.367 0-30.938-5.5273-9.5703-15.738-15.469-26.793-15.469z"/>
+                  </svg>
+                </button>
+              ` : nothing}
             </div>
             <div class="bottom-center">
               ${!this._isMobile ? html`
@@ -2433,20 +2568,6 @@ export class CoachBoard extends LitElement {
               ` : nothing}
             </div>
             <div class="bottom-right">
-              <button class="icon-btn" aria-label="Zoom out" title="Zoom out"
-                      disabled>
-                <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
-                  <path d="m1091.1 1078.1-241.31-309.38c76.914-79.898 120.61-186.03 122.25-296.92 1.6406-110.89-38.902-218.27-113.43-300.4-74.52-82.133-177.46-132.9-287.98-142.02-110.53-9.1211-220.39 24.082-307.37 92.887-86.98 68.805-144.57 168.08-161.14 277.74-16.562 109.66 9.1445 221.52 71.922 312.94 62.777 91.422 157.94 155.59 266.23 179.52 108.29 23.93 221.63 5.832 317.08-50.629l240.94 308.81c9.6836 12.352 23.883 20.344 39.469 22.207 15.586 1.8672 31.27-2.5508 43.594-12.27 12.16-9.6953 20.004-23.801 21.832-39.246 1.8242-15.445-2.5156-30.988-12.082-43.254zm-521.81-277.69c-69.402 7.3633-139.38-6.9688-200.3-41.023-60.918-34.059-109.78-86.164-139.86-149.14-30.078-62.98-39.895-133.73-28.09-202.52 11.801-68.789 44.637-132.23 93.988-181.58s112.79-82.188 181.58-93.988c68.789-11.805 139.54-1.9883 202.52 28.09 62.977 30.078 115.08 78.941 149.14 139.86 34.055 60.922 48.387 130.9 41.023 200.3-8.1484 76.777-42.371 148.44-96.969 203.03-54.594 54.598-126.25 88.82-203.03 96.969z"/>
-                  <path d="m334.69 416.62h399.94c26.715 0 48.375 26.664 48.375 48.281 0 26.664-21.66 48.281-48.375 48.281h-399.94c-26.715 0-48.375-26.664-48.375-48.281 0-26.664 21.66-48.281 48.375-48.281z"/>
-                </svg>
-              </button>
-              <button class="icon-btn" aria-label="Zoom in" title="Zoom in"
-                      disabled>
-                <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
-                  <path d="m1091.1 1078.1-241.31-309.38c76.914-79.898 120.61-186.03 122.25-296.92 1.6406-110.89-38.902-218.27-113.43-300.4-74.52-82.133-177.46-132.9-287.98-142.02-110.53-9.1211-220.39 24.082-307.37 92.887-86.98 68.805-144.57 168.08-161.14 277.74-16.562 109.66 9.1445 221.52 71.922 312.94 62.777 91.422 157.94 155.59 266.23 179.52 108.29 23.93 221.63 5.832 317.08-50.629l240.94 308.81c9.6836 12.352 23.883 20.344 39.469 22.207 15.586 1.8672 31.27-2.5508 43.594-12.27 12.16-9.6953 20.004-23.801 21.832-39.246 1.8242-15.445-2.5156-30.988-12.082-43.254zm-521.81-277.69c-69.402 7.3633-139.38-6.9688-200.3-41.023-60.918-34.059-109.78-86.164-139.86-149.14-30.078-62.98-39.895-133.73-28.09-202.52 11.801-68.789 44.637-132.23 93.988-181.58s112.79-82.188 181.58-93.988c68.789-11.805 139.54-1.9883 202.52 28.09 62.977 30.078 115.08 78.941 149.14 139.86 34.055 60.922 48.387 130.9 41.023 200.3-8.1484 76.777-42.371 148.44-96.969 203.03-54.594 54.598-126.25 88.82-203.03 96.969z"/>
-                  <path d="m710.25 434.81h-144.38v-148.31c0.66797-8.4961-2.2422-16.883-8.0273-23.141s-13.922-9.8125-22.441-9.8125-16.656 3.5547-22.441 9.8125-8.6953 14.645-8.0273 23.141v148.31h-144.38c-11.055 0-21.266 5.8984-26.793 15.469-5.5273 9.5703-5.5273 21.367 0 30.938 5.5273 9.5703 15.738 15.469 26.793 15.469h144.38v148.31c0.80859 10.32 6.7891 19.527 15.883 24.465 9.0977 4.9414 20.074 4.9414 29.172 0 9.0938-4.9375 15.074-14.145 15.883-24.465v-148.31h144.38c11.055 0 21.266-5.8984 26.793-15.469 5.5273-9.5703 5.5273-21.367 0-30.938-5.5273-9.5703-15.738-15.469-26.793-15.469z"/>
-                </svg>
-              </button>
               <button class="icon-btn" aria-label="Share Board" title="Share Board"
                       @click="${() => this._share.triggerShare()}">
                 <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
@@ -2489,16 +2610,19 @@ export class CoachBoard extends LitElement {
         .playbackLoop="${this._playbackLoop}"
         .svgEl="${this._field?.svgEl ?? null}"
       ></cb-share>
+      </div><!-- .app-board -->
+      </div><!-- .app-wrap -->
+
+      <!-- position:fixed elements must live OUTSIDE .app-wrap — the transform on
+           .app-wrap creates a new containing block, so anything fixed inside it
+           is positioned relative to .app-wrap, not the viewport. -->
       <div class="rotate-overlay">
         <svg viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
           <path d="M880.71 163.3V163.32L740.23 163.16L738.09 127.98L882.89 128L880.71 163.3ZM106.9 438.69H106.88L105.81 458.31L105.78 459.55L105.99 479.2C106.11 489.65 114.67 498.03 125.12 497.92C135.5 497.81 143.84 489.35 143.84 479L143.63 459.77L144.64 441.37L146.85 423.11L150.26 405.01L154.85 387.19L160.6 369.72L167.5 352.63L175.49 336.07L184.57 320.03L194.67 304.65L205.76 289.97L217.8 276.04L230.73 262.93L244.27 250.89L258.55 239.75L273.53 229.55L289.13 220.35L305.29 212.18L321.96 205.07L339.06 199.05L356.5 194.15L374.21 190.39L392.15 187.78L409.75 186.38L388.69 203.43C384.01 207.22 381.58 212.76 381.58 218.35C381.58 222.59 382.98 226.86 385.86 230.41C392.52 238.64 404.61 239.91 412.84 233.25L475.4 182.59C479.9 178.95 482.51 173.47 482.53 167.68V167.59C482.53 161.81 479.9 156.42 475.4 152.77L413.16 102.35C404.93 95.68 392.85 96.95 386.18 105.18C383.3 108.73 381.9 113 381.9 117.25C381.9 122.84 384.33 128.38 389.01 132.17L409.17 148.5H409.04L407.82 148.56L388.53 150.1L387.31 150.24L368.17 153.02L366.96 153.24L348.04 157.26L346.85 157.55L328.23 162.78L327.06 163.15L308.81 169.58L307.67 170.03L289.88 177.62L288.77 178.14L271.51 186.87L270.44 187.46L253.78 197.29L252.74 197.95L236.75 208.83L235.76 209.55L220.51 221.45L219.57 222.23L205.11 235.09L204.22 235.94L190.42 249.93L189.58 250.84L176.73 265.71L175.95 266.68L164.1 282.36L163.39 283.38L152.6 299.81L151.95 300.87L142.27 317.97L141.69 319.07L133.15 336.77L132.64 337.91L125.28 356.13L124.85 357.3L118.71 375.97L118.36 377.17L113.45 396.2L113.18 397.41L109.54 416.72L109.35 417.95L106.98 437.46L106.93 438.7H106.88H106.9V438.69ZM1034.12 127.99H1035.01C1048.17 128.42 1058.72 139.24 1058.72 152.52V850.85L562.25 850.87V152.52C562.25 139.24 572.79 128.42 585.96 127.99L699.84 128.01L703.25 183.42C703.87 193.49 712.21 201.33 722.3 201.33L898.64 201.38C908.72 201.36 917.06 193.52 917.69 183.46L921.13 127.99H1034.12ZM165.32 878.25V878.27L130.31 880.29L130.22 735.5L165.38 737.71V737.73L165.32 878.26V878.25ZM810.51 955.19H810.54C821.5 955.19 830.33 964.07 830.33 975.02C830.33 985.97 821.45 994.85 810.5 994.85C799.55 994.85 790.67 985.97 790.67 975.02C790.67 964.07 799.52 955.19 810.47 955.19H810.52H810.51ZM810.5 916.95H810.46C778.39 916.95 752.43 942.95 752.43 975.02C752.43 1007.09 778.42 1033.08 810.49 1033.08C842.56 1033.08 868.56 1007.08 868.56 975.02C868.56 942.96 842.59 916.95 810.52 916.95H810.5ZM1058.75 1031.75V1031.8C1058.75 1045.02 1048.2 1056.26 1035.04 1056.28L585.98 1056.3C572.82 1055.87 562.26 1045.04 562.26 1031.76V889.07L1058.74 889.11V1031.75H1058.75ZM153.36 521.44V521.46C153.47 521.44 153.36 521.44 153.36 521.44C121.46 522.14 95.39 546.56 92.24 577.77V577.84C92.01 580 91.87 1031.59 91.87 1031.59C91.87 1055.47 105.03 1076.19 124.65 1086.81L124.74 1086.86C133.33 1091.56 143.14 1094.56 153.58 1094.56L481.57 1094.36C492.12 1094.36 500.68 1085.81 500.68 1075.26C500.68 1064.71 492.23 1056.26 481.77 1056.16C481.51 1056.16 154.65 1056.16 154.65 1056.16C150.38 1056.16 146.37 1055.07 142.87 1053.15L142.82 1053.12C135.64 1049 130.71 1041.43 130.42 1032.66L130.35 918.55L185.58 915.17C195.64 914.55 203.48 906.22 203.5 896.15C203.5 896.06 203.57 719.78 203.57 719.78C203.57 709.7 195.73 701.35 185.67 700.73L130.22 697.28L130.29 581.75C131.64 569.45 142.04 559.9 154.67 559.89L481.58 559.71C492.13 559.69 500.69 551.14 500.69 540.59C500.69 530.04 492.14 521.48 481.58 521.48H153.36V521.5V521.47V521.44ZM586.84 89.74H586.79C552.59 89.74 524.79 117.08 524.04 151.11V1033.18C524.81 1067.22 552.62 1094.56 586.81 1094.56H1034.2C1068.39 1094.54 1096.21 1067.2 1096.96 1033.17V151.11C1096.19 117.07 1068.38 89.73 1034.19 89.73H586.84V89.74Z" fill="white"/>
         </svg>
       </div>
-      </div><!-- .app-board -->
-      </div><!-- .app-wrap -->
 
-      <!-- Side sheets: must live OUTSIDE .app-wrap so position:fixed uses the
-           viewport as the containing block, not the transformed .app-wrap box. -->
+      <!-- Side sheets: must live OUTSIDE .app-wrap for the same reason -->
       <cb-side-sheet
         ?open="${this._myBoardsOpen}"
         heading="My Boards"
@@ -2857,6 +2981,8 @@ export class CoachBoard extends LitElement {
     this.#cachedSummary = this.#getBoardSummary();
     const host = this as unknown as HTMLElement;
     const savedTheme = this.fieldTheme;
+    const savedTransform = this._viewTransform;
+    this._viewTransform = { x: 0, y: 0, scale: 1 };
     if (printSummary) host.classList.add('print-summary');
     if (printWhiteBg) {
       host.classList.add('print-white-bg');
@@ -2869,6 +2995,7 @@ export class CoachBoard extends LitElement {
       cleaned = true;
       host.classList.remove('print-summary', 'print-white-bg');
       if (printWhiteBg) this.fieldTheme = savedTheme;
+      this._viewTransform = savedTransform;
       this.#isPrinting = false;
     };
     window.addEventListener('afterprint', cleanup, { once: true });
@@ -3591,6 +3718,19 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerDown(e: PointerEvent) {
+    // Track all active pointers — used for pinch-to-zoom
+    this.#activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // Two-finger pinch: capture start state regardless of active tool
+    if (this.#activePointers.size === 2) {
+      const pts = [...this.#activePointers.values()];
+      this.#pinchStartDist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      this.#pinchStartScale = this._viewTransform.scale;
+      this.#pinchStartPan = { x: this._viewTransform.x, y: this._viewTransform.y };
+      this.#panDrag = null;
+      return;
+    }
+
     if (this._viewMode === 'readonly') {
       this.#toggleReadonlyPlayback();
       return;
@@ -3598,6 +3738,19 @@ export class CoachBoard extends LitElement {
     if (this.isPlaying) return;
     if (!this._sidebarCollapsed && !this._sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
+
+    // Pan tool — use client-pixel delta so the SVG-unit/pixel ratio stays constant
+    // across the drag even as the viewBox shifts
+    if (this.activeTool === 'pan') {
+      const ctm = this._field.svgEl?.getScreenCTM();
+      this.#panDrag = {
+        startClientX: e.clientX, startClientY: e.clientY,
+        startVx: this._viewTransform.x, startVy: this._viewTransform.y,
+        svgPerPx: ctm ? 1 / Math.abs(ctm.a) : 1,
+      };
+      this._field.capturePointer(e.pointerId);
+      return;
+    }
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
       const hit = resolveHit(e.composedPath()[0]);
@@ -3760,6 +3913,35 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerMove(e: PointerEvent) {
+    this.#activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // Two-finger pinch
+    if (this.#activePointers.size === 2 && this.#pinchStartDist > 0) {
+      const pts = [...this.#activePointers.values()];
+      const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      const { maxX, maxY } = this.#getPanLimits();
+      const newScale = this.#clamp(this.#pinchStartScale * (dist / this.#pinchStartDist), 0.25, 8);
+      this._viewTransform = {
+        scale: newScale,
+        x: this.#clamp(this.#pinchStartPan.x, -maxX, maxX),
+        y: this.#clamp(this.#pinchStartPan.y, -maxY, maxY),
+      };
+      return;
+    }
+
+    // Pan drag
+    if (this.#panDrag) {
+      const dx = -(e.clientX - this.#panDrag.startClientX) * this.#panDrag.svgPerPx;
+      const dy = -(e.clientY - this.#panDrag.startClientY) * this.#panDrag.svgPerPx;
+      const { maxX, maxY } = this.#getPanLimits();
+      this._viewTransform = {
+        ...this._viewTransform,
+        x: this.#clamp(this.#panDrag.startVx + dx, -maxX, maxX),
+        y: this.#clamp(this.#panDrag.startVy + dy, -maxY, maxY),
+      };
+      return;
+    }
+
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     if (this.activeTool === 'add-player' || this.activeTool === 'add-equipment' || this.activeTool === 'add-text') {
@@ -3999,7 +4181,11 @@ export class CoachBoard extends LitElement {
     }
   }
 
-  #onPointerUp(_e: PointerEvent) {
+  #onPointerUp(e: PointerEvent) {
+    this.#activePointers.delete(e.pointerId);
+    if (this.#activePointers.size < 2) this.#pinchStartDist = 0;
+    this.#panDrag = null;
+
     if (this._marquee) {
       const m = this._marquee;
       this._marquee = null;
@@ -4141,6 +4327,7 @@ export class CoachBoard extends LitElement {
   }
 
   #onPointerLeave(_e: PointerEvent) {
+    this.#panDrag = null;
     this.ghost = null;
     this._draw = null;
     this._shapeDraw = null;
@@ -4232,6 +4419,9 @@ export class CoachBoard extends LitElement {
       this.selectedIds = new Set();
       return;
     }
+    // Zoom via the UI buttons only — Cmd+=/- conflicts with the browser's own zoom
+    // shortcuts, which change the viewport and break orientation media queries.
+    // Coaches can use the −/100%/+ controls in the bottom bar instead.
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedIds.size > 0) {
       if (inInput) return;
       this.#pushUndo();
