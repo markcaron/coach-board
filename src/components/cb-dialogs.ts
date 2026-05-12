@@ -304,12 +304,6 @@ export class CbDialogs extends LitElement {
       cursor: pointer;
     }
 
-    .save-template-hint {
-      margin: 6px 0 0;
-      font-size: 0.78rem;
-      color: var(--pt-text-muted);
-      line-height: 1.4;
-    }
 
     /* New board pitch/template selects */
     .theme-select {
@@ -605,9 +599,6 @@ export class CbDialogs extends LitElement {
                      @change="${(e: Event) => { this._saveAsTemplate = (e.target as HTMLInputElement).checked; }}" />
               Save as template
             </label>
-            ${this._saveAsTemplate ? html`
-              <p class="save-template-hint">Saved to Templates only — not added to Saved Boards.</p>
-            ` : nothing}
             <div class="confirm-actions">
               <button type="button" class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
               <div class="row-gap-sm">
