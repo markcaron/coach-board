@@ -21,6 +21,7 @@ export class CbBoardSummary extends LitElement {
       display: block;
       padding: 20px;
       box-sizing: border-box;
+      touch-action: manipulation;
     }
 
     .board-name {

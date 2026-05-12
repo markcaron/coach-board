@@ -6,6 +6,7 @@ export class CbBoardBar extends LitElement {
   static styles = css`
     :host {
       display: block;
+      touch-action: manipulation;
     }
 
     .board-name-bar {

@@ -209,6 +209,7 @@ export class CbToolbar extends LitElement {
     :host {
       display: block;
       padding: 8px 12px;
+      touch-action: manipulation;
       background: var(--pt-bg-toolbar);
       user-select: none;
       font-family: system-ui, -apple-system, sans-serif;

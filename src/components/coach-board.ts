@@ -1920,6 +1920,10 @@ export class CoachBoard extends LitElement {
       // Belt-and-suspenders for touch devices (older Safari ignores touch-action on SVG)
       document.addEventListener('touchstart', this.#boundTouchStart, { passive: false });
     });
+    // Extend double-tap zoom prevention to the full document. touch-action on
+    // :host only covers shadow DOM descendants; light DOM elements (bottom bar,
+    // toolbar) would still be reachable by iOS double-tap without this.
+    document.body.style.touchAction = 'manipulation';
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -1942,6 +1946,7 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('wheel', this.#boundWheel);
     document.removeEventListener('touchstart', this.#boundTouchStart);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    document.body.style.touchAction = '';
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
     this.#stopPlayback();

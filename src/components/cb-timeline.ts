@@ -49,6 +49,7 @@ export class CbTimeline extends LitElement {
     :host {
       display: block;
       font-family: system-ui, -apple-system, sans-serif;
+      touch-action: manipulation;
     }
 
     .timeline {

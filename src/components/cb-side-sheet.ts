@@ -27,6 +27,7 @@ export class CbSideSheet extends LitElement {
   static styles = css`
     :host {
       display: contents;
+      touch-action: manipulation;
     }
 
     /* ── Backdrop ─────────────────────────────────────────────────── */

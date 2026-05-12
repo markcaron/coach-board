@@ -22,6 +22,7 @@ export class CbMyBoards extends LitElement {
   static styles = css`
     :host {
       display: contents;
+      touch-action: manipulation;
     }
 
     /* ── Board list ─────────────────────────────────────────────── */
