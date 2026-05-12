@@ -102,7 +102,13 @@ export class CbMyBoards extends LitElement {
     .boards-list li {
       display: flex;
       align-items: center;
+    }
+
+    /* Positioning context scoped to just the kebab button, so the menu
+       opens flush below the button regardless of thumbnail height. */
+    .kebab-wrap {
       position: relative;
+      flex-shrink: 0;
     }
 
     .board-open-btn {
@@ -243,8 +249,8 @@ export class CbMyBoards extends LitElement {
 
     .kebab-menu {
       position: absolute;
-      right: 8px;
-      top: calc(100% - 8px);
+      right: 0;
+      top: calc(100% + 2px);
       z-index: 10;
       background: white;
       border: 1px solid rgba(0, 0, 0, 0.12);
@@ -264,6 +270,7 @@ export class CbMyBoards extends LitElement {
       padding: 9px 14px;
       background: transparent;
       border: none;
+      border-radius: 6px;
       color: inherit;
       font: inherit;
       font-size: 0.875rem;
@@ -535,19 +542,21 @@ export class CbMyBoards extends LitElement {
                       </div>
                     </button>
                   `}
-                  <button class="kebab-btn"
-                          aria-label="Actions for ${b.name}"
-                          aria-expanded="${this._openMenuId === b.id}"
-                          aria-haspopup="menu"
-                          data-menu-trigger="board-${b.id}"
-                          @click="${(e: Event) => this.#toggleMenu(b.id, e)}">
-                    ${this.#kebabIcon()}
-                  </button>
-                  ${this._openMenuId === b.id ? this.#kebabMenu(b.id, [
-                    { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(b.id, b.name) },
-                    { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-board', { board: b }) },
-                    { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-board', { board: b }), danger: true },
-                  ]) : nothing}
+                  <div class="kebab-wrap">
+                    <button class="kebab-btn"
+                            aria-label="Actions for ${b.name}"
+                            aria-expanded="${this._openMenuId === b.id}"
+                            aria-haspopup="menu"
+                            data-menu-trigger="board-${b.id}"
+                            @click="${(e: Event) => this.#toggleMenu(b.id, e)}">
+                      ${this.#kebabIcon()}
+                    </button>
+                    ${this._openMenuId === b.id ? this.#kebabMenu(b.id, [
+                      { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(b.id, b.name) },
+                      { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-board', { board: b }) },
+                      { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-board', { board: b }), danger: true },
+                    ]) : nothing}
+                  </div>
                 </li>
               `)}
             </ul>
@@ -611,19 +620,21 @@ export class CbMyBoards extends LitElement {
                       </div>
                     </button>
                   `}
-                  <button class="kebab-btn"
-                          aria-label="Actions for ${t.name}"
-                          aria-expanded="${this._openMenuId === t.id}"
-                          aria-haspopup="menu"
-                          data-menu-trigger="template-${t.id}"
-                          @click="${(e: Event) => this.#toggleMenu(t.id, e)}">
-                    ${this.#kebabIcon()}
-                  </button>
-                  ${this._openMenuId === t.id ? this.#kebabMenu(t.id, [
-                    { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(t.id, t.name) },
-                    { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-template', { template: t }) },
-                    { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-template', { template: t }), danger: true },
-                  ]) : nothing}
+                  <div class="kebab-wrap">
+                    <button class="kebab-btn"
+                            aria-label="Actions for ${t.name}"
+                            aria-expanded="${this._openMenuId === t.id}"
+                            aria-haspopup="menu"
+                            data-menu-trigger="template-${t.id}"
+                            @click="${(e: Event) => this.#toggleMenu(t.id, e)}">
+                      ${this.#kebabIcon()}
+                    </button>
+                    ${this._openMenuId === t.id ? this.#kebabMenu(t.id, [
+                      { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(t.id, t.name) },
+                      { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-template', { template: t }) },
+                      { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-template', { template: t }), danger: true },
+                    ]) : nothing}
+                  </div>
                 </li>
               `)}
             </ul>
