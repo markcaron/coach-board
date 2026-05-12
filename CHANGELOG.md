@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.6.0 — Angel City FC (2026-05-12)
+
+### Features
+
+- **Cloud backup via Netlify Identity** (#201): Boards and user templates are automatically synced to the cloud when signed in. Sign in / Sign out lives in the new Settings side-sheet. A cloud-backup status bar appears above the My Boards tabs when authenticated, and a local-storage notice (with a direct link to Settings) is shown when logged out. Cloud sync is handled by a new `netlify/functions/sync.ts` serverless function and `src/lib/cloud-sync.ts`.
+- **User-created templates** (#60): Coaches can save any board as a personal template from the Save dialog ("Save as template" checkbox). Templates appear in a new Templates tab in the My Boards side-sheet with the same kebab menu actions as boards — use, duplicate, rename, delete.
+- **My Boards kebab menus & inline rename**: Each saved board and template entry has a ⋯ kebab menu with Rename, Duplicate, and Delete actions. Rename opens an inline text input in place of the board row. Board count badge appears on the Saved Boards tab.
+- **Settings side-sheet** (#180): A new Settings panel (gear icon / hamburger menu) houses the distance unit preference (Metres / Yards, persisted to `localStorage`). The Settings panel is also the entry point for cloud account management (Sign In / Sign Out).
+- **Inline context editor** (#191): The Select tool gains an inline context editor that attaches to the canvas alongside a selected element, surfacing the most common properties (color, style, label) without opening a separate panel. The context track is a full toolbar participant with proper ARIA roles and keyboard navigation.
+- **Notes & Instructions Markdown** (#62): The Notes & Instructions textarea in the Board Summary side-sheet now supports a restricted Markdown subset — bold, italic, `##`/`###` headings, bullet and numbered lists, and horizontal rules. A compact formatting toolbar (Bold, Italic, H2, Bullet list, Numbered list, HR) inserts syntax at the cursor. A Preview toggle renders the parsed Markdown in-place. The print summary block also renders formatted notes. Backward-compatible: existing plain-text notes render unchanged.
+
+### Bug Fixes
+
+- **iOS native zoom trap** (#190): Double-tap and pinch gestures on the canvas no longer trigger browser-level page zoom in standalone PWA mode. Fixed via `touch-action: manipulation` on all component `:host` rules, replacing earlier attempts (zoom escape button, `user-scalable` meta) that had side effects.
+- **Auth session restore on reload**: Netlify Identity session was lost on page reload because the auth init listener registered after the identity widget fired. Fixed by reading `currentUser()` synchronously after `init()`.
+- **Sidebar auto-hide removed** (#193): The sidebar no longer closes automatically on hover-leave. It only closes via the grab handle, preventing accidental collapse mid-interaction.
+- **Dribble icon arrowhead in Draw menus** (#156): The dribble path SVG was missing its arrowhead in sidebar Draw submenus; restored by extending the path to match the toolbar version.
+- **Distance unit select border** (#180): The distance unit `<select>` in the settings sheet was missing its 1px border, making it invisible against the surface background.
+- **Inverted-surface token contrast** (#180): Settings sheet text and inputs now use `--pt-bg-inverted` / `--pt-text-on-inverted` / `--pt-border-on-inverted` for correct contrast on the light card surface.
+
+### Accessibility
+
+- **Notes toolbar WAI-ARIA** (#62): Formatting toolbar has `role="toolbar"`, `aria-label`, `aria-controls` pointing to the textarea, and full roving tabindex (ArrowLeft/ArrowRight navigation). All icon-only buttons have `aria-label` and `title`. A persistent `role="status"` region announces "Edit mode" / "Preview mode" on toggle.
+- **Select track as toolbar participant** (#191): The inline context editor track has `role="toolbar"` with correct `tabindex` management and a live region that announces the current selection count on multi-select changes.
+- **Settings `aria-describedby`** (#197): The distance unit `<select>` is linked to its hint paragraph via `aria-describedby`, surfacing the hint to screen readers.
+- **My Boards alert contrast**: Logged-out storage alert "Settings" link uses `--pt-btn-primary` (`#2563eb`, 5.2:1 on white) instead of `--pt-accent` (2.6:1), passing WCAG AA for normal text on the white side-sheet surface.
+
 ## 1.5.0 — Washington Spirit (2026-05-11)
 
 ### Features
