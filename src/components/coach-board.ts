@@ -1127,8 +1127,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _fieldMenuOpen: boolean = false;
   #fieldMenuTrigger: HTMLElement | null = null;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | 'more' | null = null;
-  @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
-  #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
+  @state() private accessor _sidebarCollapsed: boolean = false; // always starts open; only the grab handle closes it
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
@@ -1287,15 +1286,7 @@ export class CoachBoard extends LitElement {
 
   #onSidebarPointerEnter = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
-    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this._sidebarCollapsed = false;
-  };
-
-  #onSidebarPointerLeave = () => {
-    if (!window.matchMedia('(hover: hover)').matches) return;
-    if (this._sidebarMenu !== null) return;
-    if (this._sidebar?.classList.contains('sidebar-locked')) return;
-    this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
@@ -1328,6 +1319,8 @@ export class CoachBoard extends LitElement {
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
     this._isMobile = e.matches;
+    // Intentionally does not touch _sidebarCollapsed — sidebar visibility is
+    // user-controlled via the grab handle regardless of viewport breakpoint.
     if (this._viewMode === 'readonly') {
       if (e.matches && this.fieldOrientation === 'horizontal') {
         this.#rotateLoadedData('vertical');
@@ -1910,7 +1903,7 @@ export class CoachBoard extends LitElement {
     document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
     this._isMobile = this.#mobileQuery.matches;
-    this._sidebarCollapsed = this.#mobileQuery.matches;
+    this._sidebarCollapsed = false;
     this.updateComplete.then(() => {
       this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
       const boardArea = this.renderRoot.querySelector('.board-area');
@@ -1951,7 +1944,6 @@ export class CoachBoard extends LitElement {
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
-    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
 
@@ -2182,8 +2174,7 @@ export class CoachBoard extends LitElement {
         <div class="board-area">
           <nav class="sidebar ${this._sidebarCollapsed ? 'sidebar--collapsed' : ''}"
                aria-label="Tool palette"
-               @pointerenter="${this.#onSidebarPointerEnter}"
-               @pointerleave="${this.#onSidebarPointerLeave}">
+               @pointerenter="${this.#onSidebarPointerEnter}">
             <button class="sidebar-handle"
                     aria-label="${this._sidebarCollapsed ? 'Show tools' : 'Hide tools'}"
                     aria-expanded="${!this._sidebarCollapsed}"
@@ -3876,7 +3867,6 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    if (!this._sidebarCollapsed && !this._sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     // Pan tool — use client-pixel delta so the SVG-unit/pixel ratio stays constant
