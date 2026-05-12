@@ -22,10 +22,12 @@ export interface AuthUser {
  * current auth state (null = signed out), and again whenever it changes.
  */
 export function initAuth(onAuthChange: (user: AuthUser | null) => void): void {
-  netlifyIdentity.init();
+  // Register listeners BEFORE calling init() so the 'init' event isn't missed
+  // if the widget fires it synchronously (e.g. when a session is already cached).
   netlifyIdentity.on('init', u => onAuthChange(u ? toAuthUser(u) : null));
   netlifyIdentity.on('login', u => { netlifyIdentity.close(); onAuthChange(toAuthUser(u)); });
   netlifyIdentity.on('logout', () => onAuthChange(null));
+  netlifyIdentity.init();
 }
 
 export function openSignIn(): void {

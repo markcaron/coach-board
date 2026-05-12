@@ -338,7 +338,7 @@ export class CoachBoard extends LitElement {
       padding: 6px 26px 6px 10px;
       font: inherit;
       font-size: 0.85rem;
-      border: 1.5px solid rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(0, 0, 0, 0.28);
       border-radius: 6px;
       background: rgba(0, 0, 0, 0.03);
       color: var(--pt-text-on-inverted);
@@ -390,8 +390,8 @@ export class CoachBoard extends LitElement {
       min-height: 44px;
       padding: 8px 16px;
       border-radius: 6px;
-      border: 1px solid var(--pt-btn-primary);
-      background: var(--pt-btn-primary);
+      border: 1px solid var(--pt-success-hover);
+      background: var(--pt-success-hover);
       color: var(--pt-text-white);
       font: inherit;
       font-size: 0.875rem;
@@ -401,8 +401,8 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-account-btn:hover {
-      background: var(--pt-btn-primary-hover);
-      border-color: var(--pt-btn-primary-hover);
+      background: var(--pt-success-btn-hover);
+      border-color: var(--pt-success-btn-hover);
     }
 
     .settings-account-btn:focus-visible {
