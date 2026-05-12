@@ -109,6 +109,18 @@ export class CbBoardSummary extends LitElement {
       border-color: rgba(0, 0, 0, 0.28);
     }
 
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     /* ── Formatting toolbar ──────────────────────────────────────────── */
     .notes-toolbar {
       display: flex;
@@ -578,6 +590,8 @@ export class CbBoardSummary extends LitElement {
         </button>
       </div>
 
+      <div role="status" class="sr-only">${this._preview ? 'Preview mode' : 'Edit mode'}</div>
+
       ${!this._preview ? html`
         <div class="notes-toolbar"
              role="toolbar"
@@ -591,7 +605,7 @@ export class CbBoardSummary extends LitElement {
                   tabindex="-1"
                   @click="${() => this.#insertMark('*')}">${this.#iconItalic()}</button>
           <div class="notes-tool-sep" role="separator"></div>
-          <button class="notes-tool-btn" aria-label="Heading" title="Heading (##)"
+          <button class="notes-tool-btn" aria-label="H2 heading" title="H2 heading (##)"
                   tabindex="-1"
                   @click="${() => this.#insertLinePrefix('## ')}">H2</button>
           <div class="notes-tool-sep" role="separator"></div>
@@ -618,8 +632,7 @@ export class CbBoardSummary extends LitElement {
       ` : html`
         <div class="notes-preview"
              role="region"
-             aria-label="Notes preview"
-             aria-live="polite">
+             aria-label="Notes preview">
           ${unsafeHTML(parseNotes(this.boardNotes))}
         </div>
       `}
