@@ -146,8 +146,7 @@ export class CoachBoard extends LitElement {
       overflow: hidden;
       overscroll-behavior: none;
       --panel-w: min(280px, 85vw);
-      /* Canvas app: all touch handling is managed by the app; no native scroll/zoom needed */
-      touch-action: none;
+      touch-action: manipulation;
       --color-blue: var(--pt-color-blue-400);
       --color-red: var(--pt-color-red-400);
       --color-yellow: var(--pt-color-yellow-400);
@@ -659,6 +658,37 @@ export class CoachBoard extends LitElement {
       to   { opacity: 0; transform: translateX(-50%) translateY(8px); }
     }
 
+    /* ── Native browser zoom escape hatch ─────────────────────────── */
+    .zoom-escape-btn {
+      position: fixed;
+      right: var(--zoom-escape-right, 16px);
+      bottom: var(--zoom-escape-bottom, 16px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 18px;
+      height: 44px;
+      border-radius: 22px;
+      background: var(--pt-accent);
+      color: var(--pt-text-white);
+      border: none;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+      white-space: nowrap;
+    }
+
+    .zoom-escape-btn:focus-visible {
+      outline: 2px solid var(--pt-text-white);
+      outline-offset: 2px;
+    }
+
+    .zoom-escape-btn:active {
+      opacity: 0.85;
+    }
+
     .update-toast {
       position: fixed;
       bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
@@ -1134,6 +1164,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
   @state() private accessor _viewTransform = { x: 0, y: 0, scale: 1 };
+  @state() private accessor _nativeZoomActive: boolean = false;
   @state() private accessor _myBoardsOpen: boolean = false;
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _boardSummaryOpen: boolean = false;
@@ -1601,6 +1632,31 @@ export class CoachBoard extends LitElement {
   #zoomOut()   { this.#applyZoom(this._viewTransform.scale / 1.25); }
   #resetView() { this._viewTransform = { x: 0, y: 0, scale: 1 }; }
 
+  #onVisualViewportChange = () => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const active = vv.scale > 1.05;
+    this._nativeZoomActive = active;
+    if (active) {
+      // Pin the escape button to the visual viewport's bottom-right corner.
+      // position:fixed is relative to the layout viewport on iOS, so we
+      // compensate using the visual viewport's offset within it.
+      const margin = 16;
+      this.style.setProperty('--zoom-escape-right', `${window.innerWidth - (vv.offsetLeft + vv.width) + margin}px`);
+      this.style.setProperty('--zoom-escape-bottom', `${window.innerHeight - (vv.offsetTop + vv.height) + margin}px`);
+    }
+  };
+
+  #resetNativeZoom() {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!meta) return;
+    const saved = meta.content;
+    // Temporarily locking scale to 1 forces iOS Safari to snap back,
+    // then we restore the original content so pinch-zoom remains available.
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    setTimeout(() => { meta.content = saved; }, 100);
+  }
+
   #onWheel(e: WheelEvent) {
     if (e.ctrlKey || e.metaKey) {
       // Always prevent the browser from zoom-scaling the viewport, regardless of
@@ -1921,6 +1977,8 @@ export class CoachBoard extends LitElement {
       // Belt-and-suspenders for touch devices (older Safari ignores touch-action on SVG)
       document.addEventListener('touchstart', this.#boundTouchStart, { passive: false });
     });
+    window.visualViewport?.addEventListener('resize', this.#onVisualViewportChange);
+    window.visualViewport?.addEventListener('scroll', this.#onVisualViewportChange);
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -1943,6 +2001,8 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('wheel', this.#boundWheel);
     document.removeEventListener('touchstart', this.#boundTouchStart);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    window.visualViewport?.removeEventListener('resize', this.#onVisualViewportChange);
+    window.visualViewport?.removeEventListener('scroll', this.#onVisualViewportChange);
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
     this.#stopPlayback();
@@ -2454,23 +2514,6 @@ export class CoachBoard extends LitElement {
             ` : nothing}
           </div>
 
-          ${(this._viewTransform.scale !== 1 || this._viewTransform.x !== 0 || this._viewTransform.y !== 0) ? html`
-            <hr class="sidebar-divider" />
-            <button class="sidebar-tool"
-                    title="Reset view (0)"
-                    aria-label="Reset view (0)"
-                    tabindex="${this._sidebarFocusIndex === 5 ? 0 : -1}"
-                    @click="${this.#resetView}">
-              ${svg`<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                <circle cx="10" cy="10" r="3"/>
-                <line x1="10" y1="1" x2="10" y2="5"/>
-                <line x1="10" y1="15" x2="10" y2="19"/>
-                <line x1="1" y1="10" x2="5" y2="10"/>
-                <line x1="15" y1="10" x2="19" y2="10"/>
-              </svg>`}
-            </button>
-          ` : nothing}
-
           </div><!-- .sidebar-tools -->
 
           ${this.selectedIds.size > 0 ? html`
@@ -2754,6 +2797,18 @@ export class CoachBoard extends LitElement {
           @cb-board-summary-save="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
         </cb-board-summary>
       </cb-side-sheet>
+
+      ${this._nativeZoomActive ? html`
+        <button class="zoom-escape-btn"
+                aria-label="Reset browser zoom"
+                aria-live="polite"
+                @click="${this.#resetNativeZoom}">
+          ${svg`<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 3h5M3 3v5M17 3h-5M17 3v5M3 17h5M3 17v-5M17 17h-5M17 17v-5"/>
+          </svg>`}
+          Reset zoom
+        </button>
+      ` : nothing}
 
       ${this._updateAvailable ? html`
         <div class="update-toast ${this._toastDismissing ? 'toast-dismissing' : ''}"
