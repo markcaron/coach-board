@@ -51,7 +51,7 @@ export class CbMyBoards extends LitElement {
       background: transparent;
       border: none;
       border-bottom: 2px solid transparent;
-      color: rgba(0, 0, 0, 0.45);
+      color: rgba(0, 0, 0, 0.60);
       font: inherit;
       font-size: 0.85rem;
       font-weight: 500;
@@ -77,6 +77,11 @@ export class CbMyBoards extends LitElement {
       color: inherit;
       border-bottom-color: var(--pt-accent);
       font-weight: 600;
+    }
+
+    /* Keep inactive panels in the DOM for aria-controls; hide visually */
+    [role="tabpanel"][hidden] {
+      display: none;
     }
 
     .tab-count {
@@ -212,7 +217,7 @@ export class CbMyBoards extends LitElement {
 
     .rename-hint {
       font-size: 0.7rem;
-      color: rgba(0, 0, 0, 0.45);
+      color: rgba(0, 0, 0, 0.60);
     }
 
     /* ── Kebab menu ─────────────────────────────────────────────────── */
@@ -395,8 +400,14 @@ export class CbMyBoards extends LitElement {
 
   #toggleMenu(id: string, e: Event) {
     e.stopPropagation();
-    this._openMenuId = this._openMenuId === id ? null : id;
+    const wasOpen = this._openMenuId === id;
+    this._openMenuId = wasOpen ? null : id;
     this._renamingId = null;
+    if (!wasOpen) {
+      this.updateComplete.then(() => {
+        (this.renderRoot.querySelector<HTMLElement>('.kebab-menu [role="menuitem"]'))?.focus();
+      });
+    }
   }
 
   #onMenuKeyDown(e: KeyboardEvent) {
@@ -412,15 +423,19 @@ export class CbMyBoards extends LitElement {
         e.preventDefault();
         items[(current - 1 + items.length) % items.length]?.focus();
         break;
-      case 'Escape':
+      case 'Escape': {
         e.preventDefault();
         e.stopPropagation(); // don't let Esc close the side-sheet
+        const closingId = this._openMenuId;
+        const prefix = this._activeTab === 'boards' ? 'board' : 'template';
         this._openMenuId = null;
-        // return focus to the kebab trigger
         this.updateComplete.then(() => {
-          (this.renderRoot.querySelector(`[data-menu-trigger="${this._activeTab === 'boards' ? 'board' : 'template'}-${this._openMenuId}"]`) as HTMLElement)?.focus();
+          (this.renderRoot.querySelector<HTMLElement>(
+            `[data-menu-trigger="${prefix}-${closingId}"]`
+          ))?.focus();
         });
         break;
+      }
     }
   }
 
@@ -506,10 +521,11 @@ export class CbMyBoards extends LitElement {
     `;
   }
 
-  #renderBoardsPanel() {
+  #renderBoardsPanel(visible = true) {
     const saved = this.boards.filter(b => b.name !== 'Untitled Board');
     return html`
-      <div role="tabpanel" id="panel-boards" aria-labelledby="tab-boards">
+      <div role="tabpanel" id="panel-boards" aria-labelledby="tab-boards"
+           ?hidden="${!visible}">
 
         <div class="section">
           ${saved.length ? html`
@@ -590,9 +606,10 @@ export class CbMyBoards extends LitElement {
     `;
   }
 
-  #renderTemplatesPanel() {
+  #renderTemplatesPanel(visible = true) {
     return html`
-      <div role="tabpanel" id="panel-templates" aria-labelledby="tab-templates">
+      <div role="tabpanel" id="panel-templates" aria-labelledby="tab-templates"
+           ?hidden="${!visible}">
 
         <div class="section">
           ${this.userTemplates.length ? html`
@@ -678,7 +695,8 @@ export class CbMyBoards extends LitElement {
         </div>
       </div>
 
-      ${this._activeTab === 'boards' ? this.#renderBoardsPanel() : this.#renderTemplatesPanel()}
+      ${this.#renderBoardsPanel(this._activeTab === 'boards')}
+      ${this.#renderTemplatesPanel(this._activeTab === 'templates')}
     `;
   }
 
