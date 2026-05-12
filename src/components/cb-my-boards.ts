@@ -12,18 +12,17 @@ import type { UserTemplate } from '../lib/board-store.js';
  *  - "Saved Boards"  (existing board list)
  *  - "Templates"     (user-created templates)
  *
- * Receives data via properties and emits custom events that coach-board.ts handles.
- * Contains no async I/O of its own — all mutations happen in the parent.
- *
  * Events emitted:
  *  Boards tab:
  *   - cb-open-board              { id: string }
+ *   - cb-rename-board            { board: SavedBoard, name: string }
  *   - cb-duplicate-board         { board: SavedBoard }
  *   - cb-handle-delete-board     { board: SavedBoard }
  *   - cb-import-svg              (no detail)
  *   - cb-export-all-boards       (no detail)
  *
  *  Templates tab:
+ *   - cb-use-template            { template: UserTemplate }
  *   - cb-duplicate-template      { template: UserTemplate }
  *   - cb-rename-template         { template: UserTemplate, name: string }
  *   - cb-handle-delete-template  { template: UserTemplate }
@@ -80,6 +79,12 @@ export class CbMyBoards extends LitElement {
       font-weight: 600;
     }
 
+    .tab-count {
+      font-size: 0.78rem;
+      font-weight: 400;
+      opacity: 0.7;
+    }
+
     /* ── Board / template list shared ──────────────────────────────── */
     .section {
       padding: 12px 0;
@@ -97,7 +102,7 @@ export class CbMyBoards extends LitElement {
     .boards-list li {
       display: flex;
       align-items: center;
-      padding: 0 8px 0 0;
+      position: relative;
     }
 
     .board-open-btn {
@@ -185,8 +190,8 @@ export class CbMyBoards extends LitElement {
       font: inherit;
       font-size: 0.9rem;
       font-weight: 500;
-      color: var(--pt-text);
-      background: var(--pt-bg-body);
+      color: inherit;
+      background: var(--pt-bg-body, #f5f5f5);
       border: 1px solid var(--pt-accent);
       border-radius: 4px;
       padding: 4px 6px;
@@ -204,8 +209,8 @@ export class CbMyBoards extends LitElement {
       color: rgba(0, 0, 0, 0.45);
     }
 
-    /* ── Action buttons ─────────────────────────────────────────────── */
-    .action-btn {
+    /* ── Kebab menu ─────────────────────────────────────────────────── */
+    .kebab-btn {
       flex-shrink: 0;
       background: transparent;
       border: none;
@@ -218,43 +223,69 @@ export class CbMyBoards extends LitElement {
       justify-content: center;
       min-width: 44px;
       min-height: 44px;
+      margin-right: 4px;
     }
 
-    .action-btn:hover {
+    .kebab-btn:hover {
       background: rgba(0, 0, 0, 0.06);
       color: rgba(0, 0, 0, 0.7);
     }
 
-    .action-btn:focus-visible {
+    .kebab-btn:focus-visible {
       outline: 2px solid var(--pt-accent);
       outline-offset: -2px;
+    }
+
+    .kebab-btn[aria-expanded="true"] {
+      background: rgba(0, 0, 0, 0.06);
+      color: rgba(0, 0, 0, 0.7);
+    }
+
+    .kebab-menu {
+      position: absolute;
+      right: 8px;
+      top: calc(100% - 8px);
+      z-index: 10;
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      min-width: 140px;
+      padding: 4px 0;
+      list-style: none;
+      margin: 0;
+    }
+
+    .kebab-menu [role="menuitem"] {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 14px;
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      font-size: 0.875rem;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .kebab-menu [role="menuitem"]:hover {
       background: color-mix(in srgb, var(--pt-accent) 8%, transparent);
     }
 
-    .delete-btn {
-      flex-shrink: 0;
-      background: transparent;
-      border: none;
-      color: var(--pt-danger);
-      cursor: pointer;
-      padding: 8px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 44px;
-      min-height: 44px;
-    }
-
-    .delete-btn:hover {
-      background: color-mix(in srgb, var(--pt-danger) 10%, transparent);
-      color: var(--pt-danger);
-    }
-
-    .delete-btn:focus-visible {
-      outline: 2px solid var(--pt-danger);
+    .kebab-menu [role="menuitem"]:focus-visible {
+      outline: 2px solid var(--pt-accent);
       outline-offset: -2px;
-      background: color-mix(in srgb, var(--pt-danger) 10%, transparent);
+    }
+
+    .kebab-menu [role="menuitem"].danger {
+      color: var(--pt-danger, #c0392b);
+    }
+
+    .kebab-menu [role="menuitem"].danger:hover {
+      background: color-mix(in srgb, var(--pt-danger, #c0392b) 10%, transparent);
     }
 
     /* ── Alerts ─────────────────────────────────────────────────────── */
@@ -319,12 +350,10 @@ export class CbMyBoards extends LitElement {
   @property({ attribute: false }) boards: SavedBoard[] = [];
   @property({ attribute: false }) userTemplates: UserTemplate[] = [];
 
-  /** Which tab is currently selected */
   @state() private accessor _activeTab: 'boards' | 'templates' = 'boards';
-
-  /** ID of the template currently being renamed inline */
   @state() private accessor _renamingId: string | null = null;
   @state() private accessor _renameValue = '';
+  @state() private accessor _openMenuId: string | null = null;
 
   #emit<T>(name: string, detail?: T) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -337,9 +366,12 @@ export class CbMyBoards extends LitElement {
     return 'Full Pitch';
   }
 
+  // ── Tab navigation ────────────────────────────────────────────────
+
   #selectTab(tab: 'boards' | 'templates') {
     this._activeTab = tab;
     this._renamingId = null;
+    this._openMenuId = null;
   }
 
   #onTabKeyDown(e: KeyboardEvent) {
@@ -352,25 +384,88 @@ export class CbMyBoards extends LitElement {
     });
   }
 
-  #startRename(template: UserTemplate) {
-    this._renamingId = template.id;
-    this._renameValue = template.name;
+  // ── Kebab menu ────────────────────────────────────────────────────
+
+  #toggleMenu(id: string, e: Event) {
+    e.stopPropagation();
+    this._openMenuId = this._openMenuId === id ? null : id;
+    this._renamingId = null;
+  }
+
+  #onMenuKeyDown(e: KeyboardEvent) {
+    const menu = e.currentTarget as HTMLElement;
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const current = items.indexOf(e.target as HTMLElement);
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        items[(current + 1) % items.length]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        items[(current - 1 + items.length) % items.length]?.focus();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        e.stopPropagation(); // don't let Esc close the side-sheet
+        this._openMenuId = null;
+        // return focus to the kebab trigger
+        this.updateComplete.then(() => {
+          (this.renderRoot.querySelector(`[data-menu-trigger="${this._activeTab === 'boards' ? 'board' : 'template'}-${this._openMenuId}"]`) as HTMLElement)?.focus();
+        });
+        break;
+    }
+  }
+
+  // ── Inline rename ─────────────────────────────────────────────────
+
+  #startRename(id: string, currentName: string) {
+    this._openMenuId = null;
+    this._renamingId = id;
+    this._renameValue = currentName;
     this.updateComplete.then(() => {
       (this.renderRoot.querySelector('.rename-input') as HTMLInputElement)?.select();
     });
   }
 
-  #commitRename(template: UserTemplate) {
+  #commitRename(kind: 'board' | 'template', item: SavedBoard | UserTemplate) {
     const name = this._renameValue.trim();
-    if (name && name !== template.name) {
-      this.#emit('cb-rename-template', { template, name });
+    if (name && name !== item.name) {
+      if (kind === 'board') {
+        this.#emit('cb-rename-board', { board: item as SavedBoard, name });
+      } else {
+        this.#emit('cb-rename-template', { template: item as UserTemplate, name });
+      }
     }
     this._renamingId = null;
   }
 
-  #onRenameKeyDown(e: KeyboardEvent, template: UserTemplate) {
-    if (e.key === 'Enter') { e.preventDefault(); this.#commitRename(template); }
-    if (e.key === 'Escape') { e.preventDefault(); this._renamingId = null; }
+  #onRenameKeyDown(e: KeyboardEvent, kind: 'board' | 'template', item: SavedBoard | UserTemplate) {
+    if (e.key === 'Enter') { e.preventDefault(); this.#commitRename(kind, item); }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation(); // first Esc cancels edit; second Esc can close the side-sheet
+      this._renamingId = null;
+    }
+  }
+
+  // ── Outside-click to close menu ───────────────────────────────────
+
+  #boundOutsideClick = (e: Event) => {
+    if (this._openMenuId === null) return;
+    const path = e.composedPath();
+    const isInsideMenu = path.some(el => (el as HTMLElement).classList?.contains('kebab-menu') || (el as HTMLElement).classList?.contains('kebab-btn'));
+    if (!isInsideMenu) this._openMenuId = null;
+  };
+
+  override connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener('click', this.#boundOutsideClick);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('click', this.#boundOutsideClick);
   }
 
   // ── Render helpers ────────────────────────────────────────────────
@@ -388,6 +483,22 @@ export class CbMyBoards extends LitElement {
     `;
   }
 
+  #kebabMenu(id: string, items: Array<{ label: string; icon: unknown; action: () => void; danger?: boolean }>) {
+    return html`
+      <ul role="menu" class="kebab-menu" @keydown="${this.#onMenuKeyDown}">
+        ${items.map(item => html`
+          <li role="presentation">
+            <button role="menuitem" class="${item.danger ? 'danger' : ''}"
+                    @click="${() => { this._openMenuId = null; item.action(); }}">
+              ${item.icon}
+              ${item.label}
+            </button>
+          </li>
+        `)}
+      </ul>
+    `;
+  }
+
   #renderBoardsPanel() {
     const saved = this.boards.filter(b => b.name !== 'Untitled Board');
     return html`
@@ -398,27 +509,45 @@ export class CbMyBoards extends LitElement {
             <ul class="boards-list">
               ${saved.map(b => html`
                 <li>
-                  <button class="board-open-btn" aria-label="Open ${b.name}"
-                          @click="${() => this.#emit('cb-open-board', { id: b.id })}">
-                    ${this.#thumbOrIcon(b.thumbnail)}
-                    <div class="board-info">
-                      <div class="board-title">${b.name}</div>
-                      <div class="board-date">
-                        ${new Date(b.updatedAt).toLocaleDateString(undefined, {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                          hour: 'numeric', minute: '2-digit',
-                        })} · ${this.#pitchLabel(b.pitchType)}
-                      </div>
+                  ${this._renamingId === b.id ? html`
+                    <div class="rename-wrap">
+                      <input class="rename-input"
+                             type="text"
+                             aria-label="Rename board"
+                             .value="${live(this._renameValue)}"
+                             @input="${(e: Event) => { this._renameValue = (e.target as HTMLInputElement).value; }}"
+                             @blur="${() => this.#commitRename('board', b)}"
+                             @keydown="${(e: KeyboardEvent) => this.#onRenameKeyDown(e, 'board', b)}" />
+                      <span class="rename-hint">Enter to save · Esc to cancel</span>
                     </div>
+                  ` : html`
+                    <button class="board-open-btn" aria-label="Open ${b.name}"
+                            @click="${() => this.#emit('cb-open-board', { id: b.id })}">
+                      ${this.#thumbOrIcon(b.thumbnail)}
+                      <div class="board-info">
+                        <div class="board-title">${b.name}</div>
+                        <div class="board-date">
+                          ${new Date(b.updatedAt).toLocaleDateString(undefined, {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                            hour: 'numeric', minute: '2-digit',
+                          })} · ${this.#pitchLabel(b.pitchType)}
+                        </div>
+                      </div>
+                    </button>
+                  `}
+                  <button class="kebab-btn"
+                          aria-label="Actions for ${b.name}"
+                          aria-expanded="${this._openMenuId === b.id}"
+                          aria-haspopup="menu"
+                          data-menu-trigger="board-${b.id}"
+                          @click="${(e: Event) => this.#toggleMenu(b.id, e)}">
+                    ${this.#kebabIcon()}
                   </button>
-                  <button class="action-btn" title="Duplicate ${b.name}" aria-label="Duplicate ${b.name}"
-                          @click="${() => this.#emit('cb-duplicate-board', { board: b })}">
-                    ${this.#duplicateIcon()}
-                  </button>
-                  <button class="delete-btn" title="Delete ${b.name}" aria-label="Delete ${b.name}"
-                          @click="${() => this.#emit('cb-handle-delete-board', { board: b })}">
-                    ${this.#trashIcon()}
-                  </button>
+                  ${this._openMenuId === b.id ? this.#kebabMenu(b.id, [
+                    { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(b.id, b.name) },
+                    { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-board', { board: b }) },
+                    { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-board', { board: b }), danger: true },
+                  ]) : nothing}
                 </li>
               `)}
             </ul>
@@ -468,8 +597,8 @@ export class CbMyBoards extends LitElement {
                              aria-label="Rename template"
                              .value="${live(this._renameValue)}"
                              @input="${(e: Event) => { this._renameValue = (e.target as HTMLInputElement).value; }}"
-                             @blur="${() => this.#commitRename(t)}"
-                             @keydown="${(e: KeyboardEvent) => this.#onRenameKeyDown(e, t)}" />
+                             @blur="${() => this.#commitRename('template', t)}"
+                             @keydown="${(e: KeyboardEvent) => this.#onRenameKeyDown(e, 'template', t)}" />
                       <span class="rename-hint">Enter to save · Esc to cancel</span>
                     </div>
                   ` : html`
@@ -482,18 +611,19 @@ export class CbMyBoards extends LitElement {
                       </div>
                     </button>
                   `}
-                  <button class="action-btn" title="Rename ${t.name}" aria-label="Rename ${t.name}"
-                          @click="${() => this.#startRename(t)}">
-                    ${this.#renameIcon()}
+                  <button class="kebab-btn"
+                          aria-label="Actions for ${t.name}"
+                          aria-expanded="${this._openMenuId === t.id}"
+                          aria-haspopup="menu"
+                          data-menu-trigger="template-${t.id}"
+                          @click="${(e: Event) => this.#toggleMenu(t.id, e)}">
+                    ${this.#kebabIcon()}
                   </button>
-                  <button class="action-btn" title="Duplicate ${t.name}" aria-label="Duplicate ${t.name}"
-                          @click="${() => this.#emit('cb-duplicate-template', { template: t })}">
-                    ${this.#duplicateIcon()}
-                  </button>
-                  <button class="delete-btn" title="Delete ${t.name}" aria-label="Delete ${t.name}"
-                          @click="${() => this.#emit('cb-handle-delete-template', { template: t })}">
-                    ${this.#trashIcon()}
-                  </button>
+                  ${this._openMenuId === t.id ? this.#kebabMenu(t.id, [
+                    { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(t.id, t.name) },
+                    { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-template', { template: t }) },
+                    { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-template', { template: t }), danger: true },
+                  ]) : nothing}
                 </li>
               `)}
             </ul>
@@ -510,6 +640,7 @@ export class CbMyBoards extends LitElement {
   }
 
   render() {
+    const savedCount = this.boards.filter(b => b.name !== 'Untitled Board').length;
     return html`
       <div class="tabs-wrap">
         <div role="tablist" aria-label="My Boards sections" @keydown="${this.#onTabKeyDown}">
@@ -521,6 +652,7 @@ export class CbMyBoards extends LitElement {
                   tabindex="${this._activeTab === 'boards' ? '0' : '-1'}"
                   @click="${() => this.#selectTab('boards')}">
             Saved Boards
+            ${savedCount > 0 ? html`<span class="tab-count" aria-hidden="true">(${savedCount})</span>` : nothing}
           </button>
           <button role="tab"
                   id="tab-templates"
@@ -530,9 +662,7 @@ export class CbMyBoards extends LitElement {
                   tabindex="${this._activeTab === 'templates' ? '0' : '-1'}"
                   @click="${() => this.#selectTab('templates')}">
             Templates
-            ${this.userTemplates.length > 0 ? html`
-              <span aria-hidden="true">(${this.userTemplates.length})</span>
-            ` : nothing}
+            ${this.userTemplates.length > 0 ? html`<span class="tab-count" aria-hidden="true">(${this.userTemplates.length})</span>` : nothing}
           </button>
         </div>
       </div>
@@ -543,9 +673,19 @@ export class CbMyBoards extends LitElement {
 
   // ── Icon helpers ──────────────────────────────────────────────────
 
+  #kebabIcon() {
+    return html`
+      <svg viewBox="0 0 4 16" width="4" height="16" aria-hidden="true" fill="currentColor">
+        <circle cx="2" cy="2" r="1.5"/>
+        <circle cx="2" cy="8" r="1.5"/>
+        <circle cx="2" cy="14" r="1.5"/>
+      </svg>
+    `;
+  }
+
   #duplicateIcon() {
     return html`
-      <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
         <rect x="5" y="5" width="8" height="8" rx="1" fill="none"
               stroke="currentColor" stroke-width="1.3"/>
         <path d="M3 11V3a1 1 0 0 1 1-1h8" fill="none"
@@ -556,7 +696,7 @@ export class CbMyBoards extends LitElement {
 
   #renameIcon() {
     return html`
-      <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="none"
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none"
            stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
         <path d="M11.5 2.5 13.5 4.5 5.5 12.5H3.5v-2z"/>
         <path d="M10 4 12 6"/>
@@ -566,7 +706,7 @@ export class CbMyBoards extends LitElement {
 
   #trashIcon() {
     return html`
-      <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" fill="currentColor">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor">
         <path d="M5 2V1h6v1h4v2H1V2h4zm1 4v7h1V6H6zm3 0v7h1V6H9zM2 5l1 10h10l1-10H2z"/>
       </svg>
     `;

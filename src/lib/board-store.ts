@@ -85,6 +85,12 @@ export async function deleteBoard(id: string): Promise<void> {
   await db.delete(STORE_NAME, id);
 }
 
+export async function renameBoard(id: string, name: string): Promise<void> {
+  const db = await getDB();
+  const existing = await db.get(STORE_NAME, id) as SavedBoard | undefined;
+  if (existing) await db.put(STORE_NAME, { ...existing, name, updatedAt: Date.now() });
+}
+
 export function createEmptyBoard(name = 'Untitled Board', pitchType: PitchType = 'full'): SavedBoard {
   return {
     id: crypto.randomUUID(),

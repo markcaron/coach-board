@@ -10,7 +10,7 @@ import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, P
 import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { uid, ensureMinId } from '../lib/svg-utils.js';
-import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
+import { saveBoard, loadBoard, listBoards, deleteBoard, renameBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
@@ -2789,6 +2789,7 @@ export class CoachBoard extends LitElement {
           .boards="${this._myBoards}"
           .userTemplates="${this._userTemplates}"
           @cb-open-board="${this.#onOpenBoard}"
+          @cb-rename-board="${this.#onRenameBoard}"
           @cb-duplicate-board="${this.#onDuplicateBoard}"
           @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
           @cb-import-svg="${this.#importSvgFromMyBoards}"
@@ -3033,6 +3034,31 @@ export class CoachBoard extends LitElement {
 
     const thumbnail = await this.#generateThumbnail();
 
+    if (e.detail.saveAsTemplate) {
+      // Either/or: save as template only — do NOT add to Saved Boards
+      const tmpl: UserTemplate = {
+        id: crypto.randomUUID(),
+        name,
+        pitchType: this.#currentBoard.pitchType,
+        createdAt: Date.now(),
+        players: structuredClone(this.players),
+        lines: structuredClone(this.lines),
+        equipment: structuredClone(this.equipment),
+        shapes: structuredClone(this.shapes),
+        textItems: structuredClone(this.textItems),
+        thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
+      };
+      saveUserTemplate(tmpl).catch(() => {});
+      this._userTemplates = await listUserTemplates();
+      // Continue pending navigation if needed, but don't rename the working board
+      if (pendingAction === 'new') {
+        this.#openNewBoardDialog();
+      } else if (pendingAction === 'open') {
+        this.#doOpenBoard(pendingId!);
+      }
+      return;
+    }
+
     if (pendingAction === 'save-as') {
       const newBoard: SavedBoard = {
         ...this.#currentBoard,
@@ -3062,23 +3088,6 @@ export class CoachBoard extends LitElement {
       } else if (pendingAction === 'open') {
         this.#doOpenBoard(pendingId!);
       }
-    }
-
-    if (e.detail.saveAsTemplate && this.#currentBoard) {
-      const tmpl: UserTemplate = {
-        id: crypto.randomUUID(),
-        name,
-        pitchType: this.#currentBoard.pitchType,
-        createdAt: Date.now(),
-        players: structuredClone(this.players),
-        lines: structuredClone(this.lines),
-        equipment: structuredClone(this.equipment),
-        shapes: structuredClone(this.shapes),
-        textItems: structuredClone(this.textItems),
-        thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
-      };
-      saveUserTemplate(tmpl).catch(() => {});
-      this._userTemplates = await listUserTemplates();
     }
   }
 
@@ -3462,6 +3471,20 @@ export class CoachBoard extends LitElement {
 
   #onOpenBoard(e: CustomEvent<{ id: string }>) {
     this.#handleOpenBoard(e.detail.id);
+  }
+
+  #onRenameBoard(e: CustomEvent<{ board: SavedBoard; name: string }>) {
+    const { board, name } = e.detail;
+    renameBoard(board.id, name)
+      .then(() => listBoards())
+      .then(list => {
+        this._myBoards = list;
+        if (board.id === this.#currentBoard?.id) {
+          this.#currentBoard = { ...this.#currentBoard, name };
+          this._boardName = name;
+        }
+      })
+      .catch(() => {});
   }
 
   #onDuplicateBoard(e: CustomEvent<{ board: SavedBoard }>) {
