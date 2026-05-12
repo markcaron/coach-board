@@ -11,6 +11,7 @@ import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, renameBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
+import { initAuth, openSignIn, signOut, cloudSyncBoard, cloudDeleteBoard, cloudSyncTemplate, cloudDeleteTemplate, type AuthUser } from '../lib/cloud-sync.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
@@ -337,7 +338,7 @@ export class CoachBoard extends LitElement {
       padding: 6px 26px 6px 10px;
       font: inherit;
       font-size: 0.85rem;
-      border: 1.5px solid rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(0, 0, 0, 0.28);
       border-radius: 6px;
       background: rgba(0, 0, 0, 0.03);
       color: var(--pt-text-on-inverted);
@@ -358,6 +359,71 @@ export class CoachBoard extends LitElement {
       font-size: 0.8rem;
       color: var(--pt-text-on-light);
       line-height: 1.4;
+    }
+
+    .settings-hint--mt {
+      margin-top: 3px;
+    }
+
+    /* ── Account section (Cloud Backup) ──────────────────────────────── */
+    .settings-account-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 2px 0 4px;
+    }
+
+    .settings-account-row svg {
+      flex-shrink: 0;
+      margin-top: 1px;
+      color: var(--pt-accent);
+    }
+
+    .settings-account-email {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--pt-text-on-inverted);
+      word-break: break-all;
+    }
+
+    .settings-account-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--pt-success-hover);
+      background: var(--pt-success-hover);
+      color: var(--pt-text-white);
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .settings-account-btn:hover {
+      background: var(--pt-success-btn-hover);
+      border-color: var(--pt-success-btn-hover);
+    }
+
+    .settings-account-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .settings-account-btn--signout {
+      background: transparent;
+      color: var(--pt-text-on-inverted);
+      border-color: rgba(0, 0, 0, 0.28);
+    }
+
+    .settings-account-btn--signout:hover {
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
+      color: var(--pt-text-white);
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -959,6 +1025,37 @@ export class CoachBoard extends LitElement {
       min-width: 44px;
     }
 
+    .auth-avatar-btn {
+      width: 34px;
+      height: 34px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--pt-color-blue-450);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: var(--pt-text-white);
+      /* 1.25rem bold ≈ 15pt bold — qualifies as WCAG large text so
+         the 3.97:1 contrast against #2e86c1 clears the 3:1 AA threshold. */
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .auth-avatar-btn:hover {
+      filter: brightness(0.85);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .auth-avatar-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
     .bottom-bar button:disabled {
       opacity: 0.35;
       cursor: default;
@@ -1237,6 +1334,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _boardSummaryOpen: boolean = false;
   @state() private accessor _boardSummaryData: BoardSummary | null = null;
   @state() private accessor _settingsOpen: boolean = false;
+  @state() private accessor _authUser: AuthUser | null = null;
   @state() private accessor _rotateHandleId: string | null = null;
   @state() private accessor _animationMode: boolean = false;
   @state() accessor animationFrames: AnimationFrame[] = [];
@@ -1494,6 +1592,28 @@ export class CoachBoard extends LitElement {
     return { x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y, unit: this._measureUnit };
   }
 
+  // ── Cloud sync helpers (fire-and-forget; never block the UI) ──────────────
+
+  #cloudSaveBoard(board: SavedBoard): void {
+    if (!this._authUser) return;
+    cloudSyncBoard(board).catch(() => {});
+  }
+
+  #cloudDeleteBoard(id: string): void {
+    if (!this._authUser) return;
+    cloudDeleteBoard(id).catch(() => {});
+  }
+
+  #cloudSaveTemplate(template: UserTemplate): void {
+    if (!this._authUser) return;
+    cloudSyncTemplate(template).catch(() => {});
+  }
+
+  #cloudDeleteTemplate(id: string): void {
+    if (!this._authUser) return;
+    cloudDeleteTemplate(id).catch(() => {});
+  }
+
   #saveToStorage() {
     if (!this.#currentBoard) return;
     this.#currentBoard = {
@@ -1520,6 +1640,7 @@ export class CoachBoard extends LitElement {
         }
       }
       saveBoard(this.#currentBoard!).catch(() => {});
+      this.#cloudSaveBoard(this.#currentBoard!);
       this.#saveTimer = null;
     }, 500);
   }
@@ -2053,6 +2174,8 @@ export class CoachBoard extends LitElement {
     this.#updateSW = registerSW({
       onNeedRefresh: () => { this._updateAvailable = true; },
     });
+
+    initAuth(user => { this._authUser = user; });
   }
 
   disconnectedCallback() {
@@ -2286,6 +2409,14 @@ export class CoachBoard extends LitElement {
               <option value="green" ?selected="${this.fieldTheme === 'green'}">Grass</option>
               <option value="white" ?selected="${this.fieldTheme === 'white'}">Whiteboard</option>
             </select>
+            ${this._authUser ? html`
+              <button class="auth-avatar-btn"
+                      aria-label="Account — ${this._authUser.email}. Open Settings."
+                      title="${this._authUser.email}"
+                      @click="${() => this.#showSettings()}">
+                ${(this._authUser.name ?? this._authUser.email).charAt(0).toUpperCase()}
+              </button>
+            ` : nothing}
           </div>
         </div><!-- .context-bar -->
 
@@ -2847,6 +2978,7 @@ export class CoachBoard extends LitElement {
         <cb-my-boards
           .boards="${this._myBoards}"
           .userTemplates="${this._userTemplates}"
+          .authUser="${this._authUser}"
           @cb-open-board="${this.#onOpenBoard}"
           @cb-rename-board="${this.#onRenameBoard}"
           @cb-duplicate-board="${this.#onDuplicateBoard}"
@@ -2887,6 +3019,38 @@ export class CoachBoard extends LitElement {
               <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards (yd)</option>
             </select>
             <p id="settings-distance-hint" class="settings-hint">Applies to the Measure tool.</p>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-heading">Cloud Backup</h3>
+            <div role="status" aria-live="polite" aria-atomic="false">
+              ${this._authUser ? html`
+                <div class="settings-account-row">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 16.5A4.5 4.5 0 0 0 15.5 12H14a6 6 0 1 0-6 6h8a4.5 4.5 0 0 0 4-1.5z"/>
+                    <polyline points="9 12 11 14 15 10"/>
+                  </svg>
+                  <div>
+                    <div class="settings-account-email">${this._authUser.email}</div>
+                    <p class="settings-hint settings-hint--mt">
+                      Boards and templates are backed up automatically.
+                    </p>
+                  </div>
+                </div>
+                <button class="settings-account-btn settings-account-btn--signout"
+                        @click="${() => signOut()}">
+                  Sign out
+                </button>
+              ` : html`
+                <p class="settings-hint">
+                  Sign in to back up your boards and templates to the cloud.
+                </p>
+                <button class="settings-account-btn" @click="${() => openSignIn()}">
+                  Sign in
+                </button>
+              `}
+            </div>
           </div>
         </div>
       </cb-side-sheet>
@@ -3129,6 +3293,7 @@ export class CoachBoard extends LitElement {
         thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
       await saveUserTemplate(tmpl);
+      this.#cloudSaveTemplate(tmpl);
       this._userTemplates = await listUserTemplates();
       // Continue pending navigation; don't rename the working board
       if (pendingAction === 'new') {
@@ -3158,6 +3323,7 @@ export class CoachBoard extends LitElement {
         thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
       saveBoard(newBoard).catch(() => {});
+      this.#cloudSaveBoard(newBoard);
       this.#currentBoard = newBoard;
       this._boardName = name;
       setActiveBoardId(newBoard.id);
@@ -3165,6 +3331,7 @@ export class CoachBoard extends LitElement {
       this.#currentBoard = { ...this.#currentBoard, name, ...(thumbnail && { thumbnail }) };
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
+      this.#cloudSaveBoard(this.#currentBoard);
       if (pendingAction === 'new') {
         const pendingTmpl = this.#pendingTemplateApply;
         this.#pendingTemplateApply = null;
@@ -3373,6 +3540,7 @@ export class CoachBoard extends LitElement {
       if (thumb && this.#currentBoard) {
         this.#currentBoard = { ...this.#currentBoard, thumbnail: thumb };
         saveBoard(this.#currentBoard).catch(() => {});
+        this.#cloudSaveBoard(this.#currentBoard);
       }
     }
     [this._myBoards, this._userTemplates] = await Promise.all([listBoards(), listUserTemplates()]);
@@ -3451,6 +3619,7 @@ export class CoachBoard extends LitElement {
       animationFrames: structuredClone(board.animationFrames),
     };
     await saveBoard(dup);
+    this.#cloudSaveBoard(dup);
     this._myBoards = await listBoards();
   }
 
@@ -3465,6 +3634,7 @@ export class CoachBoard extends LitElement {
     this.#pendingDeleteBoard = null;
     this._dialogs?.closeDeleteBoard();
     await deleteBoard(id);
+    this.#cloudDeleteBoard(id);
     this._myBoards = await listBoards();
     if (id === this.#currentBoard?.id) {
       await this.#confirmNewBoard(new CustomEvent('', { detail: { pitchType: 'full' as PitchType, template: '' } }));
@@ -3493,7 +3663,7 @@ export class CoachBoard extends LitElement {
 
   #onDuplicateTemplate(e: CustomEvent<{ template: UserTemplate }>) {
     duplicateUserTemplate(e.detail.template)
-      .then(() => listUserTemplates())
+      .then(copy => { this.#cloudSaveTemplate(copy); return listUserTemplates(); })
       .then(list => { this._userTemplates = list; })
       .catch(() => {});
   }
@@ -3502,7 +3672,11 @@ export class CoachBoard extends LitElement {
     const { template, name } = e.detail;
     renameUserTemplate(template.id, name)
       .then(() => listUserTemplates())
-      .then(list => { this._userTemplates = list; })
+      .then(list => {
+        this._userTemplates = list;
+        const updated = list.find(t => t.id === template.id);
+        if (updated) this.#cloudSaveTemplate(updated);
+      })
       .catch(() => {});
   }
 
@@ -3517,6 +3691,7 @@ export class CoachBoard extends LitElement {
     this.#pendingDeleteTemplate = null;
     this._dialogs?.closeDeleteTemplate();
     await deleteUserTemplate(id);
+    this.#cloudDeleteTemplate(id);
     this._userTemplates = await listUserTemplates();
   }
 
@@ -3589,6 +3764,8 @@ export class CoachBoard extends LitElement {
           this.#currentBoard = { ...this.#currentBoard, name };
           this._boardName = name;
         }
+        const updated = list.find(b => b.id === board.id);
+        if (updated) this.#cloudSaveBoard(updated);
       })
       .catch(() => {});
   }
