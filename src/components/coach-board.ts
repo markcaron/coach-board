@@ -1635,12 +1635,15 @@ export class CoachBoard extends LitElement {
   #onVisualViewportChange = () => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const active = vv.scale > 1.05;
+    // Detect native browser zoom via scale (pinch) OR viewport width shrinkage.
+    // Some iOS zoom scenarios (e.g. browser-chrome double-tap) don't update
+    // scale reliably, but do shrink vv.width relative to window.innerWidth.
+    const active = vv.scale > 1.01 || vv.width < window.innerWidth - 2;
     this._nativeZoomActive = active;
     if (active) {
       // Pin the escape button to the visual viewport's bottom-right corner.
-      // position:fixed is relative to the layout viewport on iOS, so we
-      // compensate using the visual viewport's offset within it.
+      // position:fixed is relative to the layout viewport on iOS when zoomed,
+      // so we compensate using the visual viewport's offset within it.
       const margin = 16;
       this.style.setProperty('--zoom-escape-right', `${window.innerWidth - (vv.offsetLeft + vv.width) + margin}px`);
       this.style.setProperty('--zoom-escape-bottom', `${window.innerHeight - (vv.offsetTop + vv.height) + margin}px`);
@@ -1979,6 +1982,11 @@ export class CoachBoard extends LitElement {
     });
     window.visualViewport?.addEventListener('resize', this.#onVisualViewportChange);
     window.visualViewport?.addEventListener('scroll', this.#onVisualViewportChange);
+    // window.resize fires on some iOS zoom scenarios where visualViewport
+    // events don't, so use it as a backup trigger.
+    window.addEventListener('resize', this.#onVisualViewportChange);
+    // Check initial zoom state (page may have loaded while already zoomed).
+    this.#onVisualViewportChange();
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -2003,6 +2011,7 @@ export class CoachBoard extends LitElement {
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
     window.visualViewport?.removeEventListener('resize', this.#onVisualViewportChange);
     window.visualViewport?.removeEventListener('scroll', this.#onVisualViewportChange);
+    window.removeEventListener('resize', this.#onVisualViewportChange);
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
     this.#stopPlayback();
