@@ -23,9 +23,25 @@ export interface SavedBoard {
   thumbnail?: string;
 }
 
+/** A coach-authored reusable starting-point saved from the Save dialog. */
+export interface UserTemplate {
+  id: string;
+  name: string;
+  pitchType: PitchType;
+  createdAt: number;
+  players: Player[];
+  lines: Line[];
+  equipment: Equipment[];
+  shapes: Shape[];
+  textItems: TextItem[];
+  /** Base64 JPEG thumbnail captured at save time (same dimensions as board thumbs). */
+  thumbnail?: string;
+}
+
 const DB_NAME = 'coach-board-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'boards';
+const TEMPLATES_STORE = 'user-templates';
 const SESSION_KEY = 'active-board-id';
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
@@ -37,11 +53,16 @@ function getDB(): Promise<IDBPDatabase> {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         }
+        if (!db.objectStoreNames.contains(TEMPLATES_STORE)) {
+          db.createObjectStore(TEMPLATES_STORE, { keyPath: 'id' });
+        }
       },
     });
   }
   return dbPromise;
 }
+
+// ── Boards ────────────────────────────────────────────────────────────────────
 
 export async function saveBoard(board: SavedBoard): Promise<void> {
   const db = await getDB();
@@ -92,4 +113,39 @@ export function getActiveBoardId(): string | null {
 export function setActiveBoardId(id: string): void {
   try { sessionStorage.setItem(SESSION_KEY, id); }
   catch { /* private browsing */ }
+}
+
+// ── User templates ────────────────────────────────────────────────────────────
+
+export async function saveUserTemplate(template: UserTemplate): Promise<void> {
+  const db = await getDB();
+  await db.put(TEMPLATES_STORE, template);
+}
+
+export async function listUserTemplates(): Promise<UserTemplate[]> {
+  const db = await getDB();
+  const all = await db.getAll(TEMPLATES_STORE) as UserTemplate[];
+  return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function deleteUserTemplate(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete(TEMPLATES_STORE, id);
+}
+
+export async function renameUserTemplate(id: string, name: string): Promise<void> {
+  const db = await getDB();
+  const existing = await db.get(TEMPLATES_STORE, id) as UserTemplate | undefined;
+  if (existing) await db.put(TEMPLATES_STORE, { ...existing, name });
+}
+
+export async function duplicateUserTemplate(template: UserTemplate): Promise<UserTemplate> {
+  const copy: UserTemplate = {
+    ...template,
+    id: crypto.randomUUID(),
+    name: `${template.name} copy`,
+    createdAt: Date.now(),
+  };
+  await saveUserTemplate(copy);
+  return copy;
 }

@@ -3,6 +3,7 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { PitchType } from '../lib/types.js';
 import { getTemplatesForPitch } from '../lib/templates.js';
+import type { UserTemplate } from '../lib/board-store.js';
 
 export type PendingBoardAction = 'new' | 'open' | 'save-as' | null;
 
@@ -285,6 +286,24 @@ export class CbDialogs extends LitElement {
       outline-offset: 2px;
     }
 
+    .save-template-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--pt-text);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .save-template-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--pt-accent);
+      cursor: pointer;
+    }
+
     /* New board pitch/template selects */
     .theme-select {
       background: var(--pt-bg-surface);
@@ -410,13 +429,16 @@ export class CbDialogs extends LitElement {
   // Passed from parent — these drive dialog rendering
   @property() accessor viewMode: 'normal' | 'readonly' | 'shared-edit' = 'normal';
   @property({ type: Number }) accessor animationFrameCount: number = 0;
+  @property({ attribute: false }) accessor userTemplates: UserTemplate[] = [];
 
   // Internal dialog state — mutations only trigger cb-dialogs re-renders
   @state() private accessor _saveBoardName: string = '';
   @state() private accessor _pendingBoardAction: PendingBoardAction = null;
+  @state() private accessor _saveAsTemplate: boolean = false;
   @state() private accessor _newBoardPitchType: PitchType = 'full';
   @state() private accessor _newBoardTemplate: string = '';
   @state() private accessor _deleteBoardName: string = '';
+  @state() private accessor _deleteTemplateName: string = '';
   @state() private accessor _printSummary: boolean = true;
   @state() private accessor _printWhiteBg: boolean = true;
 
@@ -426,6 +448,7 @@ export class CbDialogs extends LitElement {
   @query('#save-board-dialog') private accessor _saveBoardDialog!: HTMLDialogElement;
   @query('#new-board-dialog') private accessor _newBoardDialog!: HTMLDialogElement;
   @query('#delete-board-dialog') private accessor _deleteBoardDialog!: HTMLDialogElement;
+  @query('#delete-template-dialog') private accessor _deleteTemplateDialog!: HTMLDialogElement;
   @query('#export-dialog') private accessor _exportDialog!: HTMLDialogElement;
   @query('#print-dialog') private accessor _printDialog!: HTMLDialogElement;
   @query('#save-board-input') private accessor _saveBoardInput!: HTMLInputElement;
@@ -443,6 +466,7 @@ export class CbDialogs extends LitElement {
   openSaveBoard(name: string, action: PendingBoardAction) {
     this._saveBoardName = name;
     this._pendingBoardAction = action;
+    this._saveAsTemplate = false;
     requestAnimationFrame(() => {
       this._saveBoardDialog?.showModal();
       this.updateComplete.then(() => this._saveBoardInput?.focus());
@@ -450,6 +474,13 @@ export class CbDialogs extends LitElement {
   }
 
   closeSaveBoard() { this._saveBoardDialog?.close(); }
+
+  openDeleteTemplate(name: string) {
+    this._deleteTemplateName = name;
+    requestAnimationFrame(() => this._deleteTemplateDialog?.showModal());
+  }
+
+  closeDeleteTemplate() { this._deleteTemplateDialog?.close(); }
 
   openNewBoard() {
     this._newBoardPitchType = 'full';
@@ -547,7 +578,7 @@ export class CbDialogs extends LitElement {
       <dialog id="save-board-dialog"
               @close="${this.#onSaveBoardClosed}">
         <form method="dialog" novalidate
-              @submit="${() => this.#emit('cb-save-board-confirm', { name: this._saveBoardName, pendingAction: this._pendingBoardAction })}">
+              @submit="${() => this.#emit('cb-save-board-confirm', { name: this._saveBoardName, pendingAction: this._pendingBoardAction, saveAsTemplate: this._saveAsTemplate })}">
           <div class="dialog-header">
             <h2>${this._pendingBoardAction === 'save-as' ? 'Save As' : this._pendingBoardAction ? 'Save Current Board' : 'Save Board'}</h2>
             <button type="button" class="dialog-close" aria-label="Close" title="Close"
@@ -561,6 +592,12 @@ export class CbDialogs extends LitElement {
             <input class="save-board-input" id="save-board-input" type="text" placeholder="Board name"
                    .value="${this._saveBoardName}"
                    @input="${(e: Event) => { this._saveBoardName = (e.target as HTMLInputElement).value; }}" />
+            <label class="save-template-label">
+              <input type="checkbox"
+                     .checked="${this._saveAsTemplate}"
+                     @change="${(e: Event) => { this._saveAsTemplate = (e.target as HTMLInputElement).checked; }}" />
+              Save as template
+            </label>
             <div class="confirm-actions">
               <button type="button" class="cancel-btn" @click="${() => this._saveBoardDialog?.close()}">Cancel</button>
               <div class="row-gap-sm">
@@ -599,14 +636,25 @@ export class CbDialogs extends LitElement {
                 </select>
               </div>
               ${(() => {
-                const templates = getTemplatesForPitch(this._newBoardPitchType);
-                return templates.length > 0 ? html`
+                const builtIn = getTemplatesForPitch(this._newBoardPitchType);
+                const userTmpl = this.userTemplates.filter(t => t.pitchType === this._newBoardPitchType);
+                const hasAny = builtIn.length > 0 || userTmpl.length > 0;
+                return hasAny ? html`
                   <div class="flex-1">
                     <label class="save-board-label" for="new-board-template">Template</label>
                     <select class="theme-select full-width" id="new-board-template"
                             @change="${(e: Event) => { this._newBoardTemplate = (e.target as HTMLSelectElement).value; }}">
                       <option value="" ?selected="${!this._newBoardTemplate}">Blank</option>
-                      ${templates.map(t => html`<option value="${t.id}" ?selected="${this._newBoardTemplate === t.id}">${t.name}</option>`)}
+                      ${builtIn.length > 0 ? html`
+                        <optgroup label="Built-in">
+                          ${builtIn.map(t => html`<option value="${t.id}" ?selected="${this._newBoardTemplate === t.id}">${t.name}</option>`)}
+                        </optgroup>
+                      ` : nothing}
+                      ${userTmpl.length > 0 ? html`
+                        <optgroup label="My Templates">
+                          ${userTmpl.map(t => html`<option value="user:${t.id}" ?selected="${this._newBoardTemplate === `user:${t.id}`}">${t.name}</option>`)}
+                        </optgroup>
+                      ` : nothing}
                     </select>
                   </div>
                 ` : nothing;
@@ -634,6 +682,26 @@ export class CbDialogs extends LitElement {
             <p>Are you sure you want to delete "${this._deleteBoardName}"? This cannot be undone.</p>
             <div class="confirm-actions">
               <button type="button" class="cancel-btn" @click="${() => this._deleteBoardDialog?.close()}">Cancel</button>
+              <button type="submit" class="confirm-danger">Delete</button>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="delete-template-dialog">
+        <form method="dialog"
+              @submit="${() => this.#emit('cb-confirm-delete-template')}">
+          <div class="dialog-header">
+            <h2>Delete Template</h2>
+            <button type="button" class="dialog-close" aria-label="Close" title="Close"
+                    @click="${() => this._deleteTemplateDialog?.close()}">
+              ${this.#closeIcon()}
+            </button>
+          </div>
+          <div class="dialog-body">
+            <p>Are you sure you want to delete the template "${this._deleteTemplateName}"? This cannot be undone.</p>
+            <div class="confirm-actions">
+              <button type="button" class="cancel-btn" @click="${() => this._deleteTemplateDialog?.close()}">Cancel</button>
               <button type="submit" class="confirm-danger">Delete</button>
             </div>
           </div>

@@ -10,7 +10,7 @@ import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, P
 import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { uid, ensureMinId } from '../lib/svg-utils.js';
-import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
+import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
@@ -1171,6 +1171,9 @@ export class CoachBoard extends LitElement {
   @state() private accessor _viewTransform = { x: 0, y: 0, scale: 1 };
   @state() private accessor _myBoardsOpen: boolean = false;
   @state() private accessor _myBoards: SavedBoard[] = [];
+  @state() private accessor _userTemplates: UserTemplate[] = [];
+  /** Template pending deletion — held until the confirm dialog resolves. */
+  #pendingDeleteTemplate: UserTemplate | null = null;
   @state() private accessor _boardSummaryOpen: boolean = false;
   @state() private accessor _boardSummaryData: BoardSummary | null = null;
   @state() private accessor _rotateHandleId: string | null = null;
@@ -2737,12 +2740,14 @@ export class CoachBoard extends LitElement {
       <cb-dialogs
         .viewMode="${this._viewMode}"
         .animationFrameCount="${this.animationFrames.length}"
+        .userTemplates="${this._userTemplates}"
         @cb-import-confirm="${this.#confirmImport}"
         @cb-save-board-confirm="${this.#confirmSaveBoard}"
         @cb-save-board-skip="${this.#skipSaveBoard}"
         @cb-save-board-closed="${this.#onSaveBoardClosed}"
         @cb-new-board-confirm="${this.#confirmNewBoard}"
         @cb-confirm-delete-board="${this.#confirmDeleteBoard}"
+        @cb-confirm-delete-template="${this.#onConfirmDeleteTemplate}"
         @cb-export-svg="${this.#exportSvg}"
         @cb-export-png="${this.#exportPng}"
         @cb-export-gif="${this.#exportGif}"
@@ -2782,11 +2787,16 @@ export class CoachBoard extends LitElement {
         @close="${() => { this._myBoardsOpen = false; }}">
         <cb-my-boards
           .boards="${this._myBoards}"
+          .userTemplates="${this._userTemplates}"
           @cb-open-board="${this.#onOpenBoard}"
           @cb-duplicate-board="${this.#onDuplicateBoard}"
           @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
           @cb-import-svg="${this.#importSvgFromMyBoards}"
-          @cb-export-all-boards="${this.#exportAllBoards}">
+          @cb-export-all-boards="${this.#exportAllBoards}"
+          @cb-use-template="${this.#onUseTemplate}"
+          @cb-duplicate-template="${this.#onDuplicateTemplate}"
+          @cb-rename-template="${this.#onRenameTemplate}"
+          @cb-handle-delete-template="${this.#onHandleDeleteTemplate}">
         </cb-my-boards>
       </cb-side-sheet>
 
@@ -2998,18 +3008,23 @@ export class CoachBoard extends LitElement {
     this._dialogs?.openSaveBoard(`Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`, 'save-as');
   }
 
+  async #openNewBoardDialog() {
+    this._userTemplates = await listUserTemplates();
+    this._dialogs?.openNewBoard();
+  }
+
   #skipSaveBoard(e: CustomEvent<{ pendingAction: PendingBoardAction }>) {
     const pendingAction = e.detail.pendingAction;
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
     if (pendingAction === 'new') {
-      this._dialogs?.openNewBoard();
+      this.#openNewBoardDialog();
     } else if (pendingAction === 'open') {
       this.#doOpenBoard(pendingId!);
     }
   }
 
-  async #confirmSaveBoard(e: CustomEvent<{ name: string; pendingAction: PendingBoardAction }>) {
+  async #confirmSaveBoard(e: CustomEvent<{ name: string; pendingAction: PendingBoardAction; saveAsTemplate: boolean }>) {
     const name = e.detail.name.trim();
     if (!name || !this.#currentBoard) return;
     const pendingAction = e.detail.pendingAction;
@@ -3043,10 +3058,27 @@ export class CoachBoard extends LitElement {
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
       if (pendingAction === 'new') {
-        this._dialogs?.openNewBoard();
+        this.#openNewBoardDialog();
       } else if (pendingAction === 'open') {
         this.#doOpenBoard(pendingId!);
       }
+    }
+
+    if (e.detail.saveAsTemplate && this.#currentBoard) {
+      const tmpl: UserTemplate = {
+        id: crypto.randomUUID(),
+        name,
+        pitchType: this.#currentBoard.pitchType,
+        createdAt: Date.now(),
+        players: structuredClone(this.players),
+        lines: structuredClone(this.lines),
+        equipment: structuredClone(this.equipment),
+        shapes: structuredClone(this.shapes),
+        textItems: structuredClone(this.textItems),
+        thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
+      };
+      saveUserTemplate(tmpl).catch(() => {});
+      this._userTemplates = await listUserTemplates();
     }
   }
 
@@ -3179,7 +3211,7 @@ export class CoachBoard extends LitElement {
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
       deleteBoard(this.#currentBoard.id).catch(() => {});
     }
-    this._dialogs?.openNewBoard();
+    this.#openNewBoardDialog();
   }
 
   async #confirmNewBoard(e: CustomEvent<{ pitchType: PitchType; template: string }>) {
@@ -3190,9 +3222,18 @@ export class CoachBoard extends LitElement {
     this.#currentBoard = board;
     this._boardName = board.name;
     setActiveBoardId(board.id);
-    const template = templateId
+
+    // User templates are prefixed with "user:" to distinguish from built-in IDs
+    const isUserTemplate = templateId.startsWith('user:');
+    const userTmplId = isUserTemplate ? templateId.slice(5) : null;
+    const builtInTemplate = (!isUserTemplate && templateId)
       ? getTemplatesForPitch(pitchType).find(t => t.id === templateId)
       : null;
+    const userTemplate = userTmplId
+      ? this._userTemplates.find(t => t.id === userTmplId)
+      : null;
+    const template = builtInTemplate ?? userTemplate ?? null;
+
     const angleOrient = (this._isMobile && template) ? 'horizontal' : (this._isMobile ? 'vertical' : 'horizontal');
     const playerAngle = (team: string) => team === 'b'
       ? (angleOrient === 'horizontal' ? 270 : 180)
@@ -3231,7 +3272,7 @@ export class CoachBoard extends LitElement {
         saveBoard(this.#currentBoard).catch(() => {});
       }
     }
-    this._myBoards = await listBoards();
+    [this._myBoards, this._userTemplates] = await Promise.all([listBoards(), listUserTemplates()]);
     this._myBoardsOpen = true;
   }
 
@@ -3325,6 +3366,44 @@ export class CoachBoard extends LitElement {
     if (id === this.#currentBoard?.id) {
       await this.#confirmNewBoard(new CustomEvent('', { detail: { pitchType: 'full' as PitchType, template: '' } }));
     }
+  }
+
+  #onUseTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    const { template } = e.detail;
+    this._myBoardsOpen = false;
+    // Synthesise the same flow as "New Board" with this template pre-selected
+    this.#confirmNewBoard(new CustomEvent('', {
+      detail: { pitchType: template.pitchType, template: `user:${template.id}` },
+    }));
+  }
+
+  #onDuplicateTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    duplicateUserTemplate(e.detail.template)
+      .then(() => listUserTemplates())
+      .then(list => { this._userTemplates = list; })
+      .catch(() => {});
+  }
+
+  #onRenameTemplate(e: CustomEvent<{ template: UserTemplate; name: string }>) {
+    const { template, name } = e.detail;
+    renameUserTemplate(template.id, name)
+      .then(() => listUserTemplates())
+      .then(list => { this._userTemplates = list; })
+      .catch(() => {});
+  }
+
+  #onHandleDeleteTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    this.#pendingDeleteTemplate = e.detail.template;
+    this._dialogs?.openDeleteTemplate(e.detail.template.name);
+  }
+
+  async #onConfirmDeleteTemplate() {
+    if (!this.#pendingDeleteTemplate) return;
+    const id = this.#pendingDeleteTemplate.id;
+    this.#pendingDeleteTemplate = null;
+    this._dialogs?.closeDeleteTemplate();
+    await deleteUserTemplate(id);
+    this._userTemplates = await listUserTemplates();
   }
 
   #importSvgFromMyBoards() {
