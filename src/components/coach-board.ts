@@ -4,6 +4,8 @@ import { customElement, state, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { parseNotes } from '../lib/notes-parser.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
@@ -1295,7 +1297,39 @@ export class CoachBoard extends LitElement {
     }
 
     .notes-body {
-      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+
+    .notes-body h2 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin: 8px 0 3px;
+    }
+
+    .notes-body h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin: 6px 0 2px;
+    }
+
+    .notes-body p {
+      margin: 0 0 5px;
+    }
+
+    .notes-body ul,
+    .notes-body ol {
+      margin: 0 0 5px;
+      padding-left: 18px;
+    }
+
+    .notes-body li {
+      margin: 2px 0;
+    }
+
+    .notes-body hr {
+      border: none;
+      border-top: 1px solid rgba(0, 0, 0, 0.15);
+      margin: 8px 0;
     }
 
   `];
@@ -2798,7 +2832,7 @@ export class CoachBoard extends LitElement {
               ${this.#cachedSummary.shapesByKind.size > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${[...this.#cachedSummary.shapesByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).join(', ')}</p></div>` : nothing}
               ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
-              ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p class="notes-body">${this._boardNotes}</p></div>` : nothing}
+              ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><div class="notes-body">${unsafeHTML(parseNotes(this._boardNotes))}</div></div>` : nothing}
             ` : nothing}
           </div>
           </div><!-- .field-wrap -->

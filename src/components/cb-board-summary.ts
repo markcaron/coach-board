@@ -1,13 +1,16 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 import type { BoardSummary } from './cb-dialogs.js';
+import { parseNotes } from '../lib/notes-parser.js';
 
 /**
  * Board summary content for the Board Summary side sheet.
  *
- * Displays a breakdown of what's on the board and a notes/instructions
- * textarea. Emits two events:
+ * Displays a breakdown of what's on the board and a Markdown-enabled
+ * notes/instructions editor with a formatting toolbar and preview toggle.
+ * Emits two events:
  *
  *  - cb-board-notes-input  { value: string }   — live updates as user types
  *  - cb-board-summary-save                      — user clicked Save; parent
@@ -70,6 +73,85 @@ export class CbBoardSummary extends LitElement {
       padding: 2px 0;
     }
 
+    /* ── Notes header (label + preview toggle) ──────────────────────── */
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .notes-preview-toggle {
+      background: none;
+      border: 1px solid rgba(0, 0, 0, 0.18);
+      border-radius: 4px;
+      padding: 3px 10px;
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(0, 0, 0, 0.65);
+      cursor: pointer;
+      min-height: 28px;
+    }
+
+    .notes-preview-toggle:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    .notes-preview-toggle:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    .notes-preview-toggle[aria-pressed="true"] {
+      background: rgba(0, 0, 0, 0.07);
+      border-color: rgba(0, 0, 0, 0.28);
+    }
+
+    /* ── Formatting toolbar ──────────────────────────────────────────── */
+    .notes-toolbar {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 4px;
+    }
+
+    .notes-tool-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      min-height: 34px;
+      padding: 4px 7px;
+      background: transparent;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 4px;
+      color: rgba(0, 0, 0, 0.65);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .notes-tool-btn:hover {
+      background: rgba(0, 0, 0, 0.06);
+      border-color: rgba(0, 0, 0, 0.22);
+    }
+
+    .notes-tool-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: -2px;
+      border-radius: 4px;
+    }
+
+    .notes-tool-sep {
+      width: 1px;
+      background: rgba(0, 0, 0, 0.12);
+      margin: 4px 2px;
+    }
+
+    /* ── Textarea ────────────────────────────────────────────────────── */
     .notes-textarea {
       width: 100%;
       box-sizing: border-box;
@@ -81,7 +163,7 @@ export class CbBoardSummary extends LitElement {
       background: rgba(0, 0, 0, 0.03);
       color: var(--pt-color-navy-800, #16213e);
       resize: vertical;
-      min-height: 80px;
+      min-height: 120px;
     }
 
     .notes-textarea::placeholder {
@@ -91,6 +173,63 @@ export class CbBoardSummary extends LitElement {
     .notes-textarea:focus {
       outline: 2px solid var(--pt-accent);
       outline-offset: 1px;
+    }
+
+    /* ── Preview pane ────────────────────────────────────────────────── */
+    .notes-preview {
+      min-height: 120px;
+      padding: 10px 12px;
+      border: 1.5px solid rgba(0, 0, 0, 0.14);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.03);
+      font-size: 0.85rem;
+      color: var(--pt-color-navy-800, #16213e);
+      line-height: 1.6;
+    }
+
+    .notes-preview:empty::before {
+      content: 'Nothing to preview yet.';
+      color: rgba(0, 0, 0, 0.35);
+    }
+
+    .notes-preview h2 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 10px 0 4px;
+    }
+
+    .notes-preview h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin: 8px 0 3px;
+    }
+
+    .notes-preview p {
+      margin: 0 0 6px;
+    }
+
+    .notes-preview ul,
+    .notes-preview ol {
+      margin: 0 0 6px;
+      padding-left: 20px;
+    }
+
+    .notes-preview li {
+      margin: 2px 0;
+    }
+
+    .notes-preview hr {
+      border: none;
+      border-top: 1px solid rgba(0, 0, 0, 0.15);
+      margin: 10px 0;
+    }
+
+    .notes-preview strong {
+      font-weight: 700;
+    }
+
+    .notes-preview em {
+      font-style: italic;
     }
 
     .actions {
@@ -186,6 +325,7 @@ export class CbBoardSummary extends LitElement {
   @property() boardNotes = '';
 
   @state() private _expanded = false;
+  @state() private _preview = false;
 
   #emit<T>(name: string, detail?: T) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -196,6 +336,54 @@ export class CbBoardSummary extends LitElement {
       e.preventDefault();
       this.#emit('cb-board-summary-save');
     }
+  }
+
+  // ── Toolbar helpers ───────────────────────────────────────────────
+
+  #onToolbarKeyDown(e: KeyboardEvent) {
+    const toolbar = e.currentTarget as HTMLElement;
+    const btns = Array.from(toolbar.querySelectorAll<HTMLElement>('button'));
+    const idx = btns.indexOf(e.target as HTMLElement);
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      btns[(idx + 1) % btns.length]?.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      btns[(idx - 1 + btns.length) % btns.length]?.focus();
+    }
+  }
+
+  #getTextarea() {
+    return this.renderRoot.querySelector<HTMLTextAreaElement>('.notes-textarea');
+  }
+
+  #insertMark(mark: string) {
+    const ta = this.#getTextarea();
+    if (!ta) return;
+    const { selectionStart: s, selectionEnd: e, value } = ta;
+    const selected = value.slice(s, e);
+    const replacement = `${mark}${selected || ''}${mark}`;
+    ta.setRangeText(replacement, s, e, 'end');
+    if (!selected) ta.setSelectionRange(s + mark.length, s + mark.length);
+    ta.focus();
+    this.#emit('cb-board-notes-input', { value: ta.value });
+  }
+
+  #insertLinePrefix(prefix: string) {
+    const ta = this.#getTextarea();
+    if (!ta) return;
+    const lineStart = ta.value.lastIndexOf('\n', ta.selectionStart - 1) + 1;
+    ta.setRangeText(prefix, lineStart, lineStart, 'end');
+    ta.focus();
+    this.#emit('cb-board-notes-input', { value: ta.value });
+  }
+
+  #insertHr() {
+    const ta = this.#getTextarea();
+    if (!ta) return;
+    ta.setRangeText('\n\n---\n\n', ta.selectionEnd, ta.selectionEnd, 'end');
+    ta.focus();
+    this.#emit('cb-board-notes-input', { value: ta.value });
   }
 
   // ── Section icons ─────────────────────────────────────────────────────────
@@ -337,17 +525,63 @@ export class CbBoardSummary extends LitElement {
         <div class="divider"></div>
       ` : nothing}
 
-      <div class="notes-label" id="cb-board-summary-notes-label">
-        ${this.#iconNotes()} Notes &amp; Instructions
+      <div class="notes-header">
+        <div class="notes-label" id="cb-board-summary-notes-label">
+          ${this.#iconNotes()} Notes &amp; Instructions
+        </div>
+        <button class="notes-preview-toggle"
+                aria-pressed="${this._preview}"
+                @click="${() => { this._preview = !this._preview; }}">
+          ${this._preview ? 'Edit' : 'Preview'}
+        </button>
       </div>
-      <textarea class="notes-textarea"
-                aria-labelledby="cb-board-summary-notes-label"
-                rows="4"
-                placeholder="Add notes, drills, instructions…"
-                title="Cmd+Enter to save"
-                .value="${this.boardNotes}"
-                @input="${(e: Event) => this.#emit('cb-board-notes-input', { value: (e.target as HTMLTextAreaElement).value })}"
-                @keydown="${this.#onNotesKeyDown}"></textarea>
+
+      ${!this._preview ? html`
+        <div class="notes-toolbar"
+             role="toolbar"
+             aria-label="Notes formatting"
+             aria-controls="cb-board-summary-notes"
+             @keydown="${this.#onToolbarKeyDown}">
+          <button class="notes-tool-btn" aria-label="Bold" title="Bold"
+                  tabindex="0"
+                  @click="${() => this.#insertMark('**')}"><strong>B</strong></button>
+          <button class="notes-tool-btn" aria-label="Italic" title="Italic"
+                  tabindex="-1"
+                  @click="${() => this.#insertMark('*')}"><em>I</em></button>
+          <div class="notes-tool-sep" role="separator"></div>
+          <button class="notes-tool-btn" aria-label="Heading" title="Heading (##)"
+                  tabindex="-1"
+                  @click="${() => this.#insertLinePrefix('## ')}">H2</button>
+          <div class="notes-tool-sep" role="separator"></div>
+          <button class="notes-tool-btn" aria-label="Bullet list" title="Bullet list"
+                  tabindex="-1"
+                  @click="${() => this.#insertLinePrefix('- ')}">•&thinsp;—</button>
+          <button class="notes-tool-btn" aria-label="Numbered list" title="Numbered list"
+                  tabindex="-1"
+                  @click="${() => this.#insertLinePrefix('1. ')}">1.&thinsp;—</button>
+          <div class="notes-tool-sep" role="separator"></div>
+          <button class="notes-tool-btn" aria-label="Horizontal rule" title="Horizontal rule"
+                  tabindex="-1"
+                  @click="${() => this.#insertHr()}">—</button>
+        </div>
+        <textarea class="notes-textarea"
+                  id="cb-board-summary-notes"
+                  aria-labelledby="cb-board-summary-notes-label"
+                  rows="5"
+                  placeholder="Add notes, drills, instructions… (Markdown supported)"
+                  title="Cmd+Enter to save"
+                  .value="${this.boardNotes}"
+                  @input="${(e: Event) => this.#emit('cb-board-notes-input', { value: (e.target as HTMLTextAreaElement).value })}"
+                  @keydown="${this.#onNotesKeyDown}"></textarea>
+      ` : html`
+        <div class="notes-preview"
+             role="region"
+             aria-label="Notes preview"
+             aria-live="polite">
+          ${unsafeHTML(parseNotes(this.boardNotes))}
+        </div>
+      `}
+
       <div class="actions">
         <button class="save-btn" @click="${() => this.#emit('cb-board-summary-save')}">
           Save
