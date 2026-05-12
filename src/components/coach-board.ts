@@ -390,7 +390,7 @@ export class CoachBoard extends LitElement {
       min-height: 44px;
       padding: 8px 16px;
       border-radius: 6px;
-      border: 1.5px solid var(--pt-accent);
+      border: 1px solid var(--pt-accent);
       background: var(--pt-accent);
       color: var(--pt-text-white);
       font: inherit;
@@ -416,7 +416,9 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-account-btn--signout:hover {
-      background: var(--pt-border);
+      background: var(--pt-accent);
+      border-color: var(--pt-accent);
+      color: var(--pt-text-white);
       filter: none;
     }
 
