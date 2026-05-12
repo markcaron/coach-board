@@ -2988,7 +2988,8 @@ export class CoachBoard extends LitElement {
           @cb-use-template="${this.#onUseTemplate}"
           @cb-duplicate-template="${this.#onDuplicateTemplate}"
           @cb-rename-template="${this.#onRenameTemplate}"
-          @cb-handle-delete-template="${this.#onHandleDeleteTemplate}">
+          @cb-handle-delete-template="${this.#onHandleDeleteTemplate}"
+          @cb-open-settings="${() => this.#showSettings()}">
         </cb-my-boards>
       </cb-side-sheet>
 

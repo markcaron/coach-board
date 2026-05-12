@@ -21,6 +21,7 @@ import type { AuthUser } from '../lib/cloud-sync.js';
  *   - cb-handle-delete-board     { board: SavedBoard }
  *   - cb-import-svg              (no detail)
  *   - cb-export-all-boards       (no detail)
+ *   - cb-open-settings           (no detail)
  *
  *  Templates tab:
  *   - cb-use-template            { template: UserTemplate }
@@ -327,6 +328,29 @@ export class CbMyBoards extends LitElement {
 
     .alert-info {
       color: rgba(0, 0, 0, 0.6);
+    }
+
+    .alert-inline-btn {
+      display: inline;
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      font-size: inherit;
+      color: var(--pt-accent);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .alert-inline-btn:hover {
+      color: var(--pt-accent);
+      text-decoration: none;
+    }
+
+    .alert-inline-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+      border-radius: 2px;
     }
 
     .cloud-backup-bar {
@@ -710,7 +734,8 @@ export class CbMyBoards extends LitElement {
         <div class="alert alert-info cloud-backup-bar">
           ${this.#infoIcon()}
           <p>All board data is saved to your browser's local storage.
-             Sign in via Settings to enable cloud backup.</p>
+             Sign in via <button class="alert-inline-btn"
+               @click="${() => this.#emit('cb-open-settings')}">Settings</button> to enable cloud backup.</p>
         </div>
       `}
 
