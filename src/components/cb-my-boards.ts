@@ -498,8 +498,8 @@ export class CbMyBoards extends LitElement {
               `)}
             </ul>
           ` : html`
-            <div class="alert alert-info">
-              ${this.#infoIcon()}
+            <div class="alert alert-warning">
+              ${this.#warningIcon()}
               No saved templates yet. Check "Save as template" when saving a board.
             </div>
           `}
