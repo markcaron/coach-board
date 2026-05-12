@@ -306,6 +306,7 @@ export class CoachBoard extends LitElement {
       /* Neutralise toast animations; JS dismiss delay is also skipped (see handler) */
       .update-toast,
       .update-toast.toast-dismissing { animation: none; }
+      .select-track cb-toolbar { animation: none; }
     }
 
     /* ── Locked sidebar (JS-driven, .sidebar-locked class) ────────── */
@@ -621,12 +622,47 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
     }
 
-    .sidebar-divider {
-      width: 40px;
-      border: none;
-      border-top: 1px solid rgba(0, 0, 0, 0.35);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-      margin: 4px 0;
+    /* Select tool + inline context as one continuous track */
+    .select-track {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-block: 2px;
+      width: 42px;
+      border-radius: 10px;
+      overflow: visible; /* dropdown menus escape the track */
+      background: none;
+    }
+
+    /* Select button sits on toolbar bg, flush with the track edges */
+    .select-track .sidebar-tool {
+      margin: 0;
+    }
+
+    .select-track .sidebar-tool:not([aria-pressed="true"]) {
+      background: var(--pt-bg-toolbar);
+    }
+
+    /* Give the Select button some breathing room above the context section */
+    .select-track:has(cb-toolbar) .sidebar-tool {
+      margin-bottom: 4px;
+    }
+
+    /* Track body becomes a recessed card when context is present */
+    .select-track:has(cb-toolbar) {
+      box-shadow: rgba(255, 255, 255, 0.2) 0px -1px 0 inset;
+      padding-block: 1px 2px;
+      background: var(--pt-bg-primary);
+    }
+
+    /* Fade in the inline context on selection */
+    .select-track cb-toolbar {
+      animation: ctx-slot-in 0.15s ease-out both;
+    }
+
+    @keyframes ctx-slot-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     .context-bar cb-toolbar {
@@ -1247,40 +1283,55 @@ export class CoachBoard extends LitElement {
     }
   };
 
+  // Builds the ordered navigable item list for the sidebar toolbar, including
+  // cb-toolbar[sidebar-context] shadow-DOM buttons inserted after the Select button.
+  // This makes .select-track a full participant in the [role="toolbar"] widget.
+  #sidebarNavItems(): HTMLElement[] {
+    const lightTools = Array.from(
+      this.renderRoot.querySelectorAll<HTMLElement>('.sidebar-tools .sidebar-tool')
+    );
+    const ctxHost = this.renderRoot.querySelector<HTMLElement>('.select-track cb-toolbar');
+    const ctxBtns: HTMLElement[] = ctxHost?.shadowRoot
+      ? Array.from(ctxHost.shadowRoot.querySelectorAll<HTMLElement>('.ctx-trigger-btn, .ctx-icon-btn'))
+      : [];
+    // Composite order: Select, [context buttons], Player, Equipment, Line, More
+    return lightTools.length ? [lightTools[0], ...ctxBtns, ...lightTools.slice(1)] : lightTools;
+  }
+
   #onSidebarToolKeyDown = (e: KeyboardEvent) => {
-    if (!(e.target as HTMLElement).classList.contains('sidebar-tool')) return;
-    const toolbar = e.currentTarget as HTMLElement;
-    const tools = Array.from(toolbar.querySelectorAll('.sidebar-tool')) as HTMLElement[];
-    const toolCount = tools.length;
+    const target = e.target as HTMLElement;
+    // Shadow-DOM keydown events are retargeted to the cb-toolbar host at the boundary
+    const isCtxHost = target.hasAttribute('sidebar-context');
+    if (!target.classList.contains('sidebar-tool') && !isCtxHost) return;
+
+    const items = this.#sidebarNavItems();
+    if (!items.length) return;
+
+    // Pierce shadow root to find the actually-focused button inside cb-toolbar
+    const activeEl = (isCtxHost
+      ? (target as HTMLElement).shadowRoot?.activeElement ?? target
+      : target) as HTMLElement;
+    const currentIdx = items.indexOf(activeEl);
+
+    const lightTools = Array.from(
+      this.renderRoot.querySelectorAll<HTMLElement>('.sidebar-tools .sidebar-tool')
+    );
+
+    const focusItem = (rawIdx: number) => {
+      e.preventDefault();
+      const next = items[(rawIdx + items.length) % items.length];
+      if (!next) return;
+      // Keep _sidebarFocusIndex in sync for light-DOM tools (roving tabindex)
+      const lightIdx = lightTools.indexOf(next);
+      if (lightIdx !== -1) this._sidebarFocusIndex = lightIdx;
+      next.focus();
+    };
+
     switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        this._sidebarFocusIndex = (this._sidebarFocusIndex + 1) % toolCount;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
-        });
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        this._sidebarFocusIndex = (this._sidebarFocusIndex - 1 + toolCount) % toolCount;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
-        });
-        break;
-      case 'Home':
-        e.preventDefault();
-        this._sidebarFocusIndex = 0;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[0] as HTMLElement)?.focus();
-        });
-        break;
-      case 'End':
-        e.preventDefault();
-        this._sidebarFocusIndex = toolCount - 1;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
-        });
-        break;
+      case 'ArrowDown': focusItem(currentIdx >= 0 ? currentIdx + 1 : 1); break;
+      case 'ArrowUp':   focusItem(currentIdx >= 0 ? currentIdx - 1 : 0); break;
+      case 'Home':      focusItem(0); break;
+      case 'End':       focusItem(items.length - 1); break;
     }
   };
 
@@ -2198,7 +2249,8 @@ export class CoachBoard extends LitElement {
                ?inert="${this._sidebarCollapsed}"
                @keydown="${this.#onSidebarToolKeyDown}">
 
-          <!-- Select (with submenu: Select / Multi-select) -->
+          <!-- Select + inline context track -->
+          <div class="select-track">
           <div class="sidebar-dropdown-wrap">
             <button class="sidebar-tool has-submenu"
                     title="${t === 'pan' ? 'Hand' : this._multiSelect ? 'Multi-select' : 'Select'}"
@@ -2238,7 +2290,27 @@ export class CoachBoard extends LitElement {
                 </button>
               </div>
             ` : nothing}
-          </div>
+          </div><!-- .sidebar-dropdown-wrap (select) -->
+
+          ${this.selectedIds.size > 0 ? html`
+            <cb-toolbar
+              sidebar-context
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}"
+              @z-order="${this.#onZOrder}">
+            </cb-toolbar>
+          ` : nothing}
+          </div><!-- .select-track -->
 
           <!-- Player (with submenu: Team A / Team B / Neutral) -->
           <div class="sidebar-dropdown-wrap">
@@ -2460,27 +2532,15 @@ export class CoachBoard extends LitElement {
 
           </div><!-- .sidebar-tools -->
 
-          ${this.selectedIds.size > 0 ? html`
-            <hr class="sidebar-divider" />
-            <cb-toolbar
-              sidebar-context
-              .selectedItems="${this.#selectedItems}"
-              .fieldTheme="${this.fieldTheme}"
-              @player-update="${this.#onPlayerUpdate}"
-              @equipment-update="${this.#onEquipmentUpdate}"
-              @line-update="${this.#onLineUpdate}"
-              @shape-update="${this.#onShapeUpdate}"
-              @text-update="${this.#onTextUpdate}"
-              @align-items="${this.#onAlignItems}"
-              @group-items="${this.#onGroupItems}"
-              @ungroup-items="${this.#onUngroupItems}"
-              @delete-items="${this.#onDeleteItems}"
-              @rotate-items="${this.#onRotateItems}"
-              @z-order="${this.#onZOrder}">
-            </cb-toolbar>
-          ` : nothing}
-
         </nav><!-- .sidebar -->
+
+        <!-- Screen reader announcement when context controls become available -->
+        <div role="status" aria-live="polite" aria-atomic="true" class="visually-hidden">
+          ${this.selectedIds.size > 0
+            ? `${this.selectedIds.size} item${this.selectedIds.size > 1 ? 's' : ''} selected. Edit controls available.`
+            : ''}
+        </div>
+
           <div class="field-wrap">
             <cb-field
               .players="${this.players}"

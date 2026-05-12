@@ -806,9 +806,10 @@ export class CbToolbar extends LitElement {
       outline-offset: 2px;
     }
 
-    .ctx-trigger-btn[aria-pressed="true"] {
-      background: var(--pt-accent);
-      border-color: var(--pt-accent);
+    .ctx-trigger-btn[aria-pressed="true"],
+    .ctx-icon-btn[aria-expanded="true"] {
+      background: var(--pt-border);
+      border-color: var(--pt-border);
       color: var(--pt-text-white);
     }
 
@@ -2370,7 +2371,6 @@ export class CbToolbar extends LitElement {
       ` : nothing}
 
       ${this.selectedItems.length >= 1 ? html`
-        ${hasGroupA || this.#hasRotatable ? html`<hr class="ctx-sep" />` : nothing}
         ${this.#renderSidebarArrangement()}
       ` : nothing}
 
