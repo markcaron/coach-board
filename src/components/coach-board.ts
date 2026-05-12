@@ -1202,6 +1202,7 @@ export class CoachBoard extends LitElement {
 
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
+  #pendingTemplateApply: UserTemplate | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -3019,7 +3020,9 @@ export class CoachBoard extends LitElement {
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
     if (pendingAction === 'new') {
-      this.#openNewBoardDialog();
+      const tmpl = this.#pendingTemplateApply;
+      this.#pendingTemplateApply = null;
+      tmpl ? this.#applyUserTemplate(tmpl) : this.#openNewBoardDialog();
     } else if (pendingAction === 'open') {
       this.#doOpenBoard(pendingId!);
     }
@@ -3048,11 +3051,13 @@ export class CoachBoard extends LitElement {
         textItems: structuredClone(this.textItems),
         thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
-      saveUserTemplate(tmpl).catch(() => {});
+      await saveUserTemplate(tmpl);
       this._userTemplates = await listUserTemplates();
-      // Continue pending navigation if needed, but don't rename the working board
+      // Continue pending navigation; don't rename the working board
       if (pendingAction === 'new') {
-        this.#openNewBoardDialog();
+        const pendingTmpl = this.#pendingTemplateApply;
+        this.#pendingTemplateApply = null;
+        pendingTmpl ? this.#applyUserTemplate(pendingTmpl) : this.#openNewBoardDialog();
       } else if (pendingAction === 'open') {
         this.#doOpenBoard(pendingId!);
       }
@@ -3084,7 +3089,9 @@ export class CoachBoard extends LitElement {
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
       if (pendingAction === 'new') {
-        this.#openNewBoardDialog();
+        const pendingTmpl = this.#pendingTemplateApply;
+        this.#pendingTemplateApply = null;
+        pendingTmpl ? this.#applyUserTemplate(pendingTmpl) : this.#openNewBoardDialog();
       } else if (pendingAction === 'open') {
         this.#doOpenBoard(pendingId!);
       }
@@ -3377,13 +3384,24 @@ export class CoachBoard extends LitElement {
     }
   }
 
-  #onUseTemplate(e: CustomEvent<{ template: UserTemplate }>) {
-    const { template } = e.detail;
-    this._myBoardsOpen = false;
-    // Synthesise the same flow as "New Board" with this template pre-selected
+  #applyUserTemplate(template: UserTemplate) {
     this.#confirmNewBoard(new CustomEvent('', {
       detail: { pitchType: template.pitchType, template: `user:${template.id}` },
     }));
+  }
+
+  #onUseTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    const { template } = e.detail;
+    this._myBoardsOpen = false;
+    if (!this.#isBoardSaved && !this.#isBoardEmpty) {
+      this.#pendingTemplateApply = template;
+      this._dialogs?.openSaveBoard('', 'new');
+      return;
+    }
+    if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
+      deleteBoard(this.#currentBoard.id).catch(() => {});
+    }
+    this.#applyUserTemplate(template);
   }
 
   #onDuplicateTemplate(e: CustomEvent<{ template: UserTemplate }>) {
@@ -3467,6 +3485,7 @@ export class CoachBoard extends LitElement {
 
   #onSaveBoardClosed() {
     this.#pendingOpenBoardId = null;
+    this.#pendingTemplateApply = null;
   }
 
   #onOpenBoard(e: CustomEvent<{ id: string }>) {
