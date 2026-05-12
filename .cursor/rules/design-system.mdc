@@ -17,9 +17,11 @@ Always use these — never hard-code colors:
 | `var(--pt-bg-surface)` | Card / dialog / dropdown backgrounds |
 | `var(--pt-bg-body)` | Page / field background |
 | `var(--pt-bg-primary)` | Input / code block background |
-| `var(--pt-text)` | Primary text |
-| `var(--pt-text-muted)` | Secondary / placeholder text |
+| `var(--pt-text)` | Primary text (dark theme — near-white; **do not use on light surfaces**) |
+| `var(--pt-text-muted)` | Secondary / placeholder text (dark theme — **do not use on light surfaces**) |
 | `var(--pt-text-white)` | Text on dark/colored backgrounds |
+| `var(--pt-text-on-inverted)` | Primary text on white/light surfaces (`#1a1a2e`, ~17:1 on white) |
+| `var(--pt-text-on-light)` | Secondary/hint text on white/light surfaces (`#555`, ~7.3:1 on white) |
 | `var(--pt-border)` | Button hover backgrounds, dividers |
 | `var(--pt-accent)` | Focus rings, active indicators, links |
 | `var(--pt-danger-hover)` | Active/pressed tool state (the red) |
@@ -68,6 +70,30 @@ All horizontal bars (top context, bottom) share:
 
 See `cb-dialogs.ts` and `cb-share.ts` for the canonical dialog CSS — reuse `.dialog-header`, `.dialog-body`, `.confirm-actions`, `.cancel-btn`, `.confirm-success` patterns.
 
+## Side sheet section labels
+
+Section headings inside `cb-side-sheet` panels (e.g. Board Summary) use **Title Case**, not ALL CAPS. Do not apply `text-transform: uppercase` or wide `letter-spacing` to these labels.
+
+```css
+/* ✅ Side sheet section heading */
+font-size: 0.82rem;
+font-weight: 600;
+color: rgba(0, 0, 0, 0.72); /* passes WCAG AA on white */
+
+/* ❌ Don't do this in side sheets */
+text-transform: uppercase;
+letter-spacing: 0.05em;
+```
+
+Each section heading should pair an inline SVG icon (16×16) with the label text in a flex row:
+
+```html
+<h3>
+  <svg width="16" height="16" fill="currentColor" aria-hidden="true">...</svg>
+  Pitch
+</h3>
+```
+
 ## CSS in static styles, not inline
 
 All styles belong in the component's `static styles = css\`...\`` block. Never use `style="..."` attributes in templates except for dynamic values that cannot be expressed as CSS (e.g. `style="--playback-progress: ${t}"`).
@@ -83,6 +109,27 @@ html`<div class="my-panel">`
 ```
 
 The one allowed exception: CSS custom properties set dynamically at runtime (e.g. `style="--panel-w: ${width}px"`).
+
+## Side sheets and light-surface components
+
+`cb-side-sheet` (and any future sheet or panel that renders on a white/light surface) must use design tokens even though they target a light color scheme. Never write `background: white`:
+
+```css
+/* ❌ */
+background: white;
+color: rgba(78, 168, 222, 0.08);  /* hard-coded accent tint */
+
+/* ✅ */
+background: var(--pt-bg-surface);
+color-scheme: light;              /* keep the sheet on the light scheme */
+
+/* ✅  Accent tint for hover / focus on light surfaces */
+background: color-mix(in srgb, var(--pt-accent) 8%, transparent);
+```
+
+For primary text inside light-surface panels use `var(--pt-text)`, not `var(--pt-color-navy-800, #16213e)` (that token name is not in the canonical set).
+
+For success-button hover, the only defined token is `--pt-success-hover` — do not invent `--pt-success-btn-hover`.
 
 ## What NOT to do
 
