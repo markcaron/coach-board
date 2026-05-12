@@ -658,37 +658,6 @@ export class CoachBoard extends LitElement {
       to   { opacity: 0; transform: translateX(-50%) translateY(8px); }
     }
 
-    /* ── Native browser zoom escape hatch ─────────────────────────── */
-    .zoom-escape-btn {
-      position: fixed;
-      right: var(--zoom-escape-right, 16px);
-      bottom: var(--zoom-escape-bottom, 16px);
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0 18px;
-      height: 44px;
-      border-radius: 22px;
-      background: var(--pt-accent);
-      color: var(--pt-text-white);
-      border: none;
-      font-size: 0.875rem;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
-      white-space: nowrap;
-    }
-
-    .zoom-escape-btn:focus-visible {
-      outline: 2px solid var(--pt-text-white);
-      outline-offset: 2px;
-    }
-
-    .zoom-escape-btn:active {
-      opacity: 0.85;
-    }
-
     .update-toast {
       position: fixed;
       bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
@@ -1164,7 +1133,8 @@ export class CoachBoard extends LitElement {
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
   @state() private accessor _viewTransform = { x: 0, y: 0, scale: 1 };
-  @state() private accessor _nativeZoomActive: boolean = false;
+  #zoomEscapeBtn: HTMLButtonElement | null = null;
+  #zoomPollTimer: ReturnType<typeof setInterval> | null = null;
   @state() private accessor _myBoardsOpen: boolean = false;
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _boardSummaryOpen: boolean = false;
@@ -1632,21 +1602,68 @@ export class CoachBoard extends LitElement {
   #zoomOut()   { this.#applyZoom(this._viewTransform.scale / 1.25); }
   #resetView() { this._viewTransform = { x: 0, y: 0, scale: 1 }; }
 
+  #initZoomEscape() {
+    // Inject styles into document.head so the button works outside shadow DOM.
+    // CSS custom properties defined on :root (index.html) are available here.
+    if (!document.getElementById('cb-zoom-escape-styles')) {
+      const s = document.createElement('style');
+      s.id = 'cb-zoom-escape-styles';
+      s.textContent = `
+        .cb-zoom-escape-btn {
+          position: fixed;
+          right: 16px;
+          bottom: 16px;
+          z-index: 999999;
+          display: none;
+          align-items: center;
+          gap: 6px;
+          padding: 0 18px;
+          height: 44px;
+          border-radius: 22px;
+          background: var(--pt-accent, #1a73e8);
+          color: var(--pt-text-white, #fff);
+          border: none;
+          font-family: system-ui, sans-serif;
+          font-size: 0.875rem;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+          white-space: nowrap;
+        }
+        .cb-zoom-escape-btn.cb-active { display: flex; }
+        .cb-zoom-escape-btn:focus-visible {
+          outline: 2px solid var(--pt-text-white, #fff);
+          outline-offset: 2px;
+        }
+        .cb-zoom-escape-btn:active { opacity: 0.85; }
+      `;
+      document.head.appendChild(s);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'cb-zoom-escape-btn';
+    btn.setAttribute('aria-label', 'Reset browser zoom');
+    btn.innerHTML = `<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3h5M3 3v5M17 3h-5M17 3v5M3 17h5M3 17v-5M17 17h-5M17 17v-5"/></svg>Reset zoom`;
+    btn.addEventListener('click', () => this.#resetNativeZoom());
+    document.body.appendChild(btn);
+    this.#zoomEscapeBtn = btn;
+  }
+
   #onVisualViewportChange = () => {
     const vv = window.visualViewport;
-    if (!vv) return;
-    // Detect native browser zoom via scale (pinch) OR viewport width shrinkage.
-    // Some iOS zoom scenarios (e.g. browser-chrome double-tap) don't update
-    // scale reliably, but do shrink vv.width relative to window.innerWidth.
-    const active = vv.scale > 1.01 || vv.width < window.innerWidth - 2;
-    this._nativeZoomActive = active;
-    if (active) {
-      // Pin the escape button to the visual viewport's bottom-right corner.
-      // position:fixed is relative to the layout viewport on iOS when zoomed,
+    const btn = this.#zoomEscapeBtn;
+    if (!btn) return;
+    // Detect native browser zoom via scale (pinch) OR visual viewport narrowing.
+    // Some iOS browser-chrome zoom scenarios don't update scale but do shrink
+    // vv.width relative to window.innerWidth.
+    const active = (vv ? (vv.scale > 1.01 || vv.width < window.innerWidth - 2) : false);
+    btn.classList.toggle('cb-active', active);
+    if (active && vv) {
+      // Pin to the visual viewport's bottom-right corner.
+      // position:fixed on iOS is relative to the layout viewport when zoomed,
       // so we compensate using the visual viewport's offset within it.
       const margin = 16;
-      this.style.setProperty('--zoom-escape-right', `${window.innerWidth - (vv.offsetLeft + vv.width) + margin}px`);
-      this.style.setProperty('--zoom-escape-bottom', `${window.innerHeight - (vv.offsetTop + vv.height) + margin}px`);
+      btn.style.right = `${window.innerWidth - (vv.offsetLeft + vv.width) + margin}px`;
+      btn.style.bottom = `${window.innerHeight - (vv.offsetTop + vv.height) + margin}px`;
     }
   };
 
@@ -1982,10 +1999,11 @@ export class CoachBoard extends LitElement {
     });
     window.visualViewport?.addEventListener('resize', this.#onVisualViewportChange);
     window.visualViewport?.addEventListener('scroll', this.#onVisualViewportChange);
-    // window.resize fires on some iOS zoom scenarios where visualViewport
-    // events don't, so use it as a backup trigger.
     window.addEventListener('resize', this.#onVisualViewportChange);
-    // Check initial zoom state (page may have loaded while already zoomed).
+    this.#initZoomEscape();
+    // Poll every 500ms as a reliable fallback — iOS zoom scenarios vary in
+    // which events they fire, but property reads always reflect current state.
+    this.#zoomPollTimer = setInterval(this.#onVisualViewportChange, 500);
     this.#onVisualViewportChange();
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
@@ -2012,6 +2030,9 @@ export class CoachBoard extends LitElement {
     window.visualViewport?.removeEventListener('resize', this.#onVisualViewportChange);
     window.visualViewport?.removeEventListener('scroll', this.#onVisualViewportChange);
     window.removeEventListener('resize', this.#onVisualViewportChange);
+    if (this.#zoomPollTimer) { clearInterval(this.#zoomPollTimer); this.#zoomPollTimer = null; }
+    this.#zoomEscapeBtn?.remove();
+    this.#zoomEscapeBtn = null;
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
     this.#stopPlayback();
@@ -2806,18 +2827,6 @@ export class CoachBoard extends LitElement {
           @cb-board-summary-save="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
         </cb-board-summary>
       </cb-side-sheet>
-
-      ${this._nativeZoomActive ? html`
-        <button class="zoom-escape-btn"
-                aria-label="Reset browser zoom"
-                aria-live="polite"
-                @click="${this.#resetNativeZoom}">
-          ${svg`<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M3 3h5M3 3v5M17 3h-5M17 3v5M3 17h5M3 17v-5M17 17h-5M17 17v-5"/>
-          </svg>`}
-          Reset zoom
-        </button>
-      ` : nothing}
 
       ${this._updateAvailable ? html`
         <div class="update-toast ${this._toastDismissing ? 'toast-dismissing' : ''}"
