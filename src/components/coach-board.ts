@@ -1127,7 +1127,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _fieldMenuOpen: boolean = false;
   #fieldMenuTrigger: HTMLElement | null = null;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | 'more' | null = null;
-  @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
+  @state() private accessor _sidebarCollapsed: boolean = false; // always starts open; only the grab handle closes it
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
@@ -1319,6 +1319,8 @@ export class CoachBoard extends LitElement {
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
     this._isMobile = e.matches;
+    // Intentionally does not touch _sidebarCollapsed — sidebar visibility is
+    // user-controlled via the grab handle regardless of viewport breakpoint.
     if (this._viewMode === 'readonly') {
       if (e.matches && this.fieldOrientation === 'horizontal') {
         this.#rotateLoadedData('vertical');
