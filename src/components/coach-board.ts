@@ -637,6 +637,9 @@ export class CoachBoard extends LitElement {
     /* Select button sits on toolbar bg, flush with the track edges */
     .select-track .sidebar-tool {
       margin: 0;
+    }
+
+    .select-track .sidebar-tool:not([aria-pressed="true"]) {
       background: var(--pt-bg-toolbar);
     }
 
