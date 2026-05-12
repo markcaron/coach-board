@@ -18,6 +18,7 @@ import type { AuthUser } from '../lib/cloud-sync.js';
  *   - cb-open-board              { id: string }
  *   - cb-rename-board            { board: SavedBoard, name: string }
  *   - cb-duplicate-board         { board: SavedBoard }
+ *   - cb-export-board            { board: SavedBoard }
  *   - cb-handle-delete-board     { board: SavedBoard }
  *   - cb-import-svg              (no detail)
  *   - cb-export-all-boards       (no detail)
@@ -26,6 +27,7 @@ import type { AuthUser } from '../lib/cloud-sync.js';
  *  Templates tab:
  *   - cb-use-template            { template: UserTemplate }
  *   - cb-duplicate-template      { template: UserTemplate }
+ *   - cb-export-template         { template: UserTemplate }
  *   - cb-rename-template         { template: UserTemplate, name: string }
  *   - cb-handle-delete-template  { template: UserTemplate }
  */
@@ -605,6 +607,7 @@ export class CbMyBoards extends LitElement {
                     ${this._openMenuId === b.id ? this.#kebabMenu(b.id, [
                       { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(b.id, b.name) },
                       { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-board', { board: b }) },
+                      { label: 'Export', icon: this.#exportIcon(), action: () => this.#emit('cb-export-board', { board: b }) },
                       { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-board', { board: b }), danger: true },
                     ]) : nothing}
                   </div>
@@ -679,6 +682,7 @@ export class CbMyBoards extends LitElement {
                     ${this._openMenuId === t.id ? this.#kebabMenu(t.id, [
                       { label: 'Rename', icon: this.#renameIcon(), action: () => this.#startRename(t.id, t.name) },
                       { label: 'Duplicate', icon: this.#duplicateIcon(), action: () => this.#emit('cb-duplicate-template', { template: t }) },
+                      { label: 'Export', icon: this.#exportIcon(), action: () => this.#emit('cb-export-template', { template: t }) },
                       { label: 'Delete', icon: this.#trashIcon(), action: () => this.#emit('cb-handle-delete-template', { template: t }), danger: true },
                     ]) : nothing}
                   </div>
