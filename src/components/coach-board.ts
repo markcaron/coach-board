@@ -1128,7 +1128,6 @@ export class CoachBoard extends LitElement {
   #fieldMenuTrigger: HTMLElement | null = null;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | 'more' | null = null;
   @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
-  #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
@@ -1287,15 +1286,7 @@ export class CoachBoard extends LitElement {
 
   #onSidebarPointerEnter = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
-    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this._sidebarCollapsed = false;
-  };
-
-  #onSidebarPointerLeave = () => {
-    if (!window.matchMedia('(hover: hover)').matches) return;
-    if (this._sidebarMenu !== null) return;
-    if (this._sidebar?.classList.contains('sidebar-locked')) return;
-    this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
@@ -1951,7 +1942,6 @@ export class CoachBoard extends LitElement {
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
-    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
 
@@ -2182,8 +2172,7 @@ export class CoachBoard extends LitElement {
         <div class="board-area">
           <nav class="sidebar ${this._sidebarCollapsed ? 'sidebar--collapsed' : ''}"
                aria-label="Tool palette"
-               @pointerenter="${this.#onSidebarPointerEnter}"
-               @pointerleave="${this.#onSidebarPointerLeave}">
+               @pointerenter="${this.#onSidebarPointerEnter}">
             <button class="sidebar-handle"
                     aria-label="${this._sidebarCollapsed ? 'Show tools' : 'Hide tools'}"
                     aria-expanded="${!this._sidebarCollapsed}"
