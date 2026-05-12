@@ -316,12 +316,21 @@ export class CbMyBoards extends LitElement {
       margin-top: 1px;
     }
 
+    .alert p {
+      margin: 0;
+      line-height: 1.5;
+    }
+
     .alert-warning {
       color: #7a4f00;
     }
 
     .alert-info {
       color: rgba(0, 0, 0, 0.6);
+    }
+
+    .cloud-backup-bar {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     }
 
     /* ── Data / action row ──────────────────────────────────────────── */
@@ -587,14 +596,13 @@ export class CbMyBoards extends LitElement {
         </div>
 
         <div class="data-section">
-          <div class="alert alert-info">
-            ${this.#infoIcon()}
-            ${this.authUser
-              ? html`Boards are saved locally and backed up to the cloud as <strong>${this.authUser.email}</strong>.`
-              : html`All board data is saved to your browser's local storage.
-                     Sign in via Settings to enable cloud backup.`
-            }
-          </div>
+          ${!this.authUser ? html`
+            <div class="alert alert-info">
+              ${this.#infoIcon()}
+              <p>All board data is saved to your browser's local storage.
+                 Sign in via Settings to enable cloud backup.</p>
+            </div>
+          ` : nothing}
           <button class="action-btn-full" @click="${() => this.#emit('cb-import-svg')}">
             ${this.#importIcon()}
             Import from SVG
@@ -699,6 +707,13 @@ export class CbMyBoards extends LitElement {
           </button>
         </div>
       </div>
+
+      ${this.authUser ? html`
+        <div class="alert alert-info cloud-backup-bar">
+          ${this.#infoIcon()}
+          <p>Boards and templates are saved locally and backed up to the cloud as <strong>${this.authUser.email}</strong>.</p>
+        </div>
+      ` : nothing}
 
       ${this.#renderBoardsPanel(this._activeTab === 'boards')}
       ${this.#renderTemplatesPanel(this._activeTab === 'templates')}
