@@ -1028,10 +1028,12 @@ export class CoachBoard extends LitElement {
       min-height: 44px;
       padding: 0;
       border-radius: 50%;
-      background: var(--pt-accent);
-      border: 2px solid rgba(255, 255, 255, 0.3);
+      background: var(--pt-color-blue-450);
+      border: 1px solid rgba(255, 255, 255, 0.3);
       color: var(--pt-text-white);
-      font-size: 1.05rem;
+      /* 1.25rem bold ≈ 15pt bold — qualifies as WCAG large text so
+         the 3.97:1 contrast against #2e86c1 clears the 3:1 AA threshold. */
+      font-size: 1.25rem;
       font-weight: 700;
       letter-spacing: 0;
       cursor: pointer;
@@ -1041,8 +1043,8 @@ export class CoachBoard extends LitElement {
     }
 
     .auth-avatar-btn:hover {
-      filter: brightness(1.15);
-      border-color: rgba(255, 255, 255, 0.55);
+      filter: brightness(0.85);
+      border-color: rgba(255, 255, 255, 0.5);
     }
 
     .auth-avatar-btn:focus-visible {
