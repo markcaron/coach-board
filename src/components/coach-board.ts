@@ -1133,8 +1133,6 @@ export class CoachBoard extends LitElement {
   @state() private accessor _multiSelect: boolean = false;
   @state() private accessor _menuOpen: boolean = false;
   @state() private accessor _viewTransform = { x: 0, y: 0, scale: 1 };
-  #zoomEscapeBtn: HTMLButtonElement | null = null;
-  #zoomPollTimer: ReturnType<typeof setInterval> | null = null;
   @state() private accessor _myBoardsOpen: boolean = false;
   @state() private accessor _myBoards: SavedBoard[] = [];
   @state() private accessor _boardSummaryOpen: boolean = false;
@@ -1602,85 +1600,6 @@ export class CoachBoard extends LitElement {
   #zoomOut()   { this.#applyZoom(this._viewTransform.scale / 1.25); }
   #resetView() { this._viewTransform = { x: 0, y: 0, scale: 1 }; }
 
-  #initZoomEscape() {
-    // Inject styles into document.head so the button works outside shadow DOM.
-    // CSS custom properties defined on :root (index.html) are available here.
-    if (!document.getElementById('cb-zoom-escape-styles')) {
-      const s = document.createElement('style');
-      s.id = 'cb-zoom-escape-styles';
-      s.textContent = `
-        .cb-zoom-escape-btn {
-          position: fixed;
-          right: 16px;
-          bottom: 16px;
-          z-index: 999999;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: var(--pt-accent, #1a73e8);
-          color: var(--pt-text-white, #fff);
-          border: none;
-          cursor: pointer;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
-          touch-action: manipulation;
-        }
-        .cb-zoom-escape-btn.cb-active { display: flex; }
-        .cb-zoom-escape-btn:focus-visible {
-          outline: 2px solid var(--pt-text-white, #fff);
-          outline-offset: 2px;
-        }
-        .cb-zoom-escape-btn:active { opacity: 0.85; }
-      `;
-      document.head.appendChild(s);
-    }
-    const btn = document.createElement('button');
-    btn.className = 'cb-zoom-escape-btn';
-    btn.setAttribute('aria-label', 'Reset browser zoom');
-    // Icon-only: avoids text wrapping at 2× native zoom (text label would be
-    // ~400 physical px wide and crop off-screen). aria-label carries the name.
-    btn.innerHTML = `<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3h5M3 3v5M17 3h-5M17 3v5M3 17h5M3 17v-5M17 17h-5M17 17v-5"/></svg>`;
-    btn.addEventListener('click', () => this.#resetNativeZoom());
-    document.body.appendChild(btn);
-    this.#zoomEscapeBtn = btn;
-  }
-
-  #onVisualViewportChange = () => {
-    const vv = window.visualViewport;
-    const btn = this.#zoomEscapeBtn;
-    if (!btn) return;
-    // Detect native browser zoom via scale (pinch) OR visual viewport narrowing.
-    // Some iOS browser-chrome zoom scenarios don't update scale but do shrink
-    // vv.width relative to window.innerWidth.
-    const active = (vv ? (vv.scale > 1.01 || vv.width < window.innerWidth - 2) : false);
-    btn.classList.toggle('cb-active', active);
-    if (active && vv) {
-      // Pin to the visual viewport's bottom-right corner.
-      // position:fixed on iOS is relative to the layout viewport when zoomed,
-      // so we compensate using the visual viewport's offset within it.
-      const margin = 16;
-      btn.style.right = `${window.innerWidth - (vv.offsetLeft + vv.width) + margin}px`;
-      btn.style.bottom = `${window.innerHeight - (vv.offsetTop + vv.height) + margin}px`;
-    }
-  };
-
-  #resetNativeZoom() {
-    // iOS 10+ ignores maximum-scale / user-scalable changes via .content =
-    // to protect accessibility. The only reliable workaround is to remove and
-    // re-insert the <meta name="viewport"> element — this forces iOS Safari to
-    // re-parse it and snap the viewport back to initial-scale=1.
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-    if (!meta?.parentNode) return;
-    const parent = meta.parentNode;
-    parent.removeChild(meta);
-    // One rAF to let the DOM mutation register, then restore.
-    requestAnimationFrame(() => {
-      parent.appendChild(meta);
-    });
-  }
-
   #onWheel(e: WheelEvent) {
     if (e.ctrlKey || e.metaKey) {
       // Always prevent the browser from zoom-scaling the viewport, regardless of
@@ -2001,18 +1920,10 @@ export class CoachBoard extends LitElement {
       // Belt-and-suspenders for touch devices (older Safari ignores touch-action on SVG)
       document.addEventListener('touchstart', this.#boundTouchStart, { passive: false });
     });
-    window.visualViewport?.addEventListener('resize', this.#onVisualViewportChange);
-    window.visualViewport?.addEventListener('scroll', this.#onVisualViewportChange);
-    window.addEventListener('resize', this.#onVisualViewportChange);
-    // Extend double-tap zoom prevention to the full document (touch-action on
-    // :host only covers the shadow DOM; light DOM elements like the bottom bar
-    // buttons were still reachable by double-tap without this).
+    // Extend double-tap zoom prevention to the full document. touch-action on
+    // :host only covers shadow DOM descendants; light DOM elements (bottom bar,
+    // toolbar) would still be reachable by iOS double-tap without this.
     document.body.style.touchAction = 'manipulation';
-    this.#initZoomEscape();
-    // Poll every 500ms as a reliable fallback — iOS zoom scenarios vary in
-    // which events they fire, but property reads always reflect current state.
-    this.#zoomPollTimer = setInterval(this.#onVisualViewportChange, 500);
-    this.#onVisualViewportChange();
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -2035,12 +1946,6 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('wheel', this.#boundWheel);
     document.removeEventListener('touchstart', this.#boundTouchStart);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
-    window.visualViewport?.removeEventListener('resize', this.#onVisualViewportChange);
-    window.visualViewport?.removeEventListener('scroll', this.#onVisualViewportChange);
-    window.removeEventListener('resize', this.#onVisualViewportChange);
-    if (this.#zoomPollTimer) { clearInterval(this.#zoomPollTimer); this.#zoomPollTimer = null; }
-    this.#zoomEscapeBtn?.remove();
-    this.#zoomEscapeBtn = null;
     document.body.style.touchAction = '';
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
