@@ -4,6 +4,7 @@ import { live } from 'lit/directives/live.js';
 
 import type { SavedBoard } from '../lib/board-store.js';
 import type { UserTemplate } from '../lib/board-store.js';
+import type { AuthUser } from '../lib/cloud-sync.js';
 
 /**
  * Board list + user templates content for the My Boards side sheet.
@@ -361,6 +362,7 @@ export class CbMyBoards extends LitElement {
 
   @property({ attribute: false }) boards: SavedBoard[] = [];
   @property({ attribute: false }) userTemplates: UserTemplate[] = [];
+  @property({ attribute: false }) authUser: AuthUser | null = null;
 
   @state() private accessor _activeTab: 'boards' | 'templates' = 'boards';
   @state() private accessor _renamingId: string | null = null;
@@ -587,8 +589,11 @@ export class CbMyBoards extends LitElement {
         <div class="data-section">
           <div class="alert alert-info">
             ${this.#infoIcon()}
-            All board data is saved to your browser's local storage.
-            Exporting boards as backup SVGs is the best way to keep backups.
+            ${this.authUser
+              ? html`Boards are saved locally and backed up to the cloud as <strong>${this.authUser.email}</strong>.`
+              : html`All board data is saved to your browser's local storage.
+                     Sign in via Settings to enable cloud backup.`
+            }
           </div>
           <button class="action-btn-full" @click="${() => this.#emit('cb-import-svg')}">
             ${this.#importIcon()}
