@@ -136,6 +136,11 @@ export class CbSideSheet extends LitElement {
 
   @property({ type: Boolean }) open = false;
   @property() heading = '';
+  /** Pre-captured element to focus when the sheet closes. When provided,
+   *  takes precedence over document.activeElement captured at open time —
+   *  needed when the sheet is opened from a menu that closes in the same
+   *  Lit render batch, which moves focus to <body> before updated() fires. */
+  @property({ attribute: false }) returnFocusEl: HTMLElement | null = null;
 
   get #titleId() {
     return `cb-side-sheet-title-${this.heading.toLowerCase().replace(/\s+/g, '-')}`;
@@ -148,7 +153,7 @@ export class CbSideSheet extends LitElement {
   override updated(changed: Map<PropertyKey, unknown>) {
     if (!changed.has('open')) return;
     if (this.open) {
-      this.#returnFocus = document.activeElement as HTMLElement | null;
+      this.#returnFocus = this.returnFocusEl ?? (document.activeElement as HTMLElement | null);
       this.updateComplete.then(() => this._closeBtn?.focus());
     } else {
       this.#returnFocus?.focus();
