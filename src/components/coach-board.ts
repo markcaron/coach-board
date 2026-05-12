@@ -2406,6 +2406,7 @@ export class CoachBoard extends LitElement {
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'wavy'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg class="icon" viewBox="0 0 32 12" width="32" height="12">
                     <path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />
+                    <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
                   </svg>
                   Dribble
                 </button>

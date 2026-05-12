@@ -1643,7 +1643,7 @@ export class CbToolbar extends LitElement {
                 <span class="line-preview-wrap">
                   <svg viewBox="0 0 32 12" xmlns="http://www.w3.org/2000/svg">
                     ${s.value === 'wavy'
-                      ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />`
+                      ? svg`<path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 22,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />`
                       : svg`<line x1="2" y1="6" x2="22" y2="6" stroke="${COLORS.previewStroke}" stroke-width="2" stroke-dasharray="${s.value === 'dashed' ? '4,3' : 'none'}" />`}
                     <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
                   </svg>
