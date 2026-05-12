@@ -301,65 +301,60 @@ export class CoachBoard extends LitElement {
     .menu-spacer { flex: 1; }
 
     /* ── Settings side-sheet content ────────────────────────────────── */
+    .settings-content {
+      padding: 20px;
+    }
+
     .settings-section {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 8px;
+    }
+
+    .settings-section + .settings-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
     }
 
     .settings-section-heading {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0 0 12px;
+      margin: 0 0 4px;
       font-size: 0.82rem;
       font-weight: 600;
       color: rgba(0, 0, 0, 0.72);
     }
 
-    .settings-fieldset {
-      border: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .settings-legend {
-      font-size: 0.875rem;
+    .settings-field-label {
+      font-size: 0.85rem;
       font-weight: 500;
       color: var(--pt-text);
-      margin-bottom: 10px;
-      padding: 0;
     }
 
-    .settings-radio-label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.875rem;
+    .settings-select {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 44px;
+      padding: 6px 26px 6px 10px;
+      font: inherit;
+      font-size: 0.85rem;
+      border: 1.5px solid rgba(0, 0, 0, 0.14);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.03);
       color: var(--pt-text);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
       cursor: pointer;
-      min-height: 28px;
     }
 
-    .settings-radio-label input[type="radio"] {
-      width: 18px;
-      height: 18px;
-      accent-color: var(--pt-accent);
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-
-    .settings-radio-label:focus-within {
+    .settings-select:focus-visible {
       outline: 2px solid var(--pt-accent);
       outline-offset: 2px;
-      border-radius: 4px;
     }
 
     .settings-hint {
-      margin: 6px 0 0;
+      margin: 2px 0 0;
       font-size: 0.8rem;
       color: var(--pt-text-muted);
       line-height: 1.4;
@@ -2088,7 +2083,7 @@ export class CoachBoard extends LitElement {
           <div class="menu-nav-divider"></div>
 
           ${this._viewMode !== 'readonly' ? html`
-            ${menuItem('Settings', html`<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v1.5M10 16.5V18M2 10h1.5M16.5 10H18M4.22 4.22l1.06 1.06M14.72 14.72l1.06 1.06M4.22 15.78l1.06-1.06M14.72 5.28l1.06-1.06"/></svg>`,
+            ${menuItem('Settings', html`<svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m112.5 637.5h117.84c16.781 66.188 76.359 112.5 144.66 112.5 68.301 0 127.87-46.312 144.66-112.5h567.84c20.719 0 37.5-16.781 37.5-37.5s-16.781-37.5-37.5-37.5h-567.84c-16.781-66.188-76.359-112.5-144.66-112.5-68.301 0-127.87 46.312-144.66 112.5h-117.84c-20.719 0-37.5 16.781-37.5 37.5s16.781 37.5 37.5 37.5zm262.5-112.5c30.328 0 57.703 18.281 69.281 46.312 11.625 28.031 5.2031 60.281-16.266 81.703-21.422 21.469-53.672 27.891-81.703 16.266-28.031-11.578-46.312-38.953-46.312-69.281 0.046875-41.391 33.609-74.953 75-75z"/><path d="m112.5 262.5h567.84c16.781 66.188 76.359 112.5 144.66 112.5s127.87-46.312 144.66-112.5h117.84c20.719 0 37.5-16.781 37.5-37.5s-16.781-37.5-37.5-37.5h-117.84c-16.781-66.188-76.359-112.5-144.66-112.5s-127.87 46.312-144.66 112.5h-567.84c-20.719 0-37.5 16.781-37.5 37.5s16.781 37.5 37.5 37.5zm712.5-112.5c30.328 0 57.703 18.281 69.281 46.312 11.625 28.031 5.2031 60.281-16.266 81.703-21.422 21.469-53.672 27.891-81.703 16.266-28.031-11.578-46.312-38.953-46.312-69.281 0.046875-41.391 33.609-74.953 75-75z"/><path d="m112.5 1012.5h567.84c16.781 66.188 76.359 112.5 144.66 112.5s127.87-46.312 144.66-112.5h117.84c20.719 0 37.5-16.781 37.5-37.5s-16.781-37.5-37.5-37.5h-117.84c-16.781-66.188-76.359-112.5-144.66-112.5s-127.87 46.312-144.66 112.5h-567.84c-20.719 0-37.5 16.781-37.5 37.5s16.781 37.5 37.5 37.5zm712.5-112.5c30.328 0 57.703 18.281 69.281 46.312 11.625 28.031 5.2031 60.281-16.266 81.703-21.422 21.469-53.672 27.891-81.703 16.266-28.031-11.578-46.312-38.953-46.312-69.281 0.046875-41.391 33.609-74.953 75-75z"/></svg>`,
               () => this.#showSettings())}
             <div class="menu-nav-divider"></div>
           ` : nothing}
@@ -2804,27 +2799,17 @@ export class CoachBoard extends LitElement {
         ?open="${this._settingsOpen}"
         heading="Settings"
         @close="${() => { this._settingsOpen = false; }}">
-        <div class="settings-section">
-          <h3 class="settings-section-heading">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" viewBox="0 0 16 16"><line x1="2" y1="5" x2="14" y2="5"/><line x1="2" y1="11" x2="14" y2="11"/><circle cx="5.5" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="10.5" cy="11" r="1.5" fill="currentColor" stroke="none"/></svg>
-            Units
-          </h3>
-          <fieldset class="settings-fieldset">
-            <legend class="settings-legend">Distance</legend>
-            <label class="settings-radio-label">
-              <input type="radio" name="cb-distance-unit" value="m"
-                     ?checked="${this._measureUnit === 'm'}"
-                     @change="${() => this.#setMeasureUnit('m')}">
-              Meters (m)
-            </label>
-            <label class="settings-radio-label">
-              <input type="radio" name="cb-distance-unit" value="yd"
-                     ?checked="${this._measureUnit === 'yd'}"
-                     @change="${() => this.#setMeasureUnit('yd')}">
-              Yards (yd)
-            </label>
+        <div class="settings-content">
+          <div class="settings-section">
+            <h3 class="settings-section-heading">Units</h3>
+            <label class="settings-field-label" for="settings-distance-unit">Distance</label>
+            <select id="settings-distance-unit" class="settings-select"
+                    @change="${(e: Event) => this.#setMeasureUnit((e.target as HTMLSelectElement).value as 'm' | 'yd')}">
+              <option value="m" ?selected="${this._measureUnit === 'm'}">Meters (m)</option>
+              <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards (yd)</option>
+            </select>
             <p class="settings-hint">Applies to the Measure tool and any future distance displays.</p>
-          </fieldset>
+          </div>
         </div>
       </cb-side-sheet>
 
