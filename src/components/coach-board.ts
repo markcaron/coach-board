@@ -2808,7 +2808,7 @@ export class CoachBoard extends LitElement {
               <option value="m" ?selected="${this._measureUnit === 'm'}">Meters (m)</option>
               <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards (yd)</option>
             </select>
-            <p class="settings-hint">Applies to the Measure tool and any future distance displays.</p>
+            <p class="settings-hint">Applies to the Measure tool.</p>
           </div>
         </div>
       </cb-side-sheet>
