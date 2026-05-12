@@ -805,7 +805,8 @@ export class CbToolbar extends LitElement {
       outline-offset: 2px;
     }
 
-    .ctx-trigger-btn[aria-pressed="true"] {
+    .ctx-trigger-btn[aria-pressed="true"],
+    .ctx-icon-btn[aria-expanded="true"] {
       background: var(--pt-border);
       border-color: var(--pt-border);
       color: var(--pt-text-white);
