@@ -146,7 +146,7 @@ export class CoachBoard extends LitElement {
       overflow: hidden;
       overscroll-behavior: none;
       --panel-w: min(280px, 85vw);
-      touch-action: manipulation;
+      touch-action: none;
       --color-blue: var(--pt-color-blue-400);
       --color-red: var(--pt-color-red-400);
       --color-yellow: var(--pt-color-yellow-400);
@@ -2452,6 +2452,22 @@ export class CoachBoard extends LitElement {
               </div>
             ` : nothing}
           </div>
+
+          ${(this._viewTransform.scale !== 1 || this._viewTransform.x !== 0 || this._viewTransform.y !== 0) ? html`
+            <hr class="sidebar-divider" />
+            <button class="sidebar-tool"
+                    title="Reset view (0)"
+                    aria-label="Reset view"
+                    @click="${this.#resetView}">
+              ${svg`<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <circle cx="10" cy="10" r="3"/>
+                <line x1="10" y1="1" x2="10" y2="5"/>
+                <line x1="10" y1="15" x2="10" y2="19"/>
+                <line x1="1" y1="10" x2="5" y2="10"/>
+                <line x1="15" y1="10" x2="19" y2="10"/>
+              </svg>`}
+            </button>
+          ` : nothing}
 
           </div><!-- .sidebar-tools -->
 
