@@ -128,7 +128,7 @@ export class CbBoardSummary extends LitElement {
       margin-bottom: 0;
       padding: 4px;
       border-radius: 6px 6px 0 0;
-      background: #f2f2f2;
+      background: var(--pt-color-gray-10);
       border: 1px solid var(--pt-color-gray-200);
     }
 
@@ -139,7 +139,7 @@ export class CbBoardSummary extends LitElement {
       min-width: 34px;
       min-height: 34px;
       padding: 4px 7px;
-      background: white;
+      background: var(--pt-color-white);
       border: 1px solid var(--pt-color-gray-150);
       border-radius: 4px;
       color: rgba(0, 0, 0, 0.65);
@@ -343,6 +343,7 @@ export class CbBoardSummary extends LitElement {
 
   @state() private _expanded = false;
   @state() private _preview = false;
+  @state() private _toolbarFocusIdx = 0;
 
   #emit<T>(name: string, detail?: T) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
@@ -361,13 +362,19 @@ export class CbBoardSummary extends LitElement {
     const toolbar = e.currentTarget as HTMLElement;
     const btns = Array.from(toolbar.querySelectorAll<HTMLElement>('button'));
     const idx = btns.indexOf(e.target as HTMLElement);
+    if (idx === -1) return;
+    let next = idx;
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      btns[(idx + 1) % btns.length]?.focus();
+      next = (idx + 1) % btns.length;
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      btns[(idx - 1 + btns.length) % btns.length]?.focus();
+      next = (idx - 1 + btns.length) % btns.length;
+    } else {
+      return;
     }
+    this._toolbarFocusIdx = next;
+    this.updateComplete.then(() => btns[next]?.focus());
   }
 
   #getTextarea() {
@@ -599,25 +606,25 @@ export class CbBoardSummary extends LitElement {
              aria-controls="cb-board-summary-notes"
              @keydown="${this.#onToolbarKeyDown}">
           <button class="notes-tool-btn" aria-label="Bold" title="Bold"
-                  tabindex="0"
+                  tabindex="${this._toolbarFocusIdx === 0 ? 0 : -1}"
                   @click="${() => this.#insertMark('**')}">${this.#iconBold()}</button>
           <button class="notes-tool-btn" aria-label="Italic" title="Italic"
-                  tabindex="-1"
+                  tabindex="${this._toolbarFocusIdx === 1 ? 0 : -1}"
                   @click="${() => this.#insertMark('*')}">${this.#iconItalic()}</button>
           <div class="notes-tool-sep" role="separator"></div>
           <button class="notes-tool-btn" aria-label="H2 heading" title="H2 heading (##)"
-                  tabindex="-1"
+                  tabindex="${this._toolbarFocusIdx === 2 ? 0 : -1}"
                   @click="${() => this.#insertLinePrefix('## ')}">H2</button>
           <div class="notes-tool-sep" role="separator"></div>
           <button class="notes-tool-btn" aria-label="Bullet list" title="Bullet list"
-                  tabindex="-1"
+                  tabindex="${this._toolbarFocusIdx === 3 ? 0 : -1}"
                   @click="${() => this.#insertLinePrefix('- ')}">${this.#iconBulletList()}</button>
           <button class="notes-tool-btn" aria-label="Numbered list" title="Numbered list"
-                  tabindex="-1"
+                  tabindex="${this._toolbarFocusIdx === 4 ? 0 : -1}"
                   @click="${() => this.#insertLinePrefix('1. ')}">${this.#iconNumberedList()}</button>
           <div class="notes-tool-sep" role="separator"></div>
           <button class="notes-tool-btn" aria-label="Horizontal rule" title="Horizontal rule"
-                  tabindex="-1"
+                  tabindex="${this._toolbarFocusIdx === 5 ? 0 : -1}"
                   @click="${() => this.#insertHr()}">—</button>
         </div>
         <textarea class="notes-textarea"
