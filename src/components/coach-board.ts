@@ -627,14 +627,24 @@ export class CoachBoard extends LitElement {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 48px;
-      border-radius: 8px;
+      margin-block: 2px;
+      width: 42px;
+      border-radius: 10px;
       overflow: visible; /* dropdown menus escape the track */
+      background: none;
     }
 
-    /* Inset bottom glow when the context section is present */
+    /* Select button sits on toolbar bg, flush with the track edges */
+    .select-track .sidebar-tool {
+      margin: 0;
+      background: var(--pt-bg-toolbar);
+    }
+
+    /* Track body becomes a recessed card when context is present */
     .select-track:has(cb-toolbar) {
-      box-shadow: inset 0 -2px 4px rgba(255, 255, 255, 0.08);
+      box-shadow: rgba(255, 255, 255, 0.2) 0px -1px 0 inset;
+      padding-block: 1px 2px;
+      background: var(--pt-bg-primary);
     }
 
     /* Fade in the inline context on selection */
