@@ -1616,19 +1616,16 @@ export class CoachBoard extends LitElement {
           z-index: 999999;
           display: none;
           align-items: center;
-          gap: 6px;
-          padding: 0 18px;
+          justify-content: center;
+          width: 44px;
           height: 44px;
-          border-radius: 22px;
+          border-radius: 50%;
           background: var(--pt-accent, #1a73e8);
           color: var(--pt-text-white, #fff);
           border: none;
-          font-family: system-ui, sans-serif;
-          font-size: 0.875rem;
-          font-weight: 600;
           cursor: pointer;
           box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
-          white-space: nowrap;
+          touch-action: manipulation;
         }
         .cb-zoom-escape-btn.cb-active { display: flex; }
         .cb-zoom-escape-btn:focus-visible {
@@ -1642,7 +1639,9 @@ export class CoachBoard extends LitElement {
     const btn = document.createElement('button');
     btn.className = 'cb-zoom-escape-btn';
     btn.setAttribute('aria-label', 'Reset browser zoom');
-    btn.innerHTML = `<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3h5M3 3v5M17 3h-5M17 3v5M3 17h5M3 17v-5M17 17h-5M17 17v-5"/></svg>Reset zoom`;
+    // Icon-only: avoids text wrapping at 2× native zoom (text label would be
+    // ~400 physical px wide and crop off-screen). aria-label carries the name.
+    btn.innerHTML = `<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3h5M3 3v5M17 3h-5M17 3v5M3 17h5M3 17v-5M17 17h-5M17 17v-5"/></svg>`;
     btn.addEventListener('click', () => this.#resetNativeZoom());
     document.body.appendChild(btn);
     this.#zoomEscapeBtn = btn;
@@ -1668,13 +1667,18 @@ export class CoachBoard extends LitElement {
   };
 
   #resetNativeZoom() {
+    // iOS 10+ ignores maximum-scale / user-scalable changes via .content =
+    // to protect accessibility. The only reliable workaround is to remove and
+    // re-insert the <meta name="viewport"> element — this forces iOS Safari to
+    // re-parse it and snap the viewport back to initial-scale=1.
     const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-    if (!meta) return;
-    const saved = meta.content;
-    // Temporarily locking scale to 1 forces iOS Safari to snap back,
-    // then we restore the original content so pinch-zoom remains available.
-    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-    setTimeout(() => { meta.content = saved; }, 100);
+    if (!meta?.parentNode) return;
+    const parent = meta.parentNode;
+    parent.removeChild(meta);
+    // One rAF to let the DOM mutation register, then restore.
+    requestAnimationFrame(() => {
+      parent.appendChild(meta);
+    });
   }
 
   #onWheel(e: WheelEvent) {
@@ -2000,6 +2004,10 @@ export class CoachBoard extends LitElement {
     window.visualViewport?.addEventListener('resize', this.#onVisualViewportChange);
     window.visualViewport?.addEventListener('scroll', this.#onVisualViewportChange);
     window.addEventListener('resize', this.#onVisualViewportChange);
+    // Extend double-tap zoom prevention to the full document (touch-action on
+    // :host only covers the shadow DOM; light DOM elements like the bottom bar
+    // buttons were still reachable by double-tap without this).
+    document.body.style.touchAction = 'manipulation';
     this.#initZoomEscape();
     // Poll every 500ms as a reliable fallback — iOS zoom scenarios vary in
     // which events they fire, but property reads always reflect current state.
@@ -2033,6 +2041,7 @@ export class CoachBoard extends LitElement {
     if (this.#zoomPollTimer) { clearInterval(this.#zoomPollTimer); this.#zoomPollTimer = null; }
     this.#zoomEscapeBtn?.remove();
     this.#zoomEscapeBtn = null;
+    document.body.style.touchAction = '';
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
     this.#stopPlayback();
