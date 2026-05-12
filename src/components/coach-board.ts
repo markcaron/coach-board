@@ -3008,6 +3008,7 @@ export class CoachBoard extends LitElement {
       <cb-side-sheet
         ?open="${this._myBoardsOpen}"
         heading="My Boards"
+        .returnFocusEl="${this.#myBoardsReturnFocus}"
         @close="${() => { this._myBoardsOpen = false; }}">
         <cb-my-boards
           .boards="${this._myBoards}"
@@ -3030,6 +3031,7 @@ export class CoachBoard extends LitElement {
       <cb-side-sheet
         ?open="${this._boardSummaryOpen}"
         heading="Board Summary"
+        .returnFocusEl="${this.#boardSummaryReturnFocus}"
         @close="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
         <cb-board-summary
           .summary="${this._boardSummaryData}"
@@ -3042,6 +3044,7 @@ export class CoachBoard extends LitElement {
       <cb-side-sheet
         ?open="${this._settingsOpen}"
         heading="Settings"
+        .returnFocusEl="${this.#settingsReturnFocus}"
         @close="${() => { this._settingsOpen = false; }}">
         <div class="settings-content">
           <div class="settings-section">
@@ -3446,13 +3449,31 @@ export class CoachBoard extends LitElement {
     };
   }
 
+  /** Capture the correct return-focus target before any state changes.
+   *  When the hamburger menu is open, return focus goes to the hamburger
+   *  toggle button (the menu item that was focused will be removed from
+   *  the DOM in the same render batch). Otherwise use the active element. */
+  #captureReturnFocus(): HTMLElement | null {
+    if (this._menuOpen) {
+      return this.renderRoot.querySelector<HTMLElement>('.context-hamburger') ?? null;
+    }
+    const el = document.activeElement as HTMLElement | null;
+    return el && el !== document.body ? el : null;
+  }
+
+  #settingsReturnFocus: HTMLElement | null = null;
+  #myBoardsReturnFocus: HTMLElement | null = null;
+  #boardSummaryReturnFocus: HTMLElement | null = null;
+
   #showBoardSummary() {
+    this.#boardSummaryReturnFocus = this.#captureReturnFocus();
     this._menuOpen = false;
     this._boardSummaryData = this.#getBoardSummary();
     this._boardSummaryOpen = true;
   }
 
   #showSettings() {
+    this.#settingsReturnFocus = this.#captureReturnFocus();
     this._menuOpen = false;
     this._settingsOpen = true;
   }
@@ -3569,6 +3590,7 @@ export class CoachBoard extends LitElement {
   }
 
   async #showMyBoards() {
+    this.#myBoardsReturnFocus = this.#captureReturnFocus();
     this._menuOpen = false;
     if (this.#currentBoard && !this.#currentBoard.thumbnail && this.#currentBoard.name !== 'Untitled Board') {
       const thumb = await this.#generateThumbnail();
