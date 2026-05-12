@@ -146,6 +146,7 @@ export class CoachBoard extends LitElement {
       overflow: hidden;
       overscroll-behavior: none;
       --panel-w: min(280px, 85vw);
+      /* Canvas app: all touch handling is managed by the app; no native scroll/zoom needed */
       touch-action: none;
       --color-blue: var(--pt-color-blue-400);
       --color-red: var(--pt-color-red-400);
@@ -2457,7 +2458,8 @@ export class CoachBoard extends LitElement {
             <hr class="sidebar-divider" />
             <button class="sidebar-tool"
                     title="Reset view (0)"
-                    aria-label="Reset view"
+                    aria-label="Reset view (0)"
+                    tabindex="${this._sidebarFocusIndex === 5 ? 0 : -1}"
                     @click="${this.#resetView}">
               ${svg`<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                 <circle cx="10" cy="10" r="3"/>
