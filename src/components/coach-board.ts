@@ -1910,7 +1910,7 @@ export class CoachBoard extends LitElement {
     document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
     this._isMobile = this.#mobileQuery.matches;
-    this._sidebarCollapsed = this.#mobileQuery.matches;
+    this._sidebarCollapsed = false;
     this.updateComplete.then(() => {
       this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
       const boardArea = this.renderRoot.querySelector('.board-area');
@@ -3875,7 +3875,6 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    if (!this._sidebarCollapsed && !this._sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     // Pan tool — use client-pixel delta so the SVG-unit/pixel ratio stays constant
