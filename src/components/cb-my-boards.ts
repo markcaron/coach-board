@@ -21,6 +21,7 @@ import type { AuthUser } from '../lib/cloud-sync.js';
  *   - cb-handle-delete-board     { board: SavedBoard }
  *   - cb-import-svg              (no detail)
  *   - cb-export-all-boards       (no detail)
+ *   - cb-open-settings           (no detail)
  *
  *  Templates tab:
  *   - cb-use-template            { template: UserTemplate }
@@ -329,6 +330,29 @@ export class CbMyBoards extends LitElement {
       color: rgba(0, 0, 0, 0.6);
     }
 
+    .alert-inline-btn {
+      display: inline;
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      font-size: inherit;
+      color: var(--pt-btn-primary);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .alert-inline-btn:hover {
+      color: var(--pt-btn-primary-hover);
+      text-decoration: underline;
+    }
+
+    .alert-inline-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
     .cloud-backup-bar {
       border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     }
@@ -596,13 +620,6 @@ export class CbMyBoards extends LitElement {
         </div>
 
         <div class="data-section">
-          ${!this.authUser ? html`
-            <div class="alert alert-info">
-              ${this.#infoIcon()}
-              <p>All board data is saved to your browser's local storage.
-                 Sign in via Settings to enable cloud backup.</p>
-            </div>
-          ` : nothing}
           <button class="action-btn-full" @click="${() => this.#emit('cb-import-svg')}">
             ${this.#importIcon()}
             Import from SVG
@@ -713,7 +730,14 @@ export class CbMyBoards extends LitElement {
           ${this.#infoIcon()}
           <p>Boards and templates are saved locally and backed up to the cloud as <strong>${this.authUser.email}</strong>.</p>
         </div>
-      ` : nothing}
+      ` : html`
+        <div class="alert alert-info cloud-backup-bar">
+          ${this.#infoIcon()}
+          <p>All board data is saved to your browser's local storage.
+             Sign in via <button class="alert-inline-btn"
+               @click="${() => this.#emit('cb-open-settings')}">Settings</button> to enable cloud backup.</p>
+        </div>
+      `}
 
       ${this.#renderBoardsPanel(this._activeTab === 'boards')}
       ${this.#renderTemplatesPanel(this._activeTab === 'templates')}
