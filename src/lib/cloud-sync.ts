@@ -22,12 +22,16 @@ export interface AuthUser {
  * current auth state (null = signed out), and again whenever it changes.
  */
 export function initAuth(onAuthChange: (user: AuthUser | null) => void): void {
-  // Register listeners BEFORE calling init() so the 'init' event isn't missed
-  // if the widget fires it synchronously (e.g. when a session is already cached).
-  netlifyIdentity.on('init', u => onAuthChange(u ? toAuthUser(u) : null));
   netlifyIdentity.on('login', u => { netlifyIdentity.close(); onAuthChange(toAuthUser(u)); });
   netlifyIdentity.on('logout', () => onAuthChange(null));
+  netlifyIdentity.on('init', u => onAuthChange(u ? toAuthUser(u) : null));
   netlifyIdentity.init();
+  // The GoTrue client restores a cached session from localStorage synchronously
+  // when the module is imported — before connectedCallback registers this handler,
+  // meaning the 'init' event is always missed on page reload. Read the current
+  // user directly as a belt-and-suspenders fallback.
+  const cached = netlifyIdentity.currentUser();
+  if (cached) onAuthChange(toAuthUser(cached));
 }
 
 export function openSignIn(): void {
