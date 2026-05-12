@@ -174,6 +174,7 @@ export class CbMyBoards extends LitElement {
     .board-info {
       flex: 1;
       min-width: 0;
+      overflow: hidden;
     }
 
     .board-title {

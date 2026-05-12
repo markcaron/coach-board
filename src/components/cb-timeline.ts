@@ -287,7 +287,7 @@ export class CbTimeline extends LitElement {
       background: var(--pt-bg-surface);
       color: var(--pt-text);
       font: inherit;
-      font-size: 0.85rem;
+      font-size: 1rem;
       font-weight: bold;
       cursor: pointer;
     }
