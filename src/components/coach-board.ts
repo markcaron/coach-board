@@ -643,6 +643,11 @@ export class CoachBoard extends LitElement {
       background: var(--pt-bg-toolbar);
     }
 
+    /* Give the Select button some breathing room above the context section */
+    .select-track:has(cb-toolbar) .sidebar-tool {
+      margin-bottom: 4px;
+    }
+
     /* Track body becomes a recessed card when context is present */
     .select-track:has(cb-toolbar) {
       box-shadow: rgba(255, 255, 255, 0.2) 0px -1px 0 inset;

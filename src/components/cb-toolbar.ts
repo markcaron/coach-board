@@ -806,8 +806,8 @@ export class CbToolbar extends LitElement {
     }
 
     .ctx-trigger-btn[aria-pressed="true"] {
-      background: var(--pt-accent);
-      border-color: var(--pt-accent);
+      background: var(--pt-border);
+      border-color: var(--pt-border);
       color: var(--pt-text-white);
     }
 
