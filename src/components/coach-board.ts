@@ -327,7 +327,7 @@ export class CoachBoard extends LitElement {
     .settings-field-label {
       font-size: 0.85rem;
       font-weight: 500;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
     }
 
     .settings-select {
@@ -337,10 +337,10 @@ export class CoachBoard extends LitElement {
       padding: 6px 26px 6px 10px;
       font: inherit;
       font-size: 0.85rem;
-      border: 1.5px solid rgba(0, 0, 0, 0.14);
+      border: 1.5px solid rgba(0, 0, 0, 0.28);
       border-radius: 6px;
       background: rgba(0, 0, 0, 0.03);
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
@@ -356,7 +356,7 @@ export class CoachBoard extends LitElement {
     .settings-hint {
       margin: 2px 0 0;
       font-size: 0.8rem;
-      color: var(--pt-text-muted);
+      color: var(--pt-text-on-light);
       line-height: 1.4;
     }
 
