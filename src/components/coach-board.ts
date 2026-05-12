@@ -306,6 +306,7 @@ export class CoachBoard extends LitElement {
       /* Neutralise toast animations; JS dismiss delay is also skipped (see handler) */
       .update-toast,
       .update-toast.toast-dismissing { animation: none; }
+      .select-track cb-toolbar { animation: none; }
     }
 
     /* ── Locked sidebar (JS-driven, .sidebar-locked class) ────────── */
@@ -621,12 +622,29 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
     }
 
-    .sidebar-divider {
-      width: 40px;
-      border: none;
-      border-top: 1px solid rgba(0, 0, 0, 0.35);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-      margin: 4px 0;
+    /* Select tool + inline context as one continuous track */
+    .select-track {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 48px;
+      border-radius: 8px;
+      overflow: visible; /* dropdown menus escape the track */
+    }
+
+    /* Inset bottom glow when the context section is present */
+    .select-track:has(cb-toolbar) {
+      box-shadow: inset 0 -2px 4px rgba(255, 255, 255, 0.08);
+    }
+
+    /* Fade in the inline context on selection */
+    .select-track cb-toolbar {
+      animation: ctx-slot-in 0.15s ease-out both;
+    }
+
+    @keyframes ctx-slot-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     .context-bar cb-toolbar {
@@ -2193,7 +2211,8 @@ export class CoachBoard extends LitElement {
                ?inert="${this._sidebarCollapsed}"
                @keydown="${this.#onSidebarToolKeyDown}">
 
-          <!-- Select (with submenu: Select / Multi-select) -->
+          <!-- Select + inline context track -->
+          <div class="select-track">
           <div class="sidebar-dropdown-wrap">
             <button class="sidebar-tool has-submenu"
                     title="${t === 'pan' ? 'Hand' : this._multiSelect ? 'Multi-select' : 'Select'}"
@@ -2233,7 +2252,27 @@ export class CoachBoard extends LitElement {
                 </button>
               </div>
             ` : nothing}
-          </div>
+          </div><!-- .sidebar-dropdown-wrap (select) -->
+
+          ${this.selectedIds.size > 0 ? html`
+            <cb-toolbar
+              sidebar-context
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}"
+              @z-order="${this.#onZOrder}">
+            </cb-toolbar>
+          ` : nothing}
+          </div><!-- .select-track -->
 
           <!-- Player (with submenu: Team A / Team B / Neutral) -->
           <div class="sidebar-dropdown-wrap">
@@ -2454,26 +2493,6 @@ export class CoachBoard extends LitElement {
           </div>
 
           </div><!-- .sidebar-tools -->
-
-          ${this.selectedIds.size > 0 ? html`
-            <hr class="sidebar-divider" />
-            <cb-toolbar
-              sidebar-context
-              .selectedItems="${this.#selectedItems}"
-              .fieldTheme="${this.fieldTheme}"
-              @player-update="${this.#onPlayerUpdate}"
-              @equipment-update="${this.#onEquipmentUpdate}"
-              @line-update="${this.#onLineUpdate}"
-              @shape-update="${this.#onShapeUpdate}"
-              @text-update="${this.#onTextUpdate}"
-              @align-items="${this.#onAlignItems}"
-              @group-items="${this.#onGroupItems}"
-              @ungroup-items="${this.#onUngroupItems}"
-              @delete-items="${this.#onDeleteItems}"
-              @rotate-items="${this.#onRotateItems}"
-              @z-order="${this.#onZOrder}">
-            </cb-toolbar>
-          ` : nothing}
 
         </nav><!-- .sidebar -->
           <div class="field-wrap">

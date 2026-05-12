@@ -2369,7 +2369,6 @@ export class CbToolbar extends LitElement {
       ` : nothing}
 
       ${this.selectedItems.length >= 1 ? html`
-        ${hasGroupA || this.#hasRotatable ? html`<hr class="ctx-sep" />` : nothing}
         ${this.#renderSidebarArrangement()}
       ` : nothing}
 
