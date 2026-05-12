@@ -10,6 +10,7 @@ export class CbShare extends LitElement {
   static styles = css`
     :host {
       display: contents;
+      touch-action: manipulation;
     }
 
     dialog:not([open]) {
