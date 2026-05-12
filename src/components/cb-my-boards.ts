@@ -197,7 +197,7 @@ export class CbMyBoards extends LitElement {
       font-size: 0.9rem;
       font-weight: 500;
       color: inherit;
-      background: var(--pt-bg-body, #f5f5f5);
+      background: white;
       border: 1px solid var(--pt-accent);
       border-radius: 4px;
       padding: 4px 6px;
