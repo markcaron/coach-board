@@ -4,13 +4,16 @@ import { customElement, state, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { parseNotes } from '../lib/notes-parser.js';
 
 import type { Player, Line, Equipment, Shape, TextItem, Tool, LineStyle, EquipmentKind, ShapeKind, Team, FieldTheme, PitchType, AnimationFrame, FramePosition, TrailControlPoints } from '../lib/types.js';
 import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, PLAYER_COLORS_WHITE, CONE_COLORS, CONE_COLORS_WHITE } from '../lib/types.js';
 import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { uid, ensureMinId } from '../lib/svg-utils.js';
-import { saveBoard, loadBoard, listBoards, deleteBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, type SavedBoard } from '../lib/board-store.js';
+import { saveBoard, loadBoard, listBoards, deleteBoard, renameBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
+import { initAuth, openSignIn, signOut, cloudSyncBoard, cloudDeleteBoard, cloudSyncTemplate, cloudDeleteTemplate, type AuthUser } from '../lib/cloud-sync.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
@@ -300,12 +303,138 @@ export class CoachBoard extends LitElement {
 
     .menu-spacer { flex: 1; }
 
+    /* ── Settings side-sheet content ────────────────────────────────── */
+    .settings-content {
+      padding: 20px;
+    }
+
+    .settings-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .settings-section + .settings-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .settings-section-heading {
+      margin: 0 0 4px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(0, 0, 0, 0.72);
+    }
+
+    .settings-field-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--pt-text-on-inverted);
+    }
+
+    .settings-select {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 44px;
+      padding: 6px 26px 6px 10px;
+      font: inherit;
+      font-size: 0.85rem;
+      border: 1px solid rgba(0, 0, 0, 0.28);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.03);
+      color: var(--pt-text-on-inverted);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      cursor: pointer;
+    }
+
+    .settings-select:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .settings-hint {
+      margin: 2px 0 0;
+      font-size: 0.8rem;
+      color: var(--pt-text-on-light);
+      line-height: 1.4;
+    }
+
+    .settings-hint--mt {
+      margin-top: 3px;
+    }
+
+    /* ── Account section (Cloud Backup) ──────────────────────────────── */
+    .settings-account-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 2px 0 4px;
+    }
+
+    .settings-account-row svg {
+      flex-shrink: 0;
+      margin-top: 1px;
+      color: var(--pt-accent);
+    }
+
+    .settings-account-email {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--pt-text-on-inverted);
+      word-break: break-all;
+    }
+
+    .settings-account-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--pt-success-hover);
+      background: var(--pt-success-hover);
+      color: var(--pt-text-white);
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .settings-account-btn:hover {
+      background: var(--pt-success-btn-hover);
+      border-color: var(--pt-success-btn-hover);
+    }
+
+    .settings-account-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
+    }
+
+    .settings-account-btn--signout {
+      background: transparent;
+      color: var(--pt-text-on-inverted);
+      border-color: rgba(0, 0, 0, 0.28);
+    }
+
+    .settings-account-btn--signout:hover {
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
+      color: var(--pt-text-white);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .app-wrap { transition: transform 150ms ease; }
       .sidebar  { transition: none; }
       /* Neutralise toast animations; JS dismiss delay is also skipped (see handler) */
       .update-toast,
       .update-toast.toast-dismissing { animation: none; }
+      .select-track cb-toolbar { animation: none; }
     }
 
     /* ── Locked sidebar (JS-driven, .sidebar-locked class) ────────── */
@@ -621,12 +750,47 @@ export class CoachBoard extends LitElement {
       flex-shrink: 0;
     }
 
-    .sidebar-divider {
-      width: 40px;
-      border: none;
-      border-top: 1px solid rgba(0, 0, 0, 0.35);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-      margin: 4px 0;
+    /* Select tool + inline context as one continuous track */
+    .select-track {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-block: 2px;
+      width: 42px;
+      border-radius: 10px;
+      overflow: visible; /* dropdown menus escape the track */
+      background: none;
+    }
+
+    /* Select button sits on toolbar bg, flush with the track edges */
+    .select-track .sidebar-tool {
+      margin: 0;
+    }
+
+    .select-track .sidebar-tool:not([aria-pressed="true"]) {
+      background: var(--pt-bg-toolbar);
+    }
+
+    /* Give the Select button some breathing room above the context section */
+    .select-track:has(cb-toolbar) .sidebar-tool {
+      margin-bottom: 4px;
+    }
+
+    /* Track body becomes a recessed card when context is present */
+    .select-track:has(cb-toolbar) {
+      box-shadow: rgba(255, 255, 255, 0.2) 0px -1px 0 inset;
+      padding-block: 1px 2px;
+      background: var(--pt-bg-primary);
+    }
+
+    /* Fade in the inline context on selection */
+    .select-track cb-toolbar {
+      animation: ctx-slot-in 0.15s ease-out both;
+    }
+
+    @keyframes ctx-slot-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     .context-bar cb-toolbar {
@@ -861,6 +1025,37 @@ export class CoachBoard extends LitElement {
     .bottom-bar button.icon-btn {
       padding: 6px 8px;
       min-width: 44px;
+    }
+
+    .auth-avatar-btn {
+      width: 34px;
+      height: 34px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--pt-color-blue-450);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: var(--pt-text-white);
+      /* 1.25rem bold ≈ 15pt bold — qualifies as WCAG large text so
+         the 3.97:1 contrast against #2e86c1 clears the 3:1 AA threshold. */
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .auth-avatar-btn:hover {
+      filter: brightness(0.85);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .auth-avatar-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .bottom-bar button:disabled {
@@ -1102,7 +1297,39 @@ export class CoachBoard extends LitElement {
     }
 
     .notes-body {
-      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+
+    .notes-body h2 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin: 8px 0 3px;
+    }
+
+    .notes-body h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin: 6px 0 2px;
+    }
+
+    .notes-body p {
+      margin: 0 0 5px;
+    }
+
+    .notes-body ul,
+    .notes-body ol {
+      margin: 0 0 5px;
+      padding-left: 18px;
+    }
+
+    .notes-body li {
+      margin: 2px 0;
+    }
+
+    .notes-body hr {
+      border: none;
+      border-top: 1px solid rgba(0, 0, 0, 0.15);
+      margin: 8px 0;
     }
 
   `];
@@ -1127,8 +1354,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _fieldMenuOpen: boolean = false;
   #fieldMenuTrigger: HTMLElement | null = null;
   @state() private accessor _sidebarMenu: 'player' | 'equipment' | 'draw' | 'select' | 'more' | null = null;
-  @state() private accessor _sidebarCollapsed: boolean = false; // set correctly in connectedCallback via #mobileQuery
-  #sidebarCollapseTimer: ReturnType<typeof setTimeout> | null = null;
+  @state() private accessor _sidebarCollapsed: boolean = false; // always starts open; only the grab handle closes it
   @state() private accessor _sidebarFocusIndex: number = 0;
   @state() private accessor _isMobile: boolean = window.innerWidth <= 768;
   @state() private accessor _multiSelect: boolean = false;
@@ -1136,8 +1362,13 @@ export class CoachBoard extends LitElement {
   @state() private accessor _viewTransform = { x: 0, y: 0, scale: 1 };
   @state() private accessor _myBoardsOpen: boolean = false;
   @state() private accessor _myBoards: SavedBoard[] = [];
+  @state() private accessor _userTemplates: UserTemplate[] = [];
+  /** Template pending deletion — held until the confirm dialog resolves. */
+  #pendingDeleteTemplate: UserTemplate | null = null;
   @state() private accessor _boardSummaryOpen: boolean = false;
   @state() private accessor _boardSummaryData: BoardSummary | null = null;
+  @state() private accessor _settingsOpen: boolean = false;
+  @state() private accessor _authUser: AuthUser | null = null;
   @state() private accessor _rotateHandleId: string | null = null;
   @state() private accessor _animationMode: boolean = false;
   @state() accessor animationFrames: AnimationFrame[] = [];
@@ -1164,6 +1395,7 @@ export class CoachBoard extends LitElement {
 
   #pendingOpenBoardId: string | null = null;
   #pendingDeleteBoard: SavedBoard | null = null;
+  #pendingTemplateApply: UserTemplate | null = null;
   #playBtnTimeout: ReturnType<typeof setTimeout> | null = null;
   #groupDrag: GroupDragState | null = null;
   #handleDrag: HandleDragState | null = null;
@@ -1248,54 +1480,61 @@ export class CoachBoard extends LitElement {
     }
   };
 
+  // Builds the ordered navigable item list for the sidebar toolbar, including
+  // cb-toolbar[sidebar-context] shadow-DOM buttons inserted after the Select button.
+  // This makes .select-track a full participant in the [role="toolbar"] widget.
+  #sidebarNavItems(): HTMLElement[] {
+    const lightTools = Array.from(
+      this.renderRoot.querySelectorAll<HTMLElement>('.sidebar-tools .sidebar-tool')
+    );
+    const ctxHost = this.renderRoot.querySelector<HTMLElement>('.select-track cb-toolbar');
+    const ctxBtns: HTMLElement[] = ctxHost?.shadowRoot
+      ? Array.from(ctxHost.shadowRoot.querySelectorAll<HTMLElement>('.ctx-trigger-btn, .ctx-icon-btn'))
+      : [];
+    // Composite order: Select, [context buttons], Player, Equipment, Line, More
+    return lightTools.length ? [lightTools[0], ...ctxBtns, ...lightTools.slice(1)] : lightTools;
+  }
+
   #onSidebarToolKeyDown = (e: KeyboardEvent) => {
-    if (!(e.target as HTMLElement).classList.contains('sidebar-tool')) return;
-    const toolbar = e.currentTarget as HTMLElement;
-    const tools = Array.from(toolbar.querySelectorAll('.sidebar-tool')) as HTMLElement[];
-    const toolCount = tools.length;
+    const target = e.target as HTMLElement;
+    // Shadow-DOM keydown events are retargeted to the cb-toolbar host at the boundary
+    const isCtxHost = target.hasAttribute('sidebar-context');
+    if (!target.classList.contains('sidebar-tool') && !isCtxHost) return;
+
+    const items = this.#sidebarNavItems();
+    if (!items.length) return;
+
+    // Pierce shadow root to find the actually-focused button inside cb-toolbar
+    const activeEl = (isCtxHost
+      ? (target as HTMLElement).shadowRoot?.activeElement ?? target
+      : target) as HTMLElement;
+    const currentIdx = items.indexOf(activeEl);
+
+    const lightTools = Array.from(
+      this.renderRoot.querySelectorAll<HTMLElement>('.sidebar-tools .sidebar-tool')
+    );
+
+    const focusItem = (rawIdx: number) => {
+      e.preventDefault();
+      const next = items[(rawIdx + items.length) % items.length];
+      if (!next) return;
+      // Keep _sidebarFocusIndex in sync for light-DOM tools (roving tabindex)
+      const lightIdx = lightTools.indexOf(next);
+      if (lightIdx !== -1) this._sidebarFocusIndex = lightIdx;
+      next.focus();
+    };
+
     switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        this._sidebarFocusIndex = (this._sidebarFocusIndex + 1) % toolCount;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
-        });
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        this._sidebarFocusIndex = (this._sidebarFocusIndex - 1 + toolCount) % toolCount;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
-        });
-        break;
-      case 'Home':
-        e.preventDefault();
-        this._sidebarFocusIndex = 0;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[0] as HTMLElement)?.focus();
-        });
-        break;
-      case 'End':
-        e.preventDefault();
-        this._sidebarFocusIndex = toolCount - 1;
-        this.updateComplete.then(() => {
-          (this.renderRoot.querySelectorAll('.sidebar-tools .sidebar-tool')[this._sidebarFocusIndex] as HTMLElement)?.focus();
-        });
-        break;
+      case 'ArrowDown': focusItem(currentIdx >= 0 ? currentIdx + 1 : 1); break;
+      case 'ArrowUp':   focusItem(currentIdx >= 0 ? currentIdx - 1 : 0); break;
+      case 'Home':      focusItem(0); break;
+      case 'End':       focusItem(items.length - 1); break;
     }
   };
 
   #onSidebarPointerEnter = () => {
     if (!window.matchMedia('(hover: hover)').matches) return;
-    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this._sidebarCollapsed = false;
-  };
-
-  #onSidebarPointerLeave = () => {
-    if (!window.matchMedia('(hover: hover)').matches) return;
-    if (this._sidebarMenu !== null) return;
-    if (this._sidebar?.classList.contains('sidebar-locked')) return;
-    this.#sidebarCollapseTimer = setTimeout(() => { this._sidebarCollapsed = true; }, 500);
   };
 
   #mobileQuery = window.matchMedia('(max-width: 768px)');
@@ -1328,6 +1567,8 @@ export class CoachBoard extends LitElement {
   #onMobileChange = (e: MediaQueryListEvent) => {
     if (this.#isPrinting) return;
     this._isMobile = e.matches;
+    // Intentionally does not touch _sidebarCollapsed — sidebar visibility is
+    // user-controlled via the grab handle regardless of viewport breakpoint.
     if (this._viewMode === 'readonly') {
       if (e.matches && this.fieldOrientation === 'horizontal') {
         this.#rotateLoadedData('vertical');
@@ -1377,12 +1618,34 @@ export class CoachBoard extends LitElement {
   }
 
   get #anySheetOpen(): boolean {
-    return this._myBoardsOpen || this._boardSummaryOpen;
+    return this._myBoardsOpen || this._boardSummaryOpen || this._settingsOpen;
   }
 
   get #measureState(): MeasureState | null {
     if (!this._measureStart || !this._measureEnd) return null;
     return { x1: this._measureStart.x, y1: this._measureStart.y, x2: this._measureEnd.x, y2: this._measureEnd.y, unit: this._measureUnit };
+  }
+
+  // ── Cloud sync helpers (fire-and-forget; never block the UI) ──────────────
+
+  #cloudSaveBoard(board: SavedBoard): void {
+    if (!this._authUser) return;
+    cloudSyncBoard(board).catch(() => {});
+  }
+
+  #cloudDeleteBoard(id: string): void {
+    if (!this._authUser) return;
+    cloudDeleteBoard(id).catch(() => {});
+  }
+
+  #cloudSaveTemplate(template: UserTemplate): void {
+    if (!this._authUser) return;
+    cloudSyncTemplate(template).catch(() => {});
+  }
+
+  #cloudDeleteTemplate(id: string): void {
+    if (!this._authUser) return;
+    cloudDeleteTemplate(id).catch(() => {});
   }
 
   #saveToStorage() {
@@ -1411,6 +1674,7 @@ export class CoachBoard extends LitElement {
         }
       }
       saveBoard(this.#currentBoard!).catch(() => {});
+      this.#cloudSaveBoard(this.#currentBoard!);
       this.#saveTimer = null;
     }, 500);
   }
@@ -1910,7 +2174,7 @@ export class CoachBoard extends LitElement {
     document.addEventListener('pointerdown', this.#onDocClickForMenu);
     this.#mobileQuery.addEventListener('change', this.#onMobileChange);
     this._isMobile = this.#mobileQuery.matches;
-    this._sidebarCollapsed = this.#mobileQuery.matches;
+    this._sidebarCollapsed = false;
     this.updateComplete.then(() => {
       this.#sidebarLockObserver = new ResizeObserver(() => this.#updateSidebarLock());
       const boardArea = this.renderRoot.querySelector('.board-area');
@@ -1927,6 +2191,10 @@ export class CoachBoard extends LitElement {
       // Belt-and-suspenders for touch devices (older Safari ignores touch-action on SVG)
       document.addEventListener('touchstart', this.#boundTouchStart, { passive: false });
     });
+    // Extend double-tap zoom prevention to the full document. touch-action on
+    // :host only covers shadow DOM descendants; light DOM elements (bottom bar,
+    // toolbar) would still be reachable by iOS double-tap without this.
+    document.body.style.touchAction = 'manipulation';
     if (this._isMobile) {
       this.fieldOrientation = 'vertical';
     }
@@ -1940,6 +2208,8 @@ export class CoachBoard extends LitElement {
     this.#updateSW = registerSW({
       onNeedRefresh: () => { this._updateAvailable = true; },
     });
+
+    initAuth(user => { this._authUser = user; });
   }
 
   disconnectedCallback() {
@@ -1949,9 +2219,9 @@ export class CoachBoard extends LitElement {
     document.removeEventListener('wheel', this.#boundWheel);
     document.removeEventListener('touchstart', this.#boundTouchStart);
     this.#mobileQuery.removeEventListener('change', this.#onMobileChange);
+    document.body.style.touchAction = '';
     this.#sidebarLockObserver?.disconnect();
     this.#sidebarLockObserver = null;
-    if (this.#sidebarCollapseTimer) { clearTimeout(this.#sidebarCollapseTimer); this.#sidebarCollapseTimer = null; }
     this.#stopPlayback();
   }
 
@@ -2023,11 +2293,17 @@ export class CoachBoard extends LitElement {
             ${menuItem('Print Board', html`<svg viewBox="0 0 1600 1600" width="20" height="20" fill="currentColor"><path d="M995.402 150.155C1031.17 150.588 1064.67 164.658 1089.83 189.816L1203.83 303.816C1229.44 329.424 1243.55 363.588 1243.55 399.947V648.853H1346V648.851H1350C1459.71 648.851 1549 738.142 1549 847.851V1250.9C1549 1360.61 1459.71 1449.9 1350 1449.9H250C140.291 1449.9 51 1360.61 51 1250.9V847.851C51 738.142 140.291 648.851 250 648.851L356.297 648.855V290.203C356.297 212.992 419.142 150.149 496.351 150.149L993.697 150.144L995.402 150.155ZM250.001 746.855C194.263 746.855 149.001 792.162 149.001 847.855V1250.91C149.001 1306.65 194.308 1351.91 250.001 1351.91H314.054V1209.6C314.054 1155.04 358.442 1110.6 413.054 1110.6H1187C1241.56 1110.6 1286 1154.99 1286 1209.6V1351.91H1350C1405.74 1351.91 1451 1306.6 1451 1250.91L1451 847.855C1451 792.117 1405.69 746.855 1350 746.855H250.001ZM413.054 1208.55C412.724 1208.55 412.488 1208.67 412.331 1208.83C412.174 1208.98 412.054 1209.22 412.054 1209.55V1351.86H1188V1209.55C1188 1209.22 1187.88 1208.98 1187.72 1208.83C1187.57 1208.67 1187.33 1208.55 1187 1208.55H413.054ZM385.946 848.853C413.01 848.853 434.946 870.795 434.946 897.853C434.946 924.911 413.005 946.853 385.946 946.853H299.999C272.941 946.853 250.999 924.912 250.999 897.853C250.999 870.795 272.941 848.853 299.999 848.853H385.946ZM496.347 248.203C473.155 248.203 454.347 267.01 454.347 290.203L454.35 648.853H1145.5V493.853H1025.44C956.434 493.853 900.293 437.714 900.293 368.703V248.203H496.347ZM998.347 368.708C998.347 383.65 1010.5 395.807 1025.45 395.807H1145.28C1144.36 387.147 1140.62 379.241 1134.52 373.135L1020.52 259.135C1014.57 253.19 1006.83 249.538 998.347 248.566V368.708Z"/></svg>`,
               this.#showPrintDialog)}
           ` : nothing}
-          ${menuItem('Export Board', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/><path d="m600 37.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v566.55l-197.5-164.55c-12.738-10.59-29.156-15.695-45.656-14.199-16.496 1.5-31.727 9.4844-42.344 22.199-10.59 12.738-15.695 29.156-14.199 45.656 1.5 16.496 9.4844 31.727 22.199 42.344l300 250c3.1484 2.2344 6.4961 4.1758 10 5.8008 2.2852 1.5312 4.6758 2.9023 7.1484 4.0977 14.566 6.1328 30.988 6.1328 45.551 0 2.4141-1.2031 4.7539-2.5547 7-4.0469 3.5039-1.6289 6.8477-3.5703 10-5.8008l300-250c13.23-11.004 21.336-26.977 22.41-44.148 1.0742-17.176-4.9766-34.031-16.73-46.598-11.758-12.566-28.172-19.73-45.379-19.805-14.613 0.027344-28.762 5.1562-40 14.5l-197.5 164.55v-566.55c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/></svg>`,
+          ${menuItem('Export Current Board', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m1100 787.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v150c-0.027344 9.9375-3.9844 19.461-11.012 26.488-7.0273 7.0273-16.551 10.984-26.488 11.012h-800c-9.9375-0.027344-19.461-3.9844-26.488-11.012-7.0273-7.0273-10.984-16.551-11.012-26.488v-150c0-22.328-11.914-42.961-31.25-54.125-19.336-11.168-43.164-11.168-62.5 0-19.336 11.164-31.25 31.797-31.25 54.125v150c0.054688 43.082 17.191 84.383 47.652 114.85 30.465 30.461 71.766 47.598 114.85 47.652h800c43.082-0.054688 84.383-17.191 114.85-47.652 30.461-30.465 47.598-71.766 47.652-114.85v-150c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/><path d="m600 37.5c-16.566 0.027344-32.449 6.6211-44.164 18.336-11.715 11.715-18.309 27.598-18.336 44.164v566.55l-197.5-164.55c-12.738-10.59-29.156-15.695-45.656-14.199-16.496 1.5-31.727 9.4844-42.344 22.199-10.59 12.738-15.695 29.156-14.199 45.656 1.5 16.496 9.4844 31.727 22.199 42.344l300 250c3.1484 2.2344 6.4961 4.1758 10 5.8008 2.2852 1.5312 4.6758 2.9023 7.1484 4.0977 14.566 6.1328 30.988 6.1328 45.551 0 2.4141-1.2031 4.7539-2.5547 7-4.0469 3.5039-1.6289 6.8477-3.5703 10-5.8008l300-250c13.23-11.004 21.336-26.977 22.41-44.148 1.0742-17.176-4.9766-34.031-16.73-46.598-11.758-12.566-28.172-19.73-45.379-19.805-14.613 0.027344-28.762 5.1562-40 14.5l-197.5 164.55v-566.55c-0.027344-16.566-6.6211-32.449-18.336-44.164-11.715-11.715-27.598-18.309-44.164-18.336z"/></svg>`,
               this.#showExportDialog)}
 
           <div class="menu-spacer"></div>
           <div class="menu-nav-divider"></div>
+
+          ${this._viewMode !== 'readonly' ? html`
+            ${menuItem('Settings', html`<svg viewBox="0 0 1200 1200" width="20" height="20" fill="currentColor"><path d="m112.5 637.5h117.84c16.781 66.188 76.359 112.5 144.66 112.5 68.301 0 127.87-46.312 144.66-112.5h567.84c20.719 0 37.5-16.781 37.5-37.5s-16.781-37.5-37.5-37.5h-567.84c-16.781-66.188-76.359-112.5-144.66-112.5-68.301 0-127.87 46.312-144.66 112.5h-117.84c-20.719 0-37.5 16.781-37.5 37.5s16.781 37.5 37.5 37.5zm262.5-112.5c30.328 0 57.703 18.281 69.281 46.312 11.625 28.031 5.2031 60.281-16.266 81.703-21.422 21.469-53.672 27.891-81.703 16.266-28.031-11.578-46.312-38.953-46.312-69.281 0.046875-41.391 33.609-74.953 75-75z"/><path d="m112.5 262.5h567.84c16.781 66.188 76.359 112.5 144.66 112.5s127.87-46.312 144.66-112.5h117.84c20.719 0 37.5-16.781 37.5-37.5s-16.781-37.5-37.5-37.5h-117.84c-16.781-66.188-76.359-112.5-144.66-112.5s-127.87 46.312-144.66 112.5h-567.84c-20.719 0-37.5 16.781-37.5 37.5s16.781 37.5 37.5 37.5zm712.5-112.5c30.328 0 57.703 18.281 69.281 46.312 11.625 28.031 5.2031 60.281-16.266 81.703-21.422 21.469-53.672 27.891-81.703 16.266-28.031-11.578-46.312-38.953-46.312-69.281 0.046875-41.391 33.609-74.953 75-75z"/><path d="m112.5 1012.5h567.84c16.781 66.188 76.359 112.5 144.66 112.5s127.87-46.312 144.66-112.5h117.84c20.719 0 37.5-16.781 37.5-37.5s-16.781-37.5-37.5-37.5h-117.84c-16.781-66.188-76.359-112.5-144.66-112.5s-127.87 46.312-144.66 112.5h-567.84c-20.719 0-37.5 16.781-37.5 37.5s16.781 37.5 37.5 37.5zm712.5-112.5c30.328 0 57.703 18.281 69.281 46.312 11.625 28.031 5.2031 60.281-16.266 81.703-21.422 21.469-53.672 27.891-81.703 16.266-28.031-11.578-46.312-38.953-46.312-69.281 0.046875-41.391 33.609-74.953 75-75z"/></svg>`,
+              () => this.#showSettings())}
+            <div class="menu-nav-divider"></div>
+          ` : nothing}
 
           ${menuItem('About', html`<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="m600 112.5c-129.29 0-253.29 51.363-344.71 142.79-91.422 91.426-142.79 215.42-142.79 344.71s51.363 253.29 142.79 344.71c91.426 91.422 215.42 142.79 344.71 142.79s253.29-51.363 344.71-142.79c91.422-91.426 142.79-215.42 142.79-344.71-0.14453-129.25-51.555-253.16-142.95-344.55-91.395-91.391-215.3-142.8-344.55-142.95zm0 900c-109.4 0-214.32-43.461-291.68-120.82-77.359-77.355-120.82-182.28-120.82-291.68s43.461-214.32 120.82-291.68c77.355-77.359 182.28-120.82 291.68-120.82s214.32 43.461 291.68 120.82c77.359 77.355 120.82 182.28 120.82 291.68-0.11719 109.37-43.617 214.22-120.95 291.55s-182.18 120.83-291.55 120.95z"/><path d="m675 812.5h-37.5v-312.5c0-9.9453-3.9492-19.484-10.984-26.516-7.0312-7.0352-16.57-10.984-26.516-10.984h-25c-11.887 0.003906-23.066 5.6445-30.137 15.203-7.0664 9.5586-9.1836 21.898-5.707 33.266s12.137 20.414 23.344 24.383v277.15h-37.5c-13.398 0-25.777 7.1484-32.477 18.75-6.6992 11.602-6.6992 25.898 0 37.5 6.6992 11.602 19.078 18.75 32.477 18.75h150c13.398 0 25.777-7.1484 32.477-18.75 6.6992-11.602 6.6992-25.898 0-37.5-6.6992-11.602-19.078-18.75-32.477-18.75z"/><path d="m650 350c0 27.613-22.387 50-50 50s-50-22.387-50-50 22.387-50 50-50 50 22.387 50 50z"/></svg>`,
               this.#showAbout)}
@@ -2161,29 +2437,27 @@ export class CoachBoard extends LitElement {
             </cb-toolbar>
           ` : nothing}
           <div class="context-bar-right">
-            ${this.activeTool === 'measure' ? html`
-              <label class="visually-hidden" for="ctx-unit-select">Distance unit</label>
-              <select id="ctx-unit-select" class="theme-select"
-                      @change="${(e: Event) => { const u = (e.target as HTMLSelectElement).value as 'm' | 'yd'; this._measureUnit = u; localStorage.setItem('cb-measure-unit', u); }}">
-                <option value="m" ?selected="${this._measureUnit === 'm'}">Meters</option>
-                <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards</option>
-              </select>
-              <span class="context-divider" role="separator" aria-hidden="true"></span>
-            ` : nothing}
             <label class="visually-hidden" for="ctx-theme-select">Pitch theme</label>
             <select id="ctx-theme-select" class="theme-select"
                     @change="${this.#onThemeChange}">
               <option value="green" ?selected="${this.fieldTheme === 'green'}">Grass</option>
               <option value="white" ?selected="${this.fieldTheme === 'white'}">Whiteboard</option>
             </select>
+            ${this._authUser ? html`
+              <button class="auth-avatar-btn"
+                      aria-label="Account — ${this._authUser.email}. Open Settings."
+                      title="${this._authUser.email}"
+                      @click="${() => this.#showSettings()}">
+                ${(this._authUser.name ?? this._authUser.email).charAt(0).toUpperCase()}
+              </button>
+            ` : nothing}
           </div>
         </div><!-- .context-bar -->
 
         <div class="board-area">
           <nav class="sidebar ${this._sidebarCollapsed ? 'sidebar--collapsed' : ''}"
                aria-label="Tool palette"
-               @pointerenter="${this.#onSidebarPointerEnter}"
-               @pointerleave="${this.#onSidebarPointerLeave}">
+               @pointerenter="${this.#onSidebarPointerEnter}">
             <button class="sidebar-handle"
                     aria-label="${this._sidebarCollapsed ? 'Show tools' : 'Hide tools'}"
                     aria-expanded="${!this._sidebarCollapsed}"
@@ -2202,7 +2476,8 @@ export class CoachBoard extends LitElement {
                ?inert="${this._sidebarCollapsed}"
                @keydown="${this.#onSidebarToolKeyDown}">
 
-          <!-- Select (with submenu: Select / Multi-select) -->
+          <!-- Select + inline context track -->
+          <div class="select-track">
           <div class="sidebar-dropdown-wrap">
             <button class="sidebar-tool has-submenu"
                     title="${t === 'pan' ? 'Hand' : this._multiSelect ? 'Multi-select' : 'Select'}"
@@ -2242,7 +2517,27 @@ export class CoachBoard extends LitElement {
                 </button>
               </div>
             ` : nothing}
-          </div>
+          </div><!-- .sidebar-dropdown-wrap (select) -->
+
+          ${this.selectedIds.size > 0 ? html`
+            <cb-toolbar
+              sidebar-context
+              .selectedItems="${this.#selectedItems}"
+              .fieldTheme="${this.fieldTheme}"
+              @player-update="${this.#onPlayerUpdate}"
+              @equipment-update="${this.#onEquipmentUpdate}"
+              @line-update="${this.#onLineUpdate}"
+              @shape-update="${this.#onShapeUpdate}"
+              @text-update="${this.#onTextUpdate}"
+              @align-items="${this.#onAlignItems}"
+              @group-items="${this.#onGroupItems}"
+              @ungroup-items="${this.#onUngroupItems}"
+              @delete-items="${this.#onDeleteItems}"
+              @rotate-items="${this.#onRotateItems}"
+              @z-order="${this.#onZOrder}">
+            </cb-toolbar>
+          ` : nothing}
+          </div><!-- .select-track -->
 
           <!-- Player (with submenu: Team A / Team B / Neutral) -->
           <div class="sidebar-dropdown-wrap">
@@ -2405,7 +2700,8 @@ export class CoachBoard extends LitElement {
                 <button role="menuitem" tabindex="-1"
                         @click="${() => { this.activeTool = 'draw-line'; this.lineStyle = 'wavy'; this.selectedIds = new Set(); this._sidebarMenu = null; }}">
                   <svg class="icon" viewBox="0 0 32 12" width="32" height="12">
-                    <path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 20,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />
+                    <path d="M 2,6 Q 5,2 8,6 Q 11,10 14,6 Q 17,2 22,6" fill="none" stroke="${COLORS.previewStroke}" stroke-width="2" />
+                    <polygon points="20,2 28,6 20,10" fill="${COLORS.previewStroke}" />
                   </svg>
                   Dribble
                 </button>
@@ -2463,27 +2759,15 @@ export class CoachBoard extends LitElement {
 
           </div><!-- .sidebar-tools -->
 
-          ${this.selectedIds.size > 0 ? html`
-            <hr class="sidebar-divider" />
-            <cb-toolbar
-              sidebar-context
-              .selectedItems="${this.#selectedItems}"
-              .fieldTheme="${this.fieldTheme}"
-              @player-update="${this.#onPlayerUpdate}"
-              @equipment-update="${this.#onEquipmentUpdate}"
-              @line-update="${this.#onLineUpdate}"
-              @shape-update="${this.#onShapeUpdate}"
-              @text-update="${this.#onTextUpdate}"
-              @align-items="${this.#onAlignItems}"
-              @group-items="${this.#onGroupItems}"
-              @ungroup-items="${this.#onUngroupItems}"
-              @delete-items="${this.#onDeleteItems}"
-              @rotate-items="${this.#onRotateItems}"
-              @z-order="${this.#onZOrder}">
-            </cb-toolbar>
-          ` : nothing}
-
         </nav><!-- .sidebar -->
+
+        <!-- Screen reader announcement when context controls become available -->
+        <div role="status" aria-live="polite" aria-atomic="true" class="visually-hidden">
+          ${this.selectedIds.size > 0
+            ? `${this.selectedIds.size} item${this.selectedIds.size > 1 ? 's' : ''} selected. Edit controls available.`
+            : ''}
+        </div>
+
           <div class="field-wrap">
             <cb-field
               .players="${this.players}"
@@ -2548,7 +2832,7 @@ export class CoachBoard extends LitElement {
               ${this.#cachedSummary.shapesByKind.size > 0 ? html`<div class="summary-section"><h3>Shapes</h3><p>${[...this.#cachedSummary.shapesByKind.entries()].map(([k, n]) => `${n} ${k}${n > 1 ? 's' : ''}`).join(', ')}</p></div>` : nothing}
               ${this.#cachedSummary.textCount > 0 ? html`<div class="summary-section"><h3>Text</h3><p>${this.#cachedSummary.textCount} text item${this.#cachedSummary.textCount > 1 ? 's' : ''}</p></div>` : nothing}
               ${this.#cachedSummary.frameCount > 0 ? html`<div class="summary-section"><h3>Animation</h3><p>${this.#cachedSummary.frameCount} frame${this.#cachedSummary.frameCount > 1 ? 's' : ''}</p></div>` : nothing}
-              ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><p class="notes-body">${this._boardNotes}</p></div>` : nothing}
+              ${this._boardNotes ? html`<div class="summary-section"><h3>Notes &amp; Instructions</h3><div class="notes-body">${unsafeHTML(parseNotes(this._boardNotes))}</div></div>` : nothing}
             ` : nothing}
           </div>
           </div><!-- .field-wrap -->
@@ -2680,12 +2964,14 @@ export class CoachBoard extends LitElement {
       <cb-dialogs
         .viewMode="${this._viewMode}"
         .animationFrameCount="${this.animationFrames.length}"
+        .userTemplates="${this._userTemplates}"
         @cb-import-confirm="${this.#confirmImport}"
         @cb-save-board-confirm="${this.#confirmSaveBoard}"
         @cb-save-board-skip="${this.#skipSaveBoard}"
         @cb-save-board-closed="${this.#onSaveBoardClosed}"
         @cb-new-board-confirm="${this.#confirmNewBoard}"
         @cb-confirm-delete-board="${this.#confirmDeleteBoard}"
+        @cb-confirm-delete-template="${this.#onConfirmDeleteTemplate}"
         @cb-export-svg="${this.#exportSvg}"
         @cb-export-png="${this.#exportPng}"
         @cb-export-gif="${this.#exportGif}"
@@ -2722,20 +3008,32 @@ export class CoachBoard extends LitElement {
       <cb-side-sheet
         ?open="${this._myBoardsOpen}"
         heading="My Boards"
+        .returnFocusEl="${this.#myBoardsReturnFocus}"
         @close="${() => { this._myBoardsOpen = false; }}">
         <cb-my-boards
           .boards="${this._myBoards}"
+          .userTemplates="${this._userTemplates}"
+          .authUser="${this._authUser}"
           @cb-open-board="${this.#onOpenBoard}"
+          @cb-rename-board="${this.#onRenameBoard}"
           @cb-duplicate-board="${this.#onDuplicateBoard}"
           @cb-handle-delete-board="${this.#onHandleDeleteBoard}"
           @cb-import-svg="${this.#importSvgFromMyBoards}"
-          @cb-export-all-boards="${this.#exportAllBoards}">
+          @cb-export-all-boards="${this.#exportAllBoards}"
+          @cb-use-template="${this.#onUseTemplate}"
+          @cb-duplicate-template="${this.#onDuplicateTemplate}"
+          @cb-rename-template="${this.#onRenameTemplate}"
+          @cb-export-board="${this.#onExportBoard}"
+          @cb-export-template="${this.#onExportTemplate}"
+          @cb-handle-delete-template="${this.#onHandleDeleteTemplate}"
+          @cb-open-settings="${() => this.#showSettings()}">
         </cb-my-boards>
       </cb-side-sheet>
 
       <cb-side-sheet
         ?open="${this._boardSummaryOpen}"
         heading="Board Summary"
+        .returnFocusEl="${this.#boardSummaryReturnFocus}"
         @close="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
         <cb-board-summary
           .summary="${this._boardSummaryData}"
@@ -2743,6 +3041,58 @@ export class CoachBoard extends LitElement {
           @cb-board-notes-input="${this.#onBoardNotesInput}"
           @cb-board-summary-save="${() => { this._boardSummaryOpen = false; this.#saveToStorage(); }}">
         </cb-board-summary>
+      </cb-side-sheet>
+
+      <cb-side-sheet
+        ?open="${this._settingsOpen}"
+        heading="Settings"
+        .returnFocusEl="${this.#settingsReturnFocus}"
+        @close="${() => { this._settingsOpen = false; }}">
+        <div class="settings-content">
+          <div class="settings-section">
+            <h3 class="settings-section-heading">Units</h3>
+            <label class="settings-field-label" for="settings-distance-unit">Distance</label>
+            <select id="settings-distance-unit" class="settings-select"
+                    aria-describedby="settings-distance-hint"
+                    @change="${(e: Event) => this.#setMeasureUnit((e.target as HTMLSelectElement).value as 'm' | 'yd')}">
+              <option value="m" ?selected="${this._measureUnit === 'm'}">Meters (m)</option>
+              <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards (yd)</option>
+            </select>
+            <p id="settings-distance-hint" class="settings-hint">Applies to the Measure tool.</p>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-heading">Cloud Backup</h3>
+            <div role="status" aria-live="polite" aria-atomic="false">
+              ${this._authUser ? html`
+                <div class="settings-account-row">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 16.5A4.5 4.5 0 0 0 15.5 12H14a6 6 0 1 0-6 6h8a4.5 4.5 0 0 0 4-1.5z"/>
+                    <polyline points="9 12 11 14 15 10"/>
+                  </svg>
+                  <div>
+                    <div class="settings-account-email">${this._authUser.email}</div>
+                    <p class="settings-hint settings-hint--mt">
+                      Boards and templates are backed up automatically.
+                    </p>
+                  </div>
+                </div>
+                <button class="settings-account-btn settings-account-btn--signout"
+                        @click="${() => signOut()}">
+                  Sign out
+                </button>
+              ` : html`
+                <p class="settings-hint">
+                  Sign in to back up your boards and templates to the cloud.
+                </p>
+                <button class="settings-account-btn" @click="${() => openSignIn()}">
+                  Sign in
+                </button>
+              `}
+            </div>
+          </div>
+        </div>
       </cb-side-sheet>
 
       ${this._updateAvailable ? html`
@@ -2941,18 +3291,25 @@ export class CoachBoard extends LitElement {
     this._dialogs?.openSaveBoard(`Copy of ${this.#currentBoard?.name ?? 'Untitled Board'}`, 'save-as');
   }
 
+  async #openNewBoardDialog() {
+    this._userTemplates = await listUserTemplates();
+    this._dialogs?.openNewBoard();
+  }
+
   #skipSaveBoard(e: CustomEvent<{ pendingAction: PendingBoardAction }>) {
     const pendingAction = e.detail.pendingAction;
     const pendingId = this.#pendingOpenBoardId;
     this._dialogs?.closeSaveBoard();
     if (pendingAction === 'new') {
-      this._dialogs?.openNewBoard();
+      const tmpl = this.#pendingTemplateApply;
+      this.#pendingTemplateApply = null;
+      tmpl ? this.#applyUserTemplate(tmpl) : this.#openNewBoardDialog();
     } else if (pendingAction === 'open') {
       this.#doOpenBoard(pendingId!);
     }
   }
 
-  async #confirmSaveBoard(e: CustomEvent<{ name: string; pendingAction: PendingBoardAction }>) {
+  async #confirmSaveBoard(e: CustomEvent<{ name: string; pendingAction: PendingBoardAction; saveAsTemplate: boolean }>) {
     const name = e.detail.name.trim();
     if (!name || !this.#currentBoard) return;
     const pendingAction = e.detail.pendingAction;
@@ -2960,6 +3317,34 @@ export class CoachBoard extends LitElement {
     this._dialogs?.closeSaveBoard();
 
     const thumbnail = await this.#generateThumbnail();
+
+    if (e.detail.saveAsTemplate) {
+      // Either/or: save as template only — do NOT add to Saved Boards
+      const tmpl: UserTemplate = {
+        id: crypto.randomUUID(),
+        name,
+        pitchType: this.#currentBoard.pitchType,
+        createdAt: Date.now(),
+        players: structuredClone(this.players),
+        lines: structuredClone(this.lines),
+        equipment: structuredClone(this.equipment),
+        shapes: structuredClone(this.shapes),
+        textItems: structuredClone(this.textItems),
+        thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
+      };
+      await saveUserTemplate(tmpl);
+      this.#cloudSaveTemplate(tmpl);
+      this._userTemplates = await listUserTemplates();
+      // Continue pending navigation; don't rename the working board
+      if (pendingAction === 'new') {
+        const pendingTmpl = this.#pendingTemplateApply;
+        this.#pendingTemplateApply = null;
+        pendingTmpl ? this.#applyUserTemplate(pendingTmpl) : this.#openNewBoardDialog();
+      } else if (pendingAction === 'open') {
+        this.#doOpenBoard(pendingId!);
+      }
+      return;
+    }
 
     if (pendingAction === 'save-as') {
       const newBoard: SavedBoard = {
@@ -2978,6 +3363,7 @@ export class CoachBoard extends LitElement {
         thumbnail: thumbnail ?? this.#currentBoard.thumbnail,
       };
       saveBoard(newBoard).catch(() => {});
+      this.#cloudSaveBoard(newBoard);
       this.#currentBoard = newBoard;
       this._boardName = name;
       setActiveBoardId(newBoard.id);
@@ -2985,8 +3371,11 @@ export class CoachBoard extends LitElement {
       this.#currentBoard = { ...this.#currentBoard, name, ...(thumbnail && { thumbnail }) };
       this._boardName = name;
       saveBoard(this.#currentBoard).catch(() => {});
+      this.#cloudSaveBoard(this.#currentBoard);
       if (pendingAction === 'new') {
-        this._dialogs?.openNewBoard();
+        const pendingTmpl = this.#pendingTemplateApply;
+        this.#pendingTemplateApply = null;
+        pendingTmpl ? this.#applyUserTemplate(pendingTmpl) : this.#openNewBoardDialog();
       } else if (pendingAction === 'open') {
         this.#doOpenBoard(pendingId!);
       }
@@ -3062,10 +3451,38 @@ export class CoachBoard extends LitElement {
     };
   }
 
+  /** Capture the correct return-focus target before any state changes.
+   *  When the hamburger menu is open, return focus goes to the hamburger
+   *  toggle button (the menu item that was focused will be removed from
+   *  the DOM in the same render batch). Otherwise use the active element. */
+  #captureReturnFocus(): HTMLElement | null {
+    if (this._menuOpen) {
+      return this.renderRoot.querySelector<HTMLElement>('.context-hamburger') ?? null;
+    }
+    const el = document.activeElement as HTMLElement | null;
+    return el && el !== document.body ? el : null;
+  }
+
+  #settingsReturnFocus: HTMLElement | null = null;
+  #myBoardsReturnFocus: HTMLElement | null = null;
+  #boardSummaryReturnFocus: HTMLElement | null = null;
+
   #showBoardSummary() {
+    this.#boardSummaryReturnFocus = this.#captureReturnFocus();
     this._menuOpen = false;
     this._boardSummaryData = this.#getBoardSummary();
     this._boardSummaryOpen = true;
+  }
+
+  #showSettings() {
+    this.#settingsReturnFocus = this.#captureReturnFocus();
+    this._menuOpen = false;
+    this._settingsOpen = true;
+  }
+
+  #setMeasureUnit(unit: 'm' | 'yd') {
+    this._measureUnit = unit;
+    localStorage.setItem('cb-measure-unit', unit);
   }
 
   #showPrintDialog() {
@@ -3122,7 +3539,7 @@ export class CoachBoard extends LitElement {
     if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
       deleteBoard(this.#currentBoard.id).catch(() => {});
     }
-    this._dialogs?.openNewBoard();
+    this.#openNewBoardDialog();
   }
 
   async #confirmNewBoard(e: CustomEvent<{ pitchType: PitchType; template: string }>) {
@@ -3133,9 +3550,18 @@ export class CoachBoard extends LitElement {
     this.#currentBoard = board;
     this._boardName = board.name;
     setActiveBoardId(board.id);
-    const template = templateId
+
+    // User templates are prefixed with "user:" to distinguish from built-in IDs
+    const isUserTemplate = templateId.startsWith('user:');
+    const userTmplId = isUserTemplate ? templateId.slice(5) : null;
+    const builtInTemplate = (!isUserTemplate && templateId)
       ? getTemplatesForPitch(pitchType).find(t => t.id === templateId)
       : null;
+    const userTemplate = userTmplId
+      ? this._userTemplates.find(t => t.id === userTmplId)
+      : null;
+    const template = builtInTemplate ?? userTemplate ?? null;
+
     const angleOrient = (this._isMobile && template) ? 'horizontal' : (this._isMobile ? 'vertical' : 'horizontal');
     const playerAngle = (team: string) => team === 'b'
       ? (angleOrient === 'horizontal' ? 270 : 180)
@@ -3166,15 +3592,17 @@ export class CoachBoard extends LitElement {
   }
 
   async #showMyBoards() {
+    this.#myBoardsReturnFocus = this.#captureReturnFocus();
     this._menuOpen = false;
     if (this.#currentBoard && !this.#currentBoard.thumbnail && this.#currentBoard.name !== 'Untitled Board') {
       const thumb = await this.#generateThumbnail();
       if (thumb && this.#currentBoard) {
         this.#currentBoard = { ...this.#currentBoard, thumbnail: thumb };
         saveBoard(this.#currentBoard).catch(() => {});
+        this.#cloudSaveBoard(this.#currentBoard);
       }
     }
-    this._myBoards = await listBoards();
+    [this._myBoards, this._userTemplates] = await Promise.all([listBoards(), listUserTemplates()]);
     this._myBoardsOpen = true;
   }
 
@@ -3250,6 +3678,7 @@ export class CoachBoard extends LitElement {
       animationFrames: structuredClone(board.animationFrames),
     };
     await saveBoard(dup);
+    this.#cloudSaveBoard(dup);
     this._myBoards = await listBoards();
   }
 
@@ -3264,15 +3693,107 @@ export class CoachBoard extends LitElement {
     this.#pendingDeleteBoard = null;
     this._dialogs?.closeDeleteBoard();
     await deleteBoard(id);
+    this.#cloudDeleteBoard(id);
     this._myBoards = await listBoards();
     if (id === this.#currentBoard?.id) {
       await this.#confirmNewBoard(new CustomEvent('', { detail: { pitchType: 'full' as PitchType, template: '' } }));
     }
   }
 
+  #applyUserTemplate(template: UserTemplate) {
+    this.#confirmNewBoard(new CustomEvent('', {
+      detail: { pitchType: template.pitchType, template: `user:${template.id}` },
+    }));
+  }
+
+  #onUseTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    const { template } = e.detail;
+    this._myBoardsOpen = false;
+    if (!this.#isBoardSaved && !this.#isBoardEmpty) {
+      this.#pendingTemplateApply = template;
+      this._dialogs?.openSaveBoard('', 'new');
+      return;
+    }
+    if (this.#isBoardEmpty && !this.#isBoardSaved && this.#currentBoard) {
+      deleteBoard(this.#currentBoard.id).catch(() => {});
+    }
+    this.#applyUserTemplate(template);
+  }
+
+  #onDuplicateTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    duplicateUserTemplate(e.detail.template)
+      .then(copy => { this.#cloudSaveTemplate(copy); return listUserTemplates(); })
+      .then(list => { this._userTemplates = list; })
+      .catch(() => {});
+  }
+
+  #onRenameTemplate(e: CustomEvent<{ template: UserTemplate; name: string }>) {
+    const { template, name } = e.detail;
+    renameUserTemplate(template.id, name)
+      .then(() => listUserTemplates())
+      .then(list => {
+        this._userTemplates = list;
+        const updated = list.find(t => t.id === template.id);
+        if (updated) this.#cloudSaveTemplate(updated);
+      })
+      .catch(() => {});
+  }
+
+  #onHandleDeleteTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    this.#pendingDeleteTemplate = e.detail.template;
+    this._dialogs?.openDeleteTemplate(e.detail.template.name);
+  }
+
+  async #onConfirmDeleteTemplate() {
+    if (!this.#pendingDeleteTemplate) return;
+    const id = this.#pendingDeleteTemplate.id;
+    this.#pendingDeleteTemplate = null;
+    this._dialogs?.closeDeleteTemplate();
+    await deleteUserTemplate(id);
+    this.#cloudDeleteTemplate(id);
+    this._userTemplates = await listUserTemplates();
+  }
+
   #importSvgFromMyBoards() {
     this._myBoardsOpen = false;
     this.#importSvg();
+  }
+
+  #exportBoardData(item: SavedBoard | UserTemplate) {
+    const data: Record<string, unknown> = {
+      players: item.players,
+      lines: item.lines,
+      equipment: item.equipment,
+      shapes: item.shapes,
+      textItems: item.textItems,
+      pitchType: item.pitchType,
+    };
+    if ('fieldTheme' in item) {
+      data.animationFrames = item.animationFrames;
+      data.fieldTheme = item.fieldTheme;
+      data.fieldOrientation = item.fieldOrientation;
+      data.playbackLoop = item.playbackLoop;
+      if (item.notes) data.notes = item.notes;
+    }
+    const json = JSON.stringify(data).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const svgContent = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 105 68">\n  <desc id="coaching-board-data" data-version="${__APP_VERSION__}">${json}</desc>\n</svg>`;
+    const safeName = item.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'board';
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  #onExportBoard(e: CustomEvent<{ board: SavedBoard }>) {
+    this.#exportBoardData(e.detail.board);
+  }
+
+  #onExportTemplate(e: CustomEvent<{ template: UserTemplate }>) {
+    this.#exportBoardData(e.detail.template);
   }
 
   async #exportAllBoards() {
@@ -3322,10 +3843,27 @@ export class CoachBoard extends LitElement {
 
   #onSaveBoardClosed() {
     this.#pendingOpenBoardId = null;
+    this.#pendingTemplateApply = null;
   }
 
   #onOpenBoard(e: CustomEvent<{ id: string }>) {
     this.#handleOpenBoard(e.detail.id);
+  }
+
+  #onRenameBoard(e: CustomEvent<{ board: SavedBoard; name: string }>) {
+    const { board, name } = e.detail;
+    renameBoard(board.id, name)
+      .then(() => listBoards())
+      .then(list => {
+        this._myBoards = list;
+        if (board.id === this.#currentBoard?.id) {
+          this.#currentBoard = { ...this.#currentBoard, name };
+          this._boardName = name;
+        }
+        const updated = list.find(b => b.id === board.id);
+        if (updated) this.#cloudSaveBoard(updated);
+      })
+      .catch(() => {});
   }
 
   #onDuplicateBoard(e: CustomEvent<{ board: SavedBoard }>) {
@@ -3875,7 +4413,6 @@ export class CoachBoard extends LitElement {
       return;
     }
     if (this.isPlaying) return;
-    if (!this._sidebarCollapsed && !this._sidebar?.classList.contains('sidebar-locked')) this._sidebarCollapsed = true;
     const pt = this._field.screenToSVG(e.clientX, e.clientY);
 
     // Pan tool — use client-pixel delta so the SVG-unit/pixel ratio stays constant
