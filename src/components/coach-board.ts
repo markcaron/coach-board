@@ -361,6 +361,10 @@ export class CoachBoard extends LitElement {
       line-height: 1.4;
     }
 
+    .settings-hint--mt {
+      margin-top: 3px;
+    }
+
     /* ── Account section (Cloud Backup) ──────────────────────────────── */
     .settings-account-row {
       display: flex;
@@ -3019,32 +3023,34 @@ export class CoachBoard extends LitElement {
 
           <div class="settings-section">
             <h3 class="settings-section-heading">Cloud Backup</h3>
-            ${this._authUser ? html`
-              <div class="settings-account-row">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 16.5A4.5 4.5 0 0 0 15.5 12H14a6 6 0 1 0-6 6h8a4.5 4.5 0 0 0 4-1.5z"/>
-                  <polyline points="9 12 11 14 15 10"/>
-                </svg>
-                <div>
-                  <div class="settings-account-email">${this._authUser.email}</div>
-                  <p class="settings-hint" style="margin-top:3px">
-                    Boards and templates are backed up automatically.
-                  </p>
+            <div role="status" aria-live="polite" aria-atomic="false">
+              ${this._authUser ? html`
+                <div class="settings-account-row">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 16.5A4.5 4.5 0 0 0 15.5 12H14a6 6 0 1 0-6 6h8a4.5 4.5 0 0 0 4-1.5z"/>
+                    <polyline points="9 12 11 14 15 10"/>
+                  </svg>
+                  <div>
+                    <div class="settings-account-email">${this._authUser.email}</div>
+                    <p class="settings-hint settings-hint--mt">
+                      Boards and templates are backed up automatically.
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <button class="settings-account-btn settings-account-btn--signout"
-                      @click="${() => signOut()}">
-                Sign out
-              </button>
-            ` : html`
-              <p class="settings-hint">
-                Sign in to back up your boards and templates to the cloud.
-              </p>
-              <button class="settings-account-btn" @click="${() => openSignIn()}">
-                Sign in
-              </button>
-            `}
+                <button class="settings-account-btn settings-account-btn--signout"
+                        @click="${() => signOut()}">
+                  Sign out
+                </button>
+              ` : html`
+                <p class="settings-hint">
+                  Sign in to back up your boards and templates to the cloud.
+                </p>
+                <button class="settings-account-btn" @click="${() => openSignIn()}">
+                  Sign in
+                </button>
+              `}
+            </div>
           </div>
         </div>
       </cb-side-sheet>

@@ -42,7 +42,7 @@ export class CbMyBoards extends LitElement {
 
     [role="tablist"] {
       display: flex;
-      padding: 0 12px;
+      padding: 12px 12px 0;
       gap: 2px;
     }
 
@@ -590,7 +590,7 @@ export class CbMyBoards extends LitElement {
           ` : html`
             <div class="alert alert-warning">
               ${this.#warningIcon()}
-              No saved boards yet.
+              <p>No saved boards yet.</p>
             </div>
           `}
         </div>
@@ -671,7 +671,7 @@ export class CbMyBoards extends LitElement {
           ` : html`
             <div class="alert alert-warning">
               ${this.#warningIcon()}
-              No saved templates yet. Check "Save as template" when saving a board.
+              <p>No saved templates yet. Check "Save as template" when saving a board.</p>
             </div>
           `}
         </div>
