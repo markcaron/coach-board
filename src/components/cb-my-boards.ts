@@ -337,14 +337,14 @@ export class CbMyBoards extends LitElement {
       padding: 0;
       font: inherit;
       font-size: inherit;
-      color: var(--pt-accent);
+      color: var(--pt-btn-primary);
       text-decoration: underline;
       cursor: pointer;
     }
 
     .alert-inline-btn:hover {
-      color: var(--pt-accent);
-      text-decoration: none;
+      color: var(--pt-btn-primary-hover);
+      text-decoration: underline;
     }
 
     .alert-inline-btn:focus-visible {
