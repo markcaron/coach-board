@@ -2804,11 +2804,12 @@ export class CoachBoard extends LitElement {
             <h3 class="settings-section-heading">Units</h3>
             <label class="settings-field-label" for="settings-distance-unit">Distance</label>
             <select id="settings-distance-unit" class="settings-select"
+                    aria-describedby="settings-distance-hint"
                     @change="${(e: Event) => this.#setMeasureUnit((e.target as HTMLSelectElement).value as 'm' | 'yd')}">
               <option value="m" ?selected="${this._measureUnit === 'm'}">Meters (m)</option>
               <option value="yd" ?selected="${this._measureUnit === 'yd'}">Yards (yd)</option>
             </select>
-            <p class="settings-hint">Applies to the Measure tool.</p>
+            <p id="settings-distance-hint" class="settings-hint">Applies to the Measure tool.</p>
           </div>
         </div>
       </cb-side-sheet>
