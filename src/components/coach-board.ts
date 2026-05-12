@@ -1019,6 +1019,24 @@ export class CoachBoard extends LitElement {
       min-width: 44px;
     }
 
+    .auth-avatar-btn {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      border-radius: 50% !important;
+      padding: 0 !important;
+      background: var(--pt-accent) !important;
+      border-color: var(--pt-accent) !important;
+      color: var(--pt-text-white) !important;
+      font-size: 0.875rem;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .auth-avatar-btn:hover {
+      filter: brightness(1.15);
+    }
+
     .bottom-bar button:disabled {
       opacity: 0.35;
       cursor: default;
@@ -2869,6 +2887,14 @@ export class CoachBoard extends LitElement {
               ` : nothing}
             </div>
             <div class="bottom-right">
+              ${this._authUser ? html`
+                <button class="auth-avatar-btn"
+                        aria-label="Account — ${this._authUser.email}. Open Settings."
+                        title="${this._authUser.email}"
+                        @click="${() => this.#showSettings()}">
+                  ${(this._authUser.name ?? this._authUser.email).charAt(0).toUpperCase()}
+                </button>
+              ` : nothing}
               <button class="icon-btn" aria-label="Share Board" title="Share Board"
                       @click="${() => this._share.triggerShare()}">
                 <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
