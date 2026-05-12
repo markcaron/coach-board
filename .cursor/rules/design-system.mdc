@@ -17,9 +17,11 @@ Always use these — never hard-code colors:
 | `var(--pt-bg-surface)` | Card / dialog / dropdown backgrounds |
 | `var(--pt-bg-body)` | Page / field background |
 | `var(--pt-bg-primary)` | Input / code block background |
-| `var(--pt-text)` | Primary text |
-| `var(--pt-text-muted)` | Secondary / placeholder text |
+| `var(--pt-text)` | Primary text (dark theme — near-white; **do not use on light surfaces**) |
+| `var(--pt-text-muted)` | Secondary / placeholder text (dark theme — **do not use on light surfaces**) |
 | `var(--pt-text-white)` | Text on dark/colored backgrounds |
+| `var(--pt-text-on-inverted)` | Primary text on white/light surfaces (`#1a1a2e`, ~17:1 on white) |
+| `var(--pt-text-on-light)` | Secondary/hint text on white/light surfaces (`#555`, ~7.3:1 on white) |
 | `var(--pt-border)` | Button hover backgrounds, dividers |
 | `var(--pt-accent)` | Focus rings, active indicators, links |
 | `var(--pt-danger-hover)` | Active/pressed tool state (the red) |
