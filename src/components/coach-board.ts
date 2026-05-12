@@ -390,8 +390,8 @@ export class CoachBoard extends LitElement {
       min-height: 44px;
       padding: 8px 16px;
       border-radius: 6px;
-      border: 1px solid var(--pt-accent);
-      background: var(--pt-accent);
+      border: 1px solid var(--pt-btn-primary);
+      background: var(--pt-btn-primary);
       color: var(--pt-text-white);
       font: inherit;
       font-size: 0.875rem;
@@ -401,7 +401,8 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-account-btn:hover {
-      filter: brightness(1.12);
+      background: var(--pt-btn-primary-hover);
+      border-color: var(--pt-btn-primary-hover);
     }
 
     .settings-account-btn:focus-visible {
@@ -416,10 +417,9 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-account-btn--signout:hover {
-      background: var(--pt-accent);
-      border-color: var(--pt-accent);
+      background: var(--pt-danger-hover);
+      border-color: var(--pt-danger-hover);
       color: var(--pt-text-white);
-      filter: none;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1022,21 +1022,32 @@ export class CoachBoard extends LitElement {
     }
 
     .auth-avatar-btn {
-      width: 44px;
-      height: 44px;
+      width: 34px;
+      height: 34px;
       min-width: 44px;
-      border-radius: 50% !important;
-      padding: 0 !important;
-      background: var(--pt-accent) !important;
-      border-color: var(--pt-accent) !important;
-      color: var(--pt-text-white) !important;
-      font-size: 0.875rem;
+      min-height: 44px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--pt-accent);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      color: var(--pt-text-white);
+      font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .auth-avatar-btn:hover {
       filter: brightness(1.15);
+      border-color: rgba(255, 255, 255, 0.55);
+    }
+
+    .auth-avatar-btn:focus-visible {
+      outline: 2px solid var(--pt-accent);
+      outline-offset: 2px;
     }
 
     .bottom-bar button:disabled {
@@ -2392,6 +2403,14 @@ export class CoachBoard extends LitElement {
               <option value="green" ?selected="${this.fieldTheme === 'green'}">Grass</option>
               <option value="white" ?selected="${this.fieldTheme === 'white'}">Whiteboard</option>
             </select>
+            ${this._authUser ? html`
+              <button class="auth-avatar-btn"
+                      aria-label="Account — ${this._authUser.email}. Open Settings."
+                      title="${this._authUser.email}"
+                      @click="${() => this.#showSettings()}">
+                ${(this._authUser.name ?? this._authUser.email).charAt(0).toUpperCase()}
+              </button>
+            ` : nothing}
           </div>
         </div><!-- .context-bar -->
 
@@ -2889,14 +2908,6 @@ export class CoachBoard extends LitElement {
               ` : nothing}
             </div>
             <div class="bottom-right">
-              ${this._authUser ? html`
-                <button class="auth-avatar-btn"
-                        aria-label="Account — ${this._authUser.email}. Open Settings."
-                        title="${this._authUser.email}"
-                        @click="${() => this.#showSettings()}">
-                  ${(this._authUser.name ?? this._authUser.email).charAt(0).toUpperCase()}
-                </button>
-              ` : nothing}
               <button class="icon-btn" aria-label="Share Board" title="Share Board"
                       @click="${() => this._share.triggerShare()}">
                 <svg class="icon" viewBox="0 0 1200 1200" width="18" height="18" fill="currentColor">
