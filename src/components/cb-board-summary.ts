@@ -394,13 +394,15 @@ export class CbBoardSummary extends LitElement {
   // ── Toolbar icons ─────────────────────────────────────────────────────────
 
   #iconBold() {
-    return html`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+    return html`<svg viewBox="0 0 1200 1200" width="14" height="14"
+         fill="currentColor" stroke="currentColor" stroke-width="30" stroke-linejoin="round"
+         aria-hidden="true">
       <path d="m250 100h375c151.88 0 275 123.12 275 275 0 67.602-24.395 129.51-64.859 177.39 97.438 46.027 164.86 145.19 164.86 260.11 0 158.78-128.72 287.5-287.5 287.5h-462.5zm125 125h250c82.844 0 150 67.156 150 150s-67.156 150-150 150h-250zm0 425v325h337.5c89.746 0 162.5-72.754 162.5-162.5s-72.754-162.5-162.5-162.5z" fill-rule="evenodd"/>
     </svg>`;
   }
 
   #iconItalic() {
-    return html`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+    return html`<svg viewBox="0 0 1200 1200" width="14" height="14" fill="currentColor" aria-hidden="true">
       <path d="m450 150c0-27.613 22.387-50 50-50h400c27.613 0 50 22.387 50 50s-22.387 50-50 50h-149.98c-0.003907 3.7773-0.4375 7.6133-1.3438 11.449l-185.54 788.55h136.86c27.613 0 50 22.387 50 50s-22.387 50-50 50h-198.93c-0.67188 0.015625-1.3477 0.015625-2.0273 0h-199.04c-27.613 0-50-22.387-50-50s22.387-50 50-50h160.41l188.23-800h-148.64c-27.613 0-50-22.387-50-50z"/>
     </svg>`;
   }
