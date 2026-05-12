@@ -52,7 +52,7 @@ export class CbMyBoards extends LitElement {
       background: transparent;
       border: none;
       border-bottom: 2px solid transparent;
-      color: var(--pt-text-muted);
+      color: rgba(0, 0, 0, 0.45);
       font: inherit;
       font-size: 0.85rem;
       font-weight: 500;
@@ -63,7 +63,7 @@ export class CbMyBoards extends LitElement {
     }
 
     [role="tab"]:hover {
-      color: var(--pt-text);
+      color: inherit;
       background: color-mix(in srgb, var(--pt-accent) 8%, transparent);
       border-radius: 6px 6px 0 0;
     }
@@ -75,13 +75,9 @@ export class CbMyBoards extends LitElement {
     }
 
     [role="tab"][aria-selected="true"] {
-      color: var(--pt-text);
+      color: inherit;
       border-bottom-color: var(--pt-accent);
       font-weight: 600;
-    }
-
-    [role="tabpanel"]:focus-visible {
-      outline: none;
     }
 
     /* ── Board / template list shared ──────────────────────────────── */
@@ -112,7 +108,7 @@ export class CbMyBoards extends LitElement {
       padding: 13px 20px;
       background: transparent;
       border: none;
-      color: var(--pt-text);
+      color: inherit;
       font: inherit;
       font-size: 0.9rem;
       cursor: pointer;
@@ -163,7 +159,7 @@ export class CbMyBoards extends LitElement {
     .board-title {
       font-size: 0.9rem;
       font-weight: 500;
-      color: var(--pt-text);
+      color: inherit;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -298,7 +294,7 @@ export class CbMyBoards extends LitElement {
       background: transparent;
       border: none;
       border-radius: 6px;
-      color: var(--pt-text);
+      color: inherit;
       font: inherit;
       font-size: 0.95rem;
       cursor: pointer;
@@ -395,7 +391,7 @@ export class CbMyBoards extends LitElement {
   #renderBoardsPanel() {
     const saved = this.boards.filter(b => b.name !== 'Untitled Board');
     return html`
-      <div role="tabpanel" id="panel-boards" aria-labelledby="tab-boards" tabindex="0">
+      <div role="tabpanel" id="panel-boards" aria-labelledby="tab-boards">
 
         <div class="section">
           ${saved.length ? html`
@@ -458,7 +454,7 @@ export class CbMyBoards extends LitElement {
 
   #renderTemplatesPanel() {
     return html`
-      <div role="tabpanel" id="panel-templates" aria-labelledby="tab-templates" tabindex="0">
+      <div role="tabpanel" id="panel-templates" aria-labelledby="tab-templates">
 
         <div class="section">
           ${this.userTemplates.length ? html`
