@@ -113,7 +113,11 @@ export class CbBoardSummary extends LitElement {
     .notes-toolbar {
       display: flex;
       gap: 2px;
-      margin-bottom: 4px;
+      margin-bottom: 0;
+      padding: 4px;
+      border-radius: 6px 6px 0 0;
+      background: #f2f2f2;
+      border: 1px solid var(--pt-color-gray-200);
     }
 
     .notes-tool-btn {
@@ -123,8 +127,8 @@ export class CbBoardSummary extends LitElement {
       min-width: 34px;
       min-height: 34px;
       padding: 4px 7px;
-      background: transparent;
-      border: 1px solid rgba(0, 0, 0, 0.12);
+      background: white;
+      border: 1px solid var(--pt-color-gray-150);
       border-radius: 4px;
       color: rgba(0, 0, 0, 0.65);
       font: inherit;
@@ -147,7 +151,7 @@ export class CbBoardSummary extends LitElement {
 
     .notes-tool-sep {
       width: 1px;
-      background: rgba(0, 0, 0, 0.12);
+      background: var(--pt-color-gray-150);
       margin: 4px 2px;
     }
 
@@ -158,12 +162,13 @@ export class CbBoardSummary extends LitElement {
       padding: 10px 12px;
       font-size: 0.85rem;
       font-family: inherit;
-      border: 1.5px solid rgba(0, 0, 0, 0.14);
-      border-radius: 6px;
+      border: 1px solid var(--pt-color-gray-100);
+      border-radius: 0 0 6px 6px;
       background: rgba(0, 0, 0, 0.03);
       color: var(--pt-color-navy-800, #16213e);
       resize: vertical;
       min-height: 120px;
+      border-top: 0;
     }
 
     .notes-textarea::placeholder {
@@ -179,7 +184,7 @@ export class CbBoardSummary extends LitElement {
     .notes-preview {
       min-height: 120px;
       padding: 10px 12px;
-      border: 1.5px solid rgba(0, 0, 0, 0.14);
+      border: 1px solid var(--pt-color-gray-100);
       border-radius: 6px;
       background: rgba(0, 0, 0, 0.03);
       font-size: 0.85rem;
@@ -386,6 +391,41 @@ export class CbBoardSummary extends LitElement {
     this.#emit('cb-board-notes-input', { value: ta.value });
   }
 
+  // ── Toolbar icons ─────────────────────────────────────────────────────────
+
+  #iconBold() {
+    return html`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="m250 100h375c151.88 0 275 123.12 275 275 0 67.602-24.395 129.51-64.859 177.39 97.438 46.027 164.86 145.19 164.86 260.11 0 158.78-128.72 287.5-287.5 287.5h-462.5zm125 125h250c82.844 0 150 67.156 150 150s-67.156 150-150 150h-250zm0 425v325h337.5c89.746 0 162.5-72.754 162.5-162.5s-72.754-162.5-162.5-162.5z" fill-rule="evenodd"/>
+    </svg>`;
+  }
+
+  #iconItalic() {
+    return html`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="m450 150c0-27.613 22.387-50 50-50h400c27.613 0 50 22.387 50 50s-22.387 50-50 50h-149.98c-0.003907 3.7773-0.4375 7.6133-1.3438 11.449l-185.54 788.55h136.86c27.613 0 50 22.387 50 50s-22.387 50-50 50h-198.93c-0.67188 0.015625-1.3477 0.015625-2.0273 0h-199.04c-27.613 0-50-22.387-50-50s22.387-50 50-50h160.41l188.23-800h-148.64c-27.613 0-50-22.387-50-50z"/>
+    </svg>`;
+  }
+
+  #iconBulletList() {
+    return html`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="m250 400c55.227 0 100-44.773 100-100s-44.773-100-100-100-100 44.773-100 100 44.773 100 100 100z"/>
+      <path d="m450 250c-27.613 0-50 22.387-50 50s22.387 50 50 50h550c27.613 0 50-22.387 50-50s-22.387-50-50-50z"/>
+      <path d="m450 850c-27.613 0-50 22.387-50 50s22.387 50 50 50h550c27.613 0 50-22.387 50-50s-22.387-50-50-50z"/>
+      <path d="m400 600c0-27.613 22.387-50 50-50h550c27.613 0 50 22.387 50 50s-22.387 50-50 50h-550c-27.613 0-50-22.387-50-50z"/>
+      <path d="m350 600c0 55.23-44.773 100-100 100s-100-44.77-100-100 44.773-100 100-100 100 44.77 100 100z"/>
+      <path d="m250 1e3c55.227 0 100-44.77 100-100s-44.773-100-100-100-100 44.77-100 100 44.773 100 100 100z"/>
+    </svg>`;
+  }
+
+  #iconNumberedList() {
+    return html`<svg viewBox="0 0 1200 1200" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="m321.66 154.93c17.324 8.3281 28.344 25.848 28.344 45.066v300c0 27.613-22.387 50-50 50-27.617 0-50-22.387-50-50v-195.97l-18.766 15.012c-21.566 17.25-53.027 13.754-70.281-7.8086-17.25-21.562-13.754-53.027 7.8086-70.277l100-80c15.012-12.008 35.574-14.348 52.895-6.0234z"/>
+      <path d="m450 300c0-27.613 22.387-50 50-50h500c27.613 0 50 22.387 50 50s-22.387 50-50 50h-500c-27.613 0-50-22.387-50-50z"/>
+      <path d="m450 900c0-27.613 22.387-50 50-50h500c27.613 0 50 22.387 50 50s-22.387 50-50 50h-500c-27.613 0-50-22.387-50-50z"/>
+      <path d="m500 550c-27.613 0-50 22.387-50 50s22.387 50 50 50h500c27.613 0 50-22.387 50-50s-22.387-50-50-50z"/>
+      <path d="m250 742.63v-0.1875l0.003906 0.10547c0.003906-0.22656 0.019532-0.73047 0.0625-1.4766 0.082032-1.5117 0.25781-3.8984 0.63672-6.8672 0.78906-6.1836 2.2812-13.543 4.8242-20.191 2.6094-6.8281 5.3477-10.367 7.1094-11.902l0.042969-0.035156c0.78516-0.68359 2.375-2.0742 7.9102-2.0742 8.4297 0 13.395 2.1211 16.457 4.1484 3.2812 2.1797 6.4258 5.6562 8.8906 10.891 5.418 11.516 5.418 27.156 0 38.672-3.4141 7.25-12.258 20.773-26.465 39.355-13.504 17.66-29.711 37.148-45.566 55.523-15.789 18.305-30.91 35.137-42.102 47.41-5.5898 6.1289-10.176 11.094-13.352 14.52l-3.6484 3.9141-0.92969 0.99609-0.28516 0.30469c-13.672 14.527-17.398 35.785-9.4883 54.094 7.9141 18.316 25.953 30.172 45.898 30.172h175c27.617 0 50-22.387 50-50s-22.383-50-50-50h-63.488c12.836-15.172 25.828-31.059 37.398-46.191 14.469-18.918 29.156-39.77 37.508-57.52 18.109-38.484 18.109-85.344 0-123.83-19.305-41.02-59.559-72.461-115.83-72.461-29.66 0-54.582 10.102-73.664 26.734-18.094 15.77-28.59 35.312-34.805 51.562-6.2812 16.43-9.1992 32.145-10.617 43.27-0.72266 5.6875-1.0977 10.504-1.2891 14.047-0.097656 1.7773-0.15234 3.2578-0.17969 4.3828l-0.027344 1.4297-0.003906 0.50781-0.003906 0.20703v0.16406c0.003906 0.019531 0.33203 0 50 0h-50c0 27.617 22.387 50 50 50 27.508 0 49.824-22.211 50-49.676z"/>
+    </svg>`;
+  }
+
   // ── Section icons ─────────────────────────────────────────────────────────
 
   #iconPitch() {
@@ -544,10 +584,10 @@ export class CbBoardSummary extends LitElement {
              @keydown="${this.#onToolbarKeyDown}">
           <button class="notes-tool-btn" aria-label="Bold" title="Bold"
                   tabindex="0"
-                  @click="${() => this.#insertMark('**')}"><strong>B</strong></button>
+                  @click="${() => this.#insertMark('**')}">${this.#iconBold()}</button>
           <button class="notes-tool-btn" aria-label="Italic" title="Italic"
                   tabindex="-1"
-                  @click="${() => this.#insertMark('*')}"><em>I</em></button>
+                  @click="${() => this.#insertMark('*')}">${this.#iconItalic()}</button>
           <div class="notes-tool-sep" role="separator"></div>
           <button class="notes-tool-btn" aria-label="Heading" title="Heading (##)"
                   tabindex="-1"
@@ -555,10 +595,10 @@ export class CbBoardSummary extends LitElement {
           <div class="notes-tool-sep" role="separator"></div>
           <button class="notes-tool-btn" aria-label="Bullet list" title="Bullet list"
                   tabindex="-1"
-                  @click="${() => this.#insertLinePrefix('- ')}">•&thinsp;—</button>
+                  @click="${() => this.#insertLinePrefix('- ')}">${this.#iconBulletList()}</button>
           <button class="notes-tool-btn" aria-label="Numbered list" title="Numbered list"
                   tabindex="-1"
-                  @click="${() => this.#insertLinePrefix('1. ')}">1.&thinsp;—</button>
+                  @click="${() => this.#insertLinePrefix('1. ')}">${this.#iconNumberedList()}</button>
           <div class="notes-tool-sep" role="separator"></div>
           <button class="notes-tool-btn" aria-label="Horizontal rule" title="Horizontal rule"
                   tabindex="-1"
