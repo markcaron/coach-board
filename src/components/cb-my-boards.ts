@@ -249,7 +249,7 @@ export class CbMyBoards extends LitElement {
 
     .kebab-menu {
       position: absolute;
-      right: 0;
+      right: 4px;
       top: calc(100% + 2px);
       z-index: 10;
       background: white;
