@@ -61,7 +61,7 @@ async function getBearerToken(): Promise<string | null> {
   }
 }
 
-// ── Low-level sync request ────────────────────────────────────────────────────
+// ── Low-level sync requests ───────────────────────────────────────────────────
 
 async function syncRequest(
   method: 'GET' | 'PUT' | 'DELETE',
@@ -86,6 +86,21 @@ async function syncRequest(
   }
 }
 
+async function syncRequestJson<T>(path: string): Promise<T | null> {
+  const token = await getBearerToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(`/api/sync${path}`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return await res.json() as T;
+  } catch {
+    return null;
+  }
+}
+
 // ── Board sync ────────────────────────────────────────────────────────────────
 
 /** Upsert a board to the cloud. Thumbnails are uploaded separately. */
@@ -106,6 +121,15 @@ export async function cloudDeleteBoard(id: string): Promise<void> {
   await syncRequest('DELETE', `/boards/${id}`);
 }
 
+/**
+ * Fetch all boards stored in the cloud for the current user.
+ * Returns an empty array if unauthenticated, offline, or on error.
+ */
+export async function cloudFetchBoards(): Promise<SavedBoard[]> {
+  const data = await syncRequestJson<{ items: SavedBoard[] }>('/boards');
+  return data?.items ?? [];
+}
+
 // ── Template sync ─────────────────────────────────────────────────────────────
 
 /** Upsert a user template to the cloud. */
@@ -124,6 +148,15 @@ export async function cloudSyncTemplate(template: UserTemplate): Promise<void> {
 export async function cloudDeleteTemplate(id: string): Promise<void> {
   if (!netlifyIdentity.currentUser()) return;
   await syncRequest('DELETE', `/templates/${id}`);
+}
+
+/**
+ * Fetch all user templates stored in the cloud for the current user.
+ * Returns an empty array if unauthenticated, offline, or on error.
+ */
+export async function cloudFetchTemplates(): Promise<UserTemplate[]> {
+  const data = await syncRequestJson<{ items: UserTemplate[] }>('/templates');
+  return data?.items ?? [];
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────

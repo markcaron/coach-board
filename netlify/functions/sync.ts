@@ -50,7 +50,7 @@ function corsHeaders(origin: string): Record<string, string> {
     : 'https://coachingboard.netlify.app';
   return {
     'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Methods': 'PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
@@ -90,21 +90,52 @@ export default async (request: Request, context: Context): Promise<Response> => 
   const url = new URL(request.url);
   const pathPart = url.pathname.replace(/^\/api\/sync\/?/, '');
   // Expected patterns:
+  //   boards                  ← GET list all boards
   //   boards/:id
   //   boards/:id/thumb
+  //   templates               ← GET list all templates
   //   templates/:id
   //   templates/:id/thumb
-  const match = pathPart.match(/^(boards|templates)\/([a-zA-Z0-9_-]+)(\/thumb)?$/);
-  if (!match) {
+  const listMatch = pathPart.match(/^(boards|templates)$/);
+  const itemMatch = pathPart.match(/^(boards|templates)\/([a-zA-Z0-9_-]+)(\/thumb)?$/);
+
+  if (!listMatch && !itemMatch) {
     return json({ error: 'Not found' }, 404, headers);
   }
 
-  const [, kind, itemId, isThumb] = match;
+  const kind       = (listMatch ?? itemMatch)![1] as 'boards' | 'templates';
   const blobPrefix = kind === 'boards' ? 'board' : 'template';
-  const baseKey    = `user/${userId}/${blobPrefix}/${itemId}`;
-  const blobKey    = isThumb ? `${baseKey}-thumb` : baseKey;
+  const store      = getStore(STORE_NAME);
 
-  const store = getStore(STORE_NAME);
+  // ── GET list ──────────────────────────────────────────────────────────────
+  if (request.method === 'GET' && listMatch) {
+    const prefix = `user/${userId}/${blobPrefix}/`;
+    const { blobs } = await store.list({ prefix });
+    // Exclude thumbnail entries (suffixed with -thumb)
+    const jsonKeys = blobs
+      .map(b => b.key)
+      .filter(k => !k.endsWith('-thumb'))
+      .slice(0, 200); // hard cap: 200 items per list call
+
+    const items = await Promise.all(
+      jsonKeys.map(async key => {
+        const text = await store.get(key, { type: 'text' });
+        if (!text) return null;
+        try { return JSON.parse(text) as unknown; }
+        catch { return null; }
+      }),
+    );
+
+    return json({ items: items.filter(Boolean) }, 200, headers);
+  }
+
+  if (!itemMatch) {
+    return json({ error: 'Method not allowed' }, 405, headers);
+  }
+
+  const [, , itemId, isThumb] = itemMatch;
+  const baseKey = `user/${userId}/${blobPrefix}/${itemId}`;
+  const blobKey = isThumb ? `${baseKey}-thumb` : baseKey;
 
   // ── PUT ───────────────────────────────────────────────────────────────────
   if (request.method === 'PUT') {

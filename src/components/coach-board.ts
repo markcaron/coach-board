@@ -13,7 +13,7 @@ import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, loadBoard, listBoards, deleteBoard, renameBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
-import { initAuth, openSignIn, signOut, cloudSyncBoard, cloudDeleteBoard, cloudSyncTemplate, cloudDeleteTemplate, type AuthUser } from '../lib/cloud-sync.js';
+import { initAuth, openSignIn, signOut, cloudSyncBoard, cloudDeleteBoard, cloudSyncTemplate, cloudDeleteTemplate, cloudFetchBoards, cloudFetchTemplates, type AuthUser } from '../lib/cloud-sync.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
@@ -1369,6 +1369,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _boardSummaryData: BoardSummary | null = null;
   @state() private accessor _settingsOpen: boolean = false;
   @state() private accessor _authUser: AuthUser | null = null;
+  @state() private accessor _cloudRestoring: boolean = false;
   @state() private accessor _rotateHandleId: string | null = null;
   @state() private accessor _animationMode: boolean = false;
   @state() accessor animationFrames: AnimationFrame[] = [];
@@ -1646,6 +1647,48 @@ export class CoachBoard extends LitElement {
   #cloudDeleteTemplate(id: string): void {
     if (!this._authUser) return;
     cloudDeleteTemplate(id).catch(() => {});
+  }
+
+  /**
+   * Pull boards and templates from the cloud and merge into local IndexedDB.
+   * Called once per sign-in (new login or page reload with a cached session).
+   * Conflict resolution: last-write-wins by updatedAt (boards) / createdAt (templates).
+   * Never throws — the cloud is backup only; local IDB is always the source of truth.
+   */
+  async #restoreFromCloud(): Promise<void> {
+    this._cloudRestoring = true;
+    try {
+      const [cloudBoards, cloudTemplates, localBoards, localTemplates] = await Promise.all([
+        cloudFetchBoards(),
+        cloudFetchTemplates(),
+        listBoards(),
+        listUserTemplates(),
+      ]);
+
+      const localBoardMap    = new Map(localBoards.map(b => [b.id, b]));
+      const localTemplateMap = new Map(localTemplates.map(t => [t.id, t]));
+
+      // Boards: cloud wins when it's newer or not present locally
+      const boardsToMerge = cloudBoards.filter(cb => {
+        const local = localBoardMap.get(cb.id);
+        return !local || cb.updatedAt > local.updatedAt;
+      });
+
+      // Templates: cloud wins when not present locally (templates are immutable once created)
+      const templatesToMerge = cloudTemplates.filter(ct => !localTemplateMap.has(ct.id));
+
+      await Promise.all([
+        ...boardsToMerge.map(b => saveBoard(b)),
+        ...templatesToMerge.map(t => saveUserTemplate(t)),
+      ]);
+
+      if (boardsToMerge.length > 0)    this._myBoards       = await listBoards();
+      if (templatesToMerge.length > 0) this._userTemplates  = await listUserTemplates();
+    } catch {
+      // Fire-and-forget — never block the UI
+    } finally {
+      this._cloudRestoring = false;
+    }
   }
 
   #saveToStorage() {
@@ -2209,7 +2252,11 @@ export class CoachBoard extends LitElement {
       onNeedRefresh: () => { this._updateAvailable = true; },
     });
 
-    initAuth(user => { this._authUser = user; });
+    initAuth(user => {
+      const wasSignedOut = !this._authUser;
+      this._authUser = user;
+      if (user && wasSignedOut) this.#restoreFromCloud();
+    });
   }
 
   disconnectedCallback() {
@@ -3074,7 +3121,9 @@ export class CoachBoard extends LitElement {
                   <div>
                     <div class="settings-account-email">${this._authUser.email}</div>
                     <p class="settings-hint settings-hint--mt">
-                      Boards and templates are backed up automatically.
+                      ${this._cloudRestoring
+                        ? html`<span aria-live="polite">Syncing boards from cloud…</span>`
+                        : 'Boards and templates are backed up automatically.'}
                     </p>
                   </div>
                 </div>
