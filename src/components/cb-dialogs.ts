@@ -40,14 +40,15 @@ export class CbDialogs extends LitElement {
     }
 
     dialog {
-      background: var(--pt-bg-surface);
-      border: 1px solid var(--pt-border);
+      background: var(--pt-bg-inverted);
+      border: 1px solid rgba(0, 0, 0, 0.1);
       border-radius: 10px;
       padding: 0;
       max-width: 480px;
       width: calc(100% - 32px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-      color: var(--pt-text);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      color: var(--pt-text-on-inverted);
+      color-scheme: light;
       display: flex;
       flex-direction: column;
     }
@@ -61,7 +62,7 @@ export class CbDialogs extends LitElement {
       align-items: center;
       justify-content: space-between;
       padding: 12px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
       flex-shrink: 0;
     }
 
@@ -69,13 +70,13 @@ export class CbDialogs extends LitElement {
       margin: 0;
       font-size: 0.95rem;
       font-weight: bold;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
     }
 
     .dialog-close {
       background: transparent;
       border: none;
-      color: var(--pt-text-muted);
+      color: rgba(0, 0, 0, 0.55);
       cursor: pointer;
       min-width: 44px;
       min-height: 44px;
@@ -84,11 +85,14 @@ export class CbDialogs extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 6px;
-      transition: color 0.15s;
+      transition: background 0.12s, color 0.12s;
       font: inherit;
     }
 
-    .dialog-close:hover { color: var(--pt-text-white); }
+    .dialog-close:hover {
+      background: rgba(0, 0, 0, 0.06);
+      color: rgba(0, 0, 0, 0.85);
+    }
 
     .dialog-close svg {
       width: 14px;
@@ -96,7 +100,7 @@ export class CbDialogs extends LitElement {
     }
 
     .dialog-close:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -107,7 +111,7 @@ export class CbDialogs extends LitElement {
     .dialog-body p {
       margin: 0;
       font-size: 0.85rem;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
       line-height: 1.4;
     }
 
@@ -134,10 +138,10 @@ export class CbDialogs extends LitElement {
       gap: 6px;
       padding: 8px 20px;
       min-height: 44px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      border: 1px solid rgba(0, 0, 0, 0.15);
       border-radius: 6px;
-      background: var(--pt-bg-surface);
-      color: var(--pt-text);
+      background: transparent;
+      color: var(--pt-text-on-inverted);
       font: inherit;
       font-size: 0.85rem;
       cursor: pointer;
@@ -145,11 +149,11 @@ export class CbDialogs extends LitElement {
     }
 
     .confirm-actions button:hover {
-      background: var(--pt-border);
+      background: rgba(0, 0, 0, 0.06);
     }
 
     .confirm-actions button:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -159,13 +163,13 @@ export class CbDialogs extends LitElement {
     }
 
     .confirm-actions .cancel-btn {
-      border: 1px solid var(--pt-accent);
-      color: var(--pt-text-white);
+      border: 1px solid var(--pt-btn-primary);
+      color: var(--pt-btn-primary);
       background: transparent;
     }
 
     .confirm-actions .cancel-btn:hover {
-      background: rgba(78, 168, 222, 0.15);
+      background: rgba(37, 99, 235, 0.08);
     }
 
     .confirm-actions .confirm-success {
@@ -194,14 +198,14 @@ export class CbDialogs extends LitElement {
       gap: 8px;
       padding: 8px 0;
       font-size: 0.85rem;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
       cursor: pointer;
     }
 
     .checkbox-label input[type="checkbox"] {
       width: 18px;
       height: 18px;
-      accent-color: var(--pt-accent);
+      accent-color: var(--pt-btn-primary);
       cursor: pointer;
     }
 
@@ -210,7 +214,7 @@ export class CbDialogs extends LitElement {
     .save-board-label {
       display: block;
       font-size: 0.8rem;
-      color: var(--pt-text-muted);
+      color: rgba(0, 0, 0, 0.60);
       margin-top: 16px;
       margin-bottom: 6px;
     }
@@ -218,17 +222,17 @@ export class CbDialogs extends LitElement {
     .save-board-input {
       width: 100%;
       padding: 10px 12px;
-      background: var(--pt-bg-primary);
-      border: 1.5px solid var(--pt-border-ui);
+      background: var(--pt-bg-inverted);
+      border: 1.5px solid rgba(0, 0, 0, 0.5);
       border-radius: 6px;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
       font-size: 1rem;
       font-family: system-ui, -apple-system, sans-serif;
       box-sizing: border-box;
     }
 
     .save-board-input:focus {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -238,7 +242,7 @@ export class CbDialogs extends LitElement {
       gap: 8px;
       margin-top: 14px;
       font-size: 0.85rem;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
       cursor: pointer;
       user-select: none;
     }
@@ -246,30 +250,30 @@ export class CbDialogs extends LitElement {
     .save-template-label input[type="checkbox"] {
       width: 16px;
       height: 16px;
-      accent-color: var(--pt-accent);
+      accent-color: var(--pt-btn-primary);
       cursor: pointer;
     }
 
 
     /* New board pitch/template selects */
     .theme-select {
-      background: var(--pt-bg-surface);
-      color: var(--pt-text);
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: var(--pt-bg-inverted);
+      color: var(--pt-text-on-inverted);
+      border: 1px solid rgba(0, 0, 0, 0.5);
       border-radius: 6px;
       min-height: 44px;
       padding: 6px 26px 6px 10px;
       font: inherit;
       font-size: 1rem;
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ccc'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 8px center;
       cursor: pointer;
     }
 
     .theme-select:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -278,10 +282,10 @@ export class CbDialogs extends LitElement {
       align-items: flex-start;
       gap: 10px;
       padding: 12px 16px;
-      background: rgba(180, 130, 20, 0.15);
-      border: 1px solid rgba(255, 200, 60, 0.5);
+      background: rgba(180, 130, 20, 0.08);
+      border: 1px solid rgba(180, 130, 20, 0.3);
       border-radius: 8px;
-      color: #fdd835;
+      color: #7a5800;
       font-size: 0.85rem;
       line-height: 1.4;
     }
@@ -296,10 +300,10 @@ export class CbDialogs extends LitElement {
       align-items: flex-start;
       gap: 10px;
       padding: 12px 16px;
-      background: rgba(126, 87, 194, 0.12);
-      border: 1px solid rgba(179, 157, 219, 0.45);
+      background: rgba(126, 87, 194, 0.07);
+      border: 1px solid rgba(126, 87, 194, 0.25);
       border-radius: 8px;
-      color: #b39ddb;
+      color: #5c3d99;
       font-size: 0.85rem;
       line-height: 1.4;
       margin-top: 32px;
@@ -322,10 +326,10 @@ export class CbDialogs extends LitElement {
       align-items: flex-start;
       gap: 12px;
       padding: 12px 16px;
-      background: var(--pt-bg-surface);
-      border: 1px solid var(--pt-border);
+      background: var(--pt-bg-inverted);
+      border: 1px solid rgba(0, 0, 0, 0.45);
       border-radius: 6px;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
       font-size: 0.85rem;
       cursor: pointer;
       transition: background 0.15s;
@@ -333,17 +337,17 @@ export class CbDialogs extends LitElement {
     }
 
     .export-options button:hover {
-      background: var(--pt-border);
+      background: rgba(0, 0, 0, 0.04);
     }
 
     .export-options button:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
     .item-description {
       font-size: 0.7rem;
-      color: var(--pt-text-muted);
+      color: rgba(0, 0, 0, 0.60);
       margin-top: 4px;
     }
 

@@ -920,7 +920,7 @@ export class CoachBoard extends LitElement {
       gap: 6px;
       padding: 8px 20px;
       min-height: 44px;
-      border: 1px solid var(--pt-border-on-inverted);
+      border: 1px solid rgba(0, 0, 0, 0.45);
       border-radius: 6px;
       background: var(--pt-bg-inverted);
       color: var(--pt-text-on-inverted);
@@ -935,7 +935,7 @@ export class CoachBoard extends LitElement {
     }
 
     .update-toast button:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -952,7 +952,7 @@ export class CoachBoard extends LitElement {
     .update-toast .dismiss-btn {
       background: transparent;
       color: var(--pt-text-on-inverted);
-      border-color: var(--pt-border-on-inverted);
+      border-color: rgba(0, 0, 0, 0.45);
     }
 
     .update-toast .dismiss-btn:hover {

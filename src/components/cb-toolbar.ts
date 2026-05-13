@@ -652,14 +652,15 @@ export class CbToolbar extends LitElement {
     }
 
     dialog {
-      background: var(--pt-bg-surface);
-      border: 1px solid var(--pt-border);
+      background: var(--pt-bg-inverted);
+      border: 1px solid rgba(0, 0, 0, 0.1);
       border-radius: 10px;
       padding: 0;
       max-width: 480px;
       width: calc(100% - 32px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-      color: var(--pt-text);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      color: var(--pt-text-on-inverted);
+      color-scheme: light;
       display: flex;
       flex-direction: column;
     }
@@ -673,7 +674,7 @@ export class CbToolbar extends LitElement {
       align-items: center;
       justify-content: space-between;
       padding: 12px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
       flex-shrink: 0;
     }
 
@@ -681,13 +682,13 @@ export class CbToolbar extends LitElement {
       margin: 0;
       font-size: 0.95rem;
       font-weight: bold;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
     }
 
     .dialog-close {
       background: transparent;
       border: none;
-      color: var(--pt-text-muted);
+      color: rgba(0, 0, 0, 0.55);
       cursor: pointer;
       min-width: 44px;
       min-height: 44px;
@@ -696,11 +697,19 @@ export class CbToolbar extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 6px;
-      transition: color 0.15s;
+      transition: background 0.12s, color 0.12s;
       font: inherit;
     }
 
-    .dialog-close:hover { color: var(--pt-text-white); }
+    .dialog-close:hover {
+      background: rgba(0, 0, 0, 0.06);
+      color: rgba(0, 0, 0, 0.85);
+    }
+
+    .dialog-close:focus-visible {
+      outline: 2px solid var(--pt-btn-primary);
+      outline-offset: 2px;
+    }
 
     .dialog-close svg {
       width: 14px;
@@ -714,7 +723,7 @@ export class CbToolbar extends LitElement {
     .dialog-body p {
       margin: 0;
       font-size: 0.85rem;
-      color: var(--pt-text);
+      color: var(--pt-text-on-inverted);
       line-height: 1.4;
     }
 
@@ -726,13 +735,13 @@ export class CbToolbar extends LitElement {
     }
 
     .confirm-actions .cancel-btn {
-      border: 1px solid var(--pt-accent);
-      color: var(--pt-text-white);
+      border: 1px solid var(--pt-btn-primary);
+      color: var(--pt-btn-primary);
       background: transparent;
     }
 
     .confirm-actions .cancel-btn:hover {
-      background: rgba(78, 168, 222, 0.15);
+      background: rgba(37, 99, 235, 0.08);
     }
 
     .confirm-actions .confirm-danger {
