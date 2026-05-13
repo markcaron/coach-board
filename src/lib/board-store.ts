@@ -69,6 +69,17 @@ export async function saveBoard(board: SavedBoard): Promise<void> {
   await db.put(STORE_NAME, { ...board, updatedAt: Date.now() });
 }
 
+/**
+ * Write a board to IDB preserving its original `updatedAt` timestamp.
+ * Use `saveBoard()` for user-initiated saves (which stamp the current time).
+ * Use `putBoard()` for cloud restore — preserving the author-device timestamp
+ * ensures the last-write-wins comparison works correctly on subsequent restores.
+ */
+export async function putBoard(board: SavedBoard): Promise<void> {
+  const db = await getDB();
+  await db.put(STORE_NAME, board);
+}
+
 export async function loadBoard(id: string): Promise<SavedBoard | undefined> {
   const db = await getDB();
   return db.get(STORE_NAME, id);

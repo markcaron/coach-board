@@ -12,7 +12,7 @@ import { COLORS, getPlayerColors, getConeColors, getLineColors, PLAYER_COLORS, P
 import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { uid, ensureMinId } from '../lib/svg-utils.js';
-import { saveBoard, loadBoard, listBoards, deleteBoard, renameBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
+import { saveBoard, putBoard, loadBoard, listBoards, deleteBoard, renameBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
 import { initAuth, openSignIn, signOut, cloudSyncBoard, cloudDeleteBoard, cloudSyncTemplate, cloudDeleteTemplate, cloudFetchBoards, cloudFetchTemplates, type AuthUser } from '../lib/cloud-sync.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
@@ -1679,12 +1679,13 @@ export class CoachBoard extends LitElement {
       const templatesToMerge = cloudTemplates.filter(ct => !localTemplateMap.has(ct.id));
 
       await Promise.all([
-        ...boardsToMerge.map(b => saveBoard(b)),
+        ...boardsToMerge.map(b => putBoard(b)),   // preserves cloud updatedAt for future LWW
         ...templatesToMerge.map(t => saveUserTemplate(t)),
       ]);
 
       console.log(
         `[cloud-restore] cloud=${cloudBoards.length} boards, ${cloudTemplates.length} templates` +
+        ` | local=${localBoards.length} boards, ${localTemplates.length} templates` +
         ` | merged ${boardsToMerge.length} boards, ${templatesToMerge.length} templates`,
       );
 
