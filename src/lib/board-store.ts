@@ -29,6 +29,8 @@ export interface UserTemplate {
   name: string;
   pitchType: PitchType;
   createdAt: number;
+  /** Stamped on create and on every rename. Used for last-write-wins cloud sync. */
+  updatedAt?: number;
   players: Player[];
   lines: Line[];
   equipment: Equipment[];
@@ -153,7 +155,7 @@ export async function deleteUserTemplate(id: string): Promise<void> {
 export async function renameUserTemplate(id: string, name: string): Promise<void> {
   const db = await getDB();
   const existing = await db.get(TEMPLATES_STORE, id) as UserTemplate | undefined;
-  if (existing) await db.put(TEMPLATES_STORE, { ...existing, name });
+  if (existing) await db.put(TEMPLATES_STORE, { ...existing, name, updatedAt: Date.now() });
 }
 
 export async function duplicateUserTemplate(template: UserTemplate): Promise<UserTemplate> {
@@ -162,6 +164,7 @@ export async function duplicateUserTemplate(template: UserTemplate): Promise<Use
     id: crypto.randomUUID(),
     name: `${template.name} copy`,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
   await saveUserTemplate(copy);
   return copy;

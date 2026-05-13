@@ -1675,8 +1675,15 @@ export class CoachBoard extends LitElement {
         return !local || cb.updatedAt > local.updatedAt;
       });
 
-      // Templates: cloud wins when not present locally (templates are immutable once created)
-      const templatesToMerge = cloudTemplates.filter(ct => !localTemplateMap.has(ct.id));
+      // Templates: last-write-wins by updatedAt (falling back to createdAt for older records
+      // that predate the updatedAt field). Cloud wins when newer or not present locally.
+      const templatesToMerge = cloudTemplates.filter(ct => {
+        const local = localTemplateMap.get(ct.id);
+        if (!local) return true;
+        const cloudTs  = ct.updatedAt  ?? ct.createdAt;
+        const localTs  = local.updatedAt ?? local.createdAt;
+        return cloudTs > localTs;
+      });
 
       await Promise.all([
         ...boardsToMerge.map(b => putBoard(b)),   // preserves cloud updatedAt for future LWW
@@ -3384,6 +3391,7 @@ export class CoachBoard extends LitElement {
         name,
         pitchType: this.#currentBoard.pitchType,
         createdAt: Date.now(),
+        updatedAt: Date.now(),
         players: structuredClone(this.players),
         lines: structuredClone(this.lines),
         equipment: structuredClone(this.equipment),
