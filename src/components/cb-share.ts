@@ -69,7 +69,7 @@ export class CbShare extends LitElement {
     .dialog-close:hover { color: var(--pt-text-white); }
 
     .dialog-close:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -144,7 +144,7 @@ export class CbShare extends LitElement {
     }
 
     .cancel-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -172,7 +172,7 @@ export class CbShare extends LitElement {
     }
 
     .confirm-success:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 

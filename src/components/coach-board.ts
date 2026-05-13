@@ -402,7 +402,7 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-select:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -462,7 +462,7 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-account-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 

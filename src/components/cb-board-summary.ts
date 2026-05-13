@@ -99,7 +99,7 @@ export class CbBoardSummary extends LitElement {
     }
 
     .notes-preview-toggle:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
       border-radius: 4px;
     }
@@ -156,7 +156,7 @@ export class CbBoardSummary extends LitElement {
     }
 
     .notes-tool-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -2px;
       border-radius: 4px;
     }
@@ -188,7 +188,7 @@ export class CbBoardSummary extends LitElement {
     }
 
     .notes-textarea:focus {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 1px;
     }
 
@@ -279,7 +279,7 @@ export class CbBoardSummary extends LitElement {
     }
 
     .save-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -316,7 +316,7 @@ export class CbBoardSummary extends LitElement {
     }
 
     .show-more-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
       border-radius: 3px;
     }

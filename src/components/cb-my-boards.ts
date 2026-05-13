@@ -72,7 +72,7 @@ export class CbMyBoards extends LitElement {
     }
 
     [role="tab"]:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -2px;
       border-radius: 6px 6px 0 0;
     }
@@ -141,7 +141,7 @@ export class CbMyBoards extends LitElement {
     }
 
     .board-open-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -2px;
       border-radius: 6px;
       background: color-mix(in srgb, var(--pt-accent) 8%, transparent);
@@ -216,7 +216,7 @@ export class CbMyBoards extends LitElement {
     }
 
     .rename-input:focus {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -1px;
     }
 
@@ -248,7 +248,7 @@ export class CbMyBoards extends LitElement {
     }
 
     .kebab-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -2px;
     }
 
@@ -293,7 +293,7 @@ export class CbMyBoards extends LitElement {
     }
 
     .kebab-menu [role="menuitem"]:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -2px;
     }
 
@@ -351,7 +351,7 @@ export class CbMyBoards extends LitElement {
     }
 
     .alert-inline-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
       border-radius: 2px;
     }
@@ -386,7 +386,7 @@ export class CbMyBoards extends LitElement {
     }
 
     .action-btn-full:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -4px;
     }
 
