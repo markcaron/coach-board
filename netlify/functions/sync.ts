@@ -2,8 +2,9 @@
  * /api/sync — cloud backup for boards and user templates.
  *
  * Auth: Netlify Identity JWT (Authorization: Bearer <token>).
- * Netlify's infrastructure decodes the JWT before the function runs and
- * populates context.clientContext.user automatically.
+ * Verified with HMAC-SHA256 using JWT_SECRET (set automatically by Netlify
+ * on Identity-enabled sites). Netlify Functions v2 does not auto-populate
+ * context.clientContext.user — that was a v1/Lambda-style API.
  *
  * Routes:
  *   PUT    /api/sync/boards/:id         upsert board JSON
@@ -19,6 +20,7 @@
  *   user/{userId}/template/{id}      → template JSON
  *   user/{userId}/template/{id}-thumb → JPEG ArrayBuffer
  */
+import { createHmac } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
 import type { Context } from '@netlify/functions';
 
@@ -50,7 +52,7 @@ function corsHeaders(origin: string): Record<string, string> {
     : 'https://coachingboard.netlify.app';
   return {
     'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Methods': 'PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
@@ -60,6 +62,29 @@ function json(body: unknown, status: number, extraHeaders: Record<string, string
     status,
     headers: { 'Content-Type': 'application/json', ...extraHeaders },
   });
+}
+
+// ── JWT helper ────────────────────────────────────────────────────────────────
+
+/**
+ * Verify and decode a Netlify Identity JWT.
+ * Netlify sets JWT_SECRET automatically on Identity-enabled sites.
+ * Returns the payload (including `sub`) only if the HMAC-SHA256 signature
+ * is valid — rejects crafted tokens with arbitrary `sub` claims.
+ */
+function verifyAndDecodeJwt(token: string, secret: string): { sub?: string; email?: string } | null {
+  try {
+    const [header, payload, sig] = token.split('.');
+    if (!header || !payload || !sig) return null;
+    const expected = createHmac('sha256', secret)
+      .update(`${header}.${payload}`)
+      .digest('base64url');
+    if (sig !== expected) return null;
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json) as { sub?: string; email?: string };
+  } catch {
+    return null;
+  }
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -73,11 +98,17 @@ export default async (request: Request, context: Context): Promise<Response> => 
   }
 
   // ── Auth ─────────────────────────────────────────────────────────────────
-  // Netlify decodes the JWT from the Authorization header and populates
-  // context.clientContext.user when the token is valid.
-  const cc = (context as Record<string, unknown>).clientContext as
-    { user?: { sub?: string; email?: string } } | undefined;
-  const userId = cc?.user?.sub;
+  // Netlify Functions v2 does not auto-populate context.clientContext.user.
+  // Verify the Identity JWT from the Authorization header using JWT_SECRET,
+  // which Netlify sets automatically on Identity-enabled sites.
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    console.error('[sync] JWT_SECRET is not set — Identity is not configured for this site');
+    return json({ error: 'Server misconfigured' }, 500, headers);
+  }
+  const authHeader = request.headers.get('Authorization');
+  const rawToken   = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const userId     = rawToken ? verifyAndDecodeJwt(rawToken, jwtSecret)?.sub : null;
   if (!userId) {
     return json({ error: 'Unauthorized' }, 401, headers);
   }
@@ -90,21 +121,76 @@ export default async (request: Request, context: Context): Promise<Response> => 
   const url = new URL(request.url);
   const pathPart = url.pathname.replace(/^\/api\/sync\/?/, '');
   // Expected patterns:
+  //   boards                  ← GET list all boards
   //   boards/:id
   //   boards/:id/thumb
+  //   templates               ← GET list all templates
   //   templates/:id
   //   templates/:id/thumb
-  const match = pathPart.match(/^(boards|templates)\/([a-zA-Z0-9_-]+)(\/thumb)?$/);
-  if (!match) {
+  const listMatch = pathPart.match(/^(boards|templates)$/);
+  const itemMatch = pathPart.match(/^(boards|templates)\/([a-zA-Z0-9_-]+)(\/thumb)?$/);
+
+  if (!listMatch && !itemMatch) {
     return json({ error: 'Not found' }, 404, headers);
   }
 
-  const [, kind, itemId, isThumb] = match;
+  const kind       = (listMatch ?? itemMatch)![1] as 'boards' | 'templates';
   const blobPrefix = kind === 'boards' ? 'board' : 'template';
-  const baseKey    = `user/${userId}/${blobPrefix}/${itemId}`;
-  const blobKey    = isThumb ? `${baseKey}-thumb` : baseKey;
+  const store      = getStore(STORE_NAME);
 
-  const store = getStore(STORE_NAME);
+  // ── GET list ──────────────────────────────────────────────────────────────
+  if (request.method === 'GET' && listMatch) {
+    const prefix = `user/${userId}/${blobPrefix}/`;
+    let allKeys: string[];
+    try {
+      const { blobs } = await store.list({ prefix });
+      allKeys = blobs.map(b => b.key).filter(k => !k.endsWith('-thumb'));
+    } catch (err) {
+      console.error('[sync] store.list failed', err);
+      return json({ error: 'Storage unavailable' }, 503, headers);
+    }
+
+    const LIMIT = 200; // TODO: paginate if user volume grows
+    const truncated = allKeys.length > LIMIT;
+    const jsonKeys = allKeys.slice(0, LIMIT);
+
+    const items = await Promise.all(
+      jsonKeys.map(async key => {
+        const text = await store.get(key, { type: 'text' });
+        if (!text) return null;
+        try { return JSON.parse(text) as unknown; }
+        catch { return null; }
+      }),
+    );
+
+    return json({ items: items.filter(Boolean), truncated }, 200, headers);
+  }
+
+  if (!itemMatch) {
+    return json({ error: 'Method not allowed' }, 405, headers);
+  }
+
+  const [, , itemId, isThumb] = itemMatch;
+  const baseKey = `user/${userId}/${blobPrefix}/${itemId}`;
+  const blobKey = isThumb ? `${baseKey}-thumb` : baseKey;
+
+  // ── GET individual item (JSON or thumbnail) ───────────────────────────────
+  if (request.method === 'GET' && itemMatch) {
+    if (isThumb) {
+      const bytes = await store.get(blobKey, { type: 'arrayBuffer' });
+      if (!bytes) return json({ error: 'Not found' }, 404, headers);
+      return new Response(bytes as ArrayBuffer, {
+        status: 200,
+        headers: { 'Content-Type': 'image/jpeg', ...headers },
+      });
+    }
+    const text = await store.get(blobKey, { type: 'text' });
+    if (!text) return json({ error: 'Not found' }, 404, headers);
+    return new Response(text, {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...headers },
+    });
+  }
 
   // ── PUT ───────────────────────────────────────────────────────────────────
   if (request.method === 'PUT') {
