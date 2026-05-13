@@ -1672,7 +1672,13 @@ export class CoachBoard extends LitElement {
       // Boards: cloud wins when it's newer or not present locally
       const boardsToMerge = cloudBoards.filter(cb => {
         const local = localBoardMap.get(cb.id);
-        return !local || cb.updatedAt > local.updatedAt;
+        if (!local) return true;
+        const win = cb.updatedAt > local.updatedAt;
+        if (!win) console.log(
+          `[cloud-restore] skip "${cb.name}" cloud=${cb.updatedAt} local=${local.updatedAt}` +
+          ` diff=${local.updatedAt - cb.updatedAt}ms`,
+        );
+        return win;
       });
 
       // Templates: last-write-wins by updatedAt (falling back to createdAt for older records
