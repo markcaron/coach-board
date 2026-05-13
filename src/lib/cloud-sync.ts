@@ -122,10 +122,6 @@ export async function cloudDeleteBoard(id: string): Promise<void> {
 }
 
 /**
- * Fetch all boards stored in the cloud for the current user.
- * Returns an empty array if unauthenticated, offline, or on error.
- */
-/**
  * Fetch a single board or template thumbnail from the cloud.
  * Returns a base64 JPEG data URL, or null if not found / unauthenticated.
  */
@@ -157,6 +153,10 @@ export function cloudFetchTemplateThumbnail(id: string): Promise<string | null> 
   return cloudFetchThumbnail(`/templates/${id}/thumb`);
 }
 
+/**
+ * Fetch all boards stored in the cloud for the current user.
+ * Returns an empty array if unauthenticated, offline, or on error.
+ */
 export async function cloudFetchBoards(): Promise<SavedBoard[]> {
   const data = await syncRequestJson<{ items: SavedBoard[]; truncated?: boolean }>('/boards');
   if (data?.truncated) console.warn('[cloud-sync] board list was truncated at 200 items');

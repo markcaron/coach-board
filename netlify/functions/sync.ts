@@ -2,8 +2,9 @@
  * /api/sync — cloud backup for boards and user templates.
  *
  * Auth: Netlify Identity JWT (Authorization: Bearer <token>).
- * Decoded manually — Netlify Functions v2 does not auto-populate
- * context.clientContext.user (that was a v1/Lambda-style API).
+ * Verified with HMAC-SHA256 using JWT_SECRET (set automatically by Netlify
+ * on Identity-enabled sites). Netlify Functions v2 does not auto-populate
+ * context.clientContext.user — that was a v1/Lambda-style API.
  *
  * Routes:
  *   PUT    /api/sync/boards/:id         upsert board JSON
@@ -19,6 +20,7 @@
  *   user/{userId}/template/{id}      → template JSON
  *   user/{userId}/template/{id}-thumb → JPEG ArrayBuffer
  */
+import { createHmac } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
 import type { Context } from '@netlify/functions';
 
@@ -65,18 +67,20 @@ function json(body: unknown, status: number, extraHeaders: Record<string, string
 // ── JWT helper ────────────────────────────────────────────────────────────────
 
 /**
- * Decode a Netlify Identity JWT payload without signature verification.
- * The request arrives over HTTPS (enforced by Netlify's edge), so the
- * token is trustworthy within this deployment context.
- *
- * For stronger security, verify against process.env.JWT_SECRET (the HMAC
- * secret Netlify Identity sets automatically on Identity-enabled sites).
+ * Verify and decode a Netlify Identity JWT.
+ * Netlify sets JWT_SECRET automatically on Identity-enabled sites.
+ * Returns the payload (including `sub`) only if the HMAC-SHA256 signature
+ * is valid — rejects crafted tokens with arbitrary `sub` claims.
  */
-function decodeJwtPayload(token: string): { sub?: string; email?: string } | null {
+function verifyAndDecodeJwt(token: string, secret: string): { sub?: string; email?: string } | null {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const [header, payload, sig] = token.split('.');
+    if (!header || !payload || !sig) return null;
+    const expected = createHmac('sha256', secret)
+      .update(`${header}.${payload}`)
+      .digest('base64url');
+    if (sig !== expected) return null;
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
     return JSON.parse(json) as { sub?: string; email?: string };
   } catch {
     return null;
@@ -95,10 +99,16 @@ export default async (request: Request, context: Context): Promise<Response> => 
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   // Netlify Functions v2 does not auto-populate context.clientContext.user.
-  // Parse the Identity JWT from the Authorization header directly.
+  // Verify the Identity JWT from the Authorization header using JWT_SECRET,
+  // which Netlify sets automatically on Identity-enabled sites.
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    console.error('[sync] JWT_SECRET is not set — Identity is not configured for this site');
+    return json({ error: 'Server misconfigured' }, 500, headers);
+  }
   const authHeader = request.headers.get('Authorization');
   const rawToken   = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  const userId     = rawToken ? decodeJwtPayload(rawToken)?.sub : null;
+  const userId     = rawToken ? verifyAndDecodeJwt(rawToken, jwtSecret)?.sub : null;
   if (!userId) {
     return json({ error: 'Unauthorized' }, 401, headers);
   }
