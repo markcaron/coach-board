@@ -126,7 +126,8 @@ export async function cloudDeleteBoard(id: string): Promise<void> {
  * Returns an empty array if unauthenticated, offline, or on error.
  */
 export async function cloudFetchBoards(): Promise<SavedBoard[]> {
-  const data = await syncRequestJson<{ items: SavedBoard[] }>('/boards');
+  const data = await syncRequestJson<{ items: SavedBoard[]; truncated?: boolean }>('/boards');
+  if (data?.truncated) console.warn('[cloud-sync] board list was truncated at 200 items');
   return data?.items ?? [];
 }
 
@@ -155,7 +156,8 @@ export async function cloudDeleteTemplate(id: string): Promise<void> {
  * Returns an empty array if unauthenticated, offline, or on error.
  */
 export async function cloudFetchTemplates(): Promise<UserTemplate[]> {
-  const data = await syncRequestJson<{ items: UserTemplate[] }>('/templates');
+  const data = await syncRequestJson<{ items: UserTemplate[]; truncated?: boolean }>('/templates');
+  if (data?.truncated) console.warn('[cloud-sync] template list was truncated at 200 items');
   return data?.items ?? [];
 }
 

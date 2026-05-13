@@ -1682,6 +1682,11 @@ export class CoachBoard extends LitElement {
         ...templatesToMerge.map(t => saveUserTemplate(t)),
       ]);
 
+      console.debug(
+        `[cloud-restore] cloud=${cloudBoards.length} boards, ${cloudTemplates.length} templates` +
+        ` | merged ${boardsToMerge.length} boards, ${templatesToMerge.length} templates`,
+      );
+
       if (boardsToMerge.length > 0)    this._myBoards       = await listBoards();
       if (templatesToMerge.length > 0) this._userTemplates  = await listUserTemplates();
     } catch {
@@ -3121,9 +3126,11 @@ export class CoachBoard extends LitElement {
                   <div>
                     <div class="settings-account-email">${this._authUser.email}</div>
                     <p class="settings-hint settings-hint--mt">
-                      ${this._cloudRestoring
-                        ? html`<span aria-live="polite">Syncing boards from cloud…</span>`
-                        : 'Boards and templates are backed up automatically.'}
+                      <!-- aria-live region must be persistent in the DOM; only its text changes -->
+                      <span aria-live="polite" aria-atomic="true">
+                        ${this._cloudRestoring ? 'Syncing boards from cloud…' : ''}
+                      </span>
+                      ${this._cloudRestoring ? nothing : 'Boards and templates are backed up automatically.'}
                     </p>
                   </div>
                 </div>

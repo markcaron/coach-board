@@ -110,12 +110,18 @@ export default async (request: Request, context: Context): Promise<Response> => 
   // ── GET list ──────────────────────────────────────────────────────────────
   if (request.method === 'GET' && listMatch) {
     const prefix = `user/${userId}/${blobPrefix}/`;
-    const { blobs } = await store.list({ prefix });
-    // Exclude thumbnail entries (suffixed with -thumb)
-    const jsonKeys = blobs
-      .map(b => b.key)
-      .filter(k => !k.endsWith('-thumb'))
-      .slice(0, 200); // hard cap: 200 items per list call
+    let allKeys: string[];
+    try {
+      const { blobs } = await store.list({ prefix });
+      allKeys = blobs.map(b => b.key).filter(k => !k.endsWith('-thumb'));
+    } catch (err) {
+      console.error('[sync] store.list failed', err);
+      return json({ error: 'Storage unavailable' }, 503, headers);
+    }
+
+    const LIMIT = 200; // TODO: paginate if user volume grows
+    const truncated = allKeys.length > LIMIT;
+    const jsonKeys = allKeys.slice(0, LIMIT);
 
     const items = await Promise.all(
       jsonKeys.map(async key => {
@@ -126,7 +132,7 @@ export default async (request: Request, context: Context): Promise<Response> => 
       }),
     );
 
-    return json({ items: items.filter(Boolean) }, 200, headers);
+    return json({ items: items.filter(Boolean), truncated }, 200, headers);
   }
 
   if (!itemMatch) {
