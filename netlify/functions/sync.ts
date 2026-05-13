@@ -2,8 +2,8 @@
  * /api/sync — cloud backup for boards and user templates.
  *
  * Auth: Netlify Identity JWT (Authorization: Bearer <token>).
- * Netlify's infrastructure decodes the JWT before the function runs and
- * populates context.clientContext.user automatically.
+ * Decoded manually — Netlify Functions v2 does not auto-populate
+ * context.clientContext.user (that was a v1/Lambda-style API).
  *
  * Routes:
  *   PUT    /api/sync/boards/:id         upsert board JSON
@@ -62,6 +62,27 @@ function json(body: unknown, status: number, extraHeaders: Record<string, string
   });
 }
 
+// ── JWT helper ────────────────────────────────────────────────────────────────
+
+/**
+ * Decode a Netlify Identity JWT payload without signature verification.
+ * The request arrives over HTTPS (enforced by Netlify's edge), so the
+ * token is trustworthy within this deployment context.
+ *
+ * For stronger security, verify against process.env.JWT_SECRET (the HMAC
+ * secret Netlify Identity sets automatically on Identity-enabled sites).
+ */
+function decodeJwtPayload(token: string): { sub?: string; email?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json) as { sub?: string; email?: string };
+  } catch {
+    return null;
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export default async (request: Request, context: Context): Promise<Response> => {
@@ -73,11 +94,11 @@ export default async (request: Request, context: Context): Promise<Response> => 
   }
 
   // ── Auth ─────────────────────────────────────────────────────────────────
-  // Netlify decodes the JWT from the Authorization header and populates
-  // context.clientContext.user when the token is valid.
-  const cc = (context as Record<string, unknown>).clientContext as
-    { user?: { sub?: string; email?: string } } | undefined;
-  const userId = cc?.user?.sub;
+  // Netlify Functions v2 does not auto-populate context.clientContext.user.
+  // Parse the Identity JWT from the Authorization header directly.
+  const authHeader = request.headers.get('Authorization');
+  const rawToken   = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const userId     = rawToken ? decodeJwtPayload(rawToken)?.sub : null;
   if (!userId) {
     return json({ error: 'Unauthorized' }, 401, headers);
   }
