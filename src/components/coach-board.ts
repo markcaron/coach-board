@@ -303,7 +303,56 @@ export class CoachBoard extends LitElement {
 
     .menu-spacer { flex: 1; }
 
+    /* ── About side-sheet content ──────────────────────────────────── */
+
+    .about-content {
+      padding: 32px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .about-app-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      margin-bottom: 20px;
+    }
+
+    .about-app-name {
+      margin: 0 0 10px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--pt-text-on-inverted);
+    }
+
+    .about-app-meta {
+      margin: 0;
+      font-size: 0.85rem;
+      color: rgba(0, 0, 0, 0.60);
+      line-height: 1.6;
+    }
+
+    .about-app-link {
+      display: inline-block;
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: var(--pt-btn-primary);
+      text-decoration: underline;
+    }
+
+    .about-app-link:hover {
+      color: var(--pt-btn-primary-hover);
+    }
+
+    .about-app-link:focus-visible {
+      outline: 2px solid var(--pt-btn-primary);
+      outline-offset: 2px;
+    }
+
     /* ── Settings side-sheet content ────────────────────────────────── */
+
     .settings-content {
       padding: 20px;
     }
@@ -352,7 +401,7 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-select:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -412,7 +461,7 @@ export class CoachBoard extends LitElement {
     }
 
     .settings-account-btn:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: 2px;
     }
 
@@ -1368,6 +1417,7 @@ export class CoachBoard extends LitElement {
   @state() private accessor _boardSummaryOpen: boolean = false;
   @state() private accessor _boardSummaryData: BoardSummary | null = null;
   @state() private accessor _settingsOpen: boolean = false;
+  @state() private accessor _aboutOpen: boolean = false;
   @state() private accessor _authUser: AuthUser | null = null;
   @state() private accessor _rotateHandleId: string | null = null;
   @state() private accessor _animationMode: boolean = false;
@@ -1618,7 +1668,7 @@ export class CoachBoard extends LitElement {
   }
 
   get #anySheetOpen(): boolean {
-    return this._myBoardsOpen || this._boardSummaryOpen || this._settingsOpen;
+    return this._myBoardsOpen || this._boardSummaryOpen || this._settingsOpen || this._aboutOpen;
   }
 
   get #measureState(): MeasureState | null {
@@ -3044,6 +3094,22 @@ export class CoachBoard extends LitElement {
       </cb-side-sheet>
 
       <cb-side-sheet
+        ?open="${this._aboutOpen}"
+        heading="About"
+        .returnFocusEl="${this.#aboutReturnFocus}"
+        @close="${() => { this._aboutOpen = false; }}">
+        <div class="about-content">
+          <svg class="about-app-icon" aria-hidden="true" viewBox="0 0 1600 1600"><path d="M1600 801C1600 1242.28 1242.28 1600 801 1600C359.724 1600 2 1242.28 2 801C2 359.724 359.724 2 801 2C1242.28 2 1600 359.724 1600 801Z" fill="#55964D"/><path d="M801 2C1241.94 2 1599.46 359.184 1600 800H2.00195C2.54191 359.184 360.058 2 801 2Z" fill="#60A957"/><path d="M407.703 634.189C414.778 641.264 424.03 644.802 433.374 644.802C442.626 644.802 451.969 641.264 459.044 634.189L541.044 552.099L623.134 634.189C630.209 641.264 639.461 644.802 648.805 644.802C658.057 644.802 667.4 641.264 674.475 634.189C688.626 620.039 688.626 597.09 674.475 582.849L592.385 500.759L674.475 418.669C688.626 404.519 688.626 381.57 674.475 367.33C660.325 353.179 637.376 353.179 623.136 367.33L541.046 449.511L458.955 367.42C444.805 353.27 421.856 353.27 407.616 367.42C393.465 381.571 393.465 404.52 407.616 418.76L489.706 500.85L407.616 582.94C393.465 597 393.465 619.949 407.706 634.189H407.703Z" fill="white"/><path d="M912.405 1144.4C912.405 1232.51 984.12 1304.24 1072.2 1304.24C1160.29 1304.24 1232 1232.51 1232 1144.4C1232 1056.29 1160.29 984.65 1072.2 984.65C984.12 984.56 912.405 1056.29 912.405 1144.4ZM1159.66 1144.4C1159.66 1192.62 1120.41 1231.88 1072.21 1231.88C1024.01 1231.88 984.761 1192.62 984.761 1144.4C984.761 1096.19 1024.01 1057.02 1072.21 1057.02C1120.41 1056.93 1159.66 1096.19 1159.66 1144.4Z" fill="white"/><path d="M812.403 834.487L700.593 877.625C605.61 914.252 541.835 1007.22 541.835 1108.88V1268.14C541.835 1288.13 558.027 1304.32 578.019 1304.32C598.011 1304.32 614.203 1288.13 614.203 1268.14V1108.88C614.203 1036.89 659.344 971.049 726.646 945.093L838.456 901.955C933.349 865.328 997.124 772.446 997.124 670.701V480.418L1042.72 525.999C1049.77 533.053 1059 536.58 1068.32 536.58C1077.54 536.58 1086.86 533.053 1093.92 525.999C1108.03 511.89 1108.03 489.009 1093.92 474.811L986.45 367.368C972.338 353.26 949.451 353.26 935.25 367.368L827.782 474.811C813.67 488.919 813.67 511.891 827.782 525.999C834.838 533.053 844.065 536.58 853.383 536.58C862.61 536.58 871.927 533.053 878.984 525.999L924.757 480.236V670.792C924.757 742.691 879.615 808.531 812.403 834.487Z" fill="white"/></svg>
+          <h2 class="about-app-name">CoachingBoard</h2>
+          <p class="about-app-meta">Version ${__APP_VERSION__}</p>
+          <p class="about-app-meta">by Mark Caron</p>
+          <a href="https://github.com/markcaron/coach-board/issues/new"
+             target="_blank" rel="noopener"
+             class="about-app-link">Feedback</a>
+        </div>
+      </cb-side-sheet>
+
+      <cb-side-sheet
         ?open="${this._settingsOpen}"
         heading="Settings"
         .returnFocusEl="${this.#settingsReturnFocus}"
@@ -3274,8 +3340,9 @@ export class CoachBoard extends LitElement {
   }
 
   #showAbout() {
+    this.#aboutReturnFocus = this.#captureReturnFocus();
     this._menuOpen = false;
-    this._dialogs?.showAbout();
+    this._aboutOpen = true;
   }
 
   #showSaveBoard() {
@@ -3464,6 +3531,7 @@ export class CoachBoard extends LitElement {
   }
 
   #settingsReturnFocus: HTMLElement | null = null;
+  #aboutReturnFocus: HTMLElement | null = null;
   #myBoardsReturnFocus: HTMLElement | null = null;
   #boardSummaryReturnFocus: HTMLElement | null = null;
 

@@ -111,9 +111,9 @@ export class CbSideSheet extends LitElement {
     }
 
     .sheet-close:focus-visible {
-      outline: 2px solid var(--pt-accent);
+      outline: 2px solid var(--pt-btn-primary);
       outline-offset: -2px;
-      background: color-mix(in srgb, var(--pt-accent) 8%, transparent);
+      background: color-mix(in srgb, var(--pt-btn-primary) 8%, transparent);
     }
 
     /* ── Body (slotted content) ───────────────────────────────────── */
