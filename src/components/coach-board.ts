@@ -1631,7 +1631,8 @@ export class CoachBoard extends LitElement {
 
   #cloudSaveBoard(board: SavedBoard): void {
     if (!this._authUser) return;
-    cloudSyncBoard(board).catch(() => {});
+    console.log(`[cloud-save] pushing board "${board.name}" updatedAt=${board.updatedAt}`);
+    cloudSyncBoard(board).catch((err) => console.error('[cloud-save] error:', err));
   }
 
   #cloudDeleteBoard(id: string): void {
