@@ -37,6 +37,9 @@ import type { CbMyBoards } from './cb-my-boards.js';
 import './cb-board-summary.js';
 import type { CbBoardSummary } from './cb-board-summary.js';
 
+/** SVG units (~10 m / ~11 yards) of out-of-bounds buffer around the field canvas. */
+const FIELD_MARGIN = 10;
+
 type DragKind = 'player' | 'equipment' | 'shape' | 'text' | 'line-start' | 'line-end' | 'line-control' | 'line-body' | 'rotate' | 'shape-corner' | 'shape-side' | 'trail-cp1' | 'trail-cp2';
 
 interface GroupDragState {
@@ -1850,6 +1853,23 @@ export class CoachBoard extends LitElement {
 
   #clamp(v: number, min: number, max: number) {
     return Math.max(min, Math.min(max, v));
+  }
+
+  /**
+   * Clamps SVG coordinates to the field canvas plus a generous out-of-bounds
+   * buffer, preventing items from being dragged so far off-screen they become
+   * unrecoverable. Items may legitimately sit outside the touchlines (players
+   * overlapping the line, coaches in the technical area, balls behind the goal,
+   * cones in training queues), so the margin is deliberately wide.
+   */
+  #clampToField(x: number, y: number): { x: number; y: number } {
+    // getFieldDimensions has no explicit 'open' case; it falls through to full-pitch
+    // dimensions (105×68), which is correct — the open-grass canvas is the same grid.
+    const { w, h } = getFieldDimensions(this.fieldOrientation, this.pitchType);
+    return {
+      x: this.#clamp(x, -FIELD_MARGIN, w + FIELD_MARGIN),
+      y: this.#clamp(y, -FIELD_MARGIN, h + FIELD_MARGIN),
+    };
   }
 
   #getPanLimits() {
@@ -4450,13 +4470,15 @@ export class CoachBoard extends LitElement {
     }
 
     if (this.activeTool === 'draw-line') {
-      this._draw = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+      const { x: x1, y: y1 } = this.#clampToField(pt.x, pt.y);
+      this._draw = { x1, y1, x2: x1, y2: y1 };
       this._field.capturePointer(e.pointerId);
       return;
     }
 
     if (this.activeTool === 'draw-shape') {
-      this._shapeDraw = { kind: this.shapeKind, startX: pt.x, startY: pt.y, curX: pt.x, curY: pt.y };
+      const { x: startX, y: startY } = this.#clampToField(pt.x, pt.y);
+      this._shapeDraw = { kind: this.shapeKind, startX, startY, curX: startX, curY: startY };
       this._field.capturePointer(e.pointerId);
       return;
     }
@@ -4655,9 +4677,11 @@ export class CoachBoard extends LitElement {
     if (this._draw) {
       if (e.shiftKey) {
         const raw = axisConstrain(pt.x - this._draw.x1, pt.y - this._draw.y1, true);
-        this._draw = { ...this._draw, x2: this._draw.x1 + raw.dx, y2: this._draw.y1 + raw.dy };
+        const { x: x2, y: y2 } = this.#clampToField(this._draw.x1 + raw.dx, this._draw.y1 + raw.dy);
+        this._draw = { ...this._draw, x2, y2 };
       } else {
-        this._draw = { ...this._draw, x2: pt.x, y2: pt.y };
+        const { x: x2, y: y2 } = this.#clampToField(pt.x, pt.y);
+        this._draw = { ...this._draw, x2, y2 };
       }
       return;
     }
@@ -4672,7 +4696,8 @@ export class CoachBoard extends LitElement {
         curX = this._shapeDraw.startX + Math.sign(pt.x - this._shapeDraw.startX) * size;
         curY = this._shapeDraw.startY + Math.sign(pt.y - this._shapeDraw.startY) * size;
       }
-      this._shapeDraw = { ...this._shapeDraw, curX, curY };
+      const { x: clampedCurX, y: clampedCurY } = this.#clampToField(curX, curY);
+      this._shapeDraw = { ...this._shapeDraw, curX: clampedCurX, curY: clampedCurY };
       return;
     }
 
@@ -4777,10 +4802,11 @@ export class CoachBoard extends LitElement {
           const c = axisConstrain(pt.x - anchorX, pt.y - anchorY, true);
           cpX = anchorX + c.dx; cpY = anchorY + c.dy;
         }
+        const { x: clampedCpX, y: clampedCpY } = this.#clampToField(cpX, cpY);
         if (cp === 'cp1') {
-          newTrails[id] = { ...existing, cp1x: cpX, cp1y: cpY };
+          newTrails[id] = { ...existing, cp1x: clampedCpX, cp1y: clampedCpY };
         } else {
-          newTrails[id] = { ...existing, cp2x: cpX, cp2y: cpY };
+          newTrails[id] = { ...existing, cp2x: clampedCpX, cp2y: clampedCpY };
         }
         this.animationFrames = this.animationFrames.map((f, i) =>
           i === this.activeFrameIndex ? { ...f, trails: newTrails } : f
@@ -4796,26 +4822,32 @@ export class CoachBoard extends LitElement {
           if (l.id !== id) return l;
           if (e.shiftKey) {
             const c = axisConstrain(pt.x - l.x2, pt.y - l.y2, true);
-            return { ...l, x1: l.x2 + c.dx, y1: l.y2 + c.dy };
+            const { x: x1, y: y1 } = this.#clampToField(l.x2 + c.dx, l.y2 + c.dy);
+            return { ...l, x1, y1 };
           }
-          return { ...l, x1: pt.x, y1: pt.y };
+          const { x: x1, y: y1 } = this.#clampToField(pt.x, pt.y);
+          return { ...l, x1, y1 };
         });
       } else if (kind === 'line-end') {
         this.lines = this.lines.map(l => {
           if (l.id !== id) return l;
           if (e.shiftKey) {
             const c = axisConstrain(pt.x - l.x1, pt.y - l.y1, true);
-            return { ...l, x2: l.x1 + c.dx, y2: l.y1 + c.dy };
+            const { x: x2, y: y2 } = this.#clampToField(l.x1 + c.dx, l.y1 + c.dy);
+            return { ...l, x2, y2 };
           }
-          return { ...l, x2: pt.x, y2: pt.y };
+          const { x: x2, y: y2 } = this.#clampToField(pt.x, pt.y);
+          return { ...l, x2, y2 };
         });
       } else if (kind === 'line-control') {
         this.lines = this.lines.map(l => {
           if (l.id !== id) return l;
           if (e.shiftKey) {
+            // Shift resets control point to the geometric midpoint — inherently in bounds.
             return { ...l, cx: (l.x1 + l.x2) / 2, cy: (l.y1 + l.y2) / 2 };
           }
-          return { ...l, cx: pt.x, cy: pt.y };
+          const { x: cx, y: cy } = this.#clampToField(pt.x, pt.y);
+          return { ...l, cx, cy };
         });
       }
       return;
@@ -4835,7 +4867,8 @@ export class CoachBoard extends LitElement {
             const player = this.players.find(p => p.id === id);
             const equip = player ? undefined : this.equipment.find(e => e.id === id);
             const angle = this.#getItemAngle(id, player?.angle ?? equip?.angle);
-            newPositions[id] = { x: orig.x + dx, y: orig.y + dy, angle };
+            const pos = this.#clampToField(orig.x + dx, orig.y + dy);
+            newPositions[id] = { ...pos, angle };
           }
           this.animationFrames = this.animationFrames.map((f, i) =>
             i === this.activeFrameIndex ? { ...f, positions: newPositions } : f
@@ -4844,32 +4877,56 @@ export class CoachBoard extends LitElement {
       } else {
         this.players = this.players.map(p => {
           const orig = pointOrigins.get(p.id);
-          return orig ? { ...p, x: orig.x + dx, y: orig.y + dy } : p;
+          if (!orig) return p;
+          const { x, y } = this.#clampToField(orig.x + dx, orig.y + dy);
+          return { ...p, x, y };
         });
         this.equipment = this.equipment.map(eq => {
           const orig = pointOrigins.get(eq.id);
-          return orig ? { ...eq, x: orig.x + dx, y: orig.y + dy } : eq;
+          if (!orig) return eq;
+          const { x, y } = this.#clampToField(orig.x + dx, orig.y + dy);
+          return { ...eq, x, y };
         });
       }
       this.shapes = this.shapes.map(s => {
         const orig = pointOrigins.get(s.id);
-        return orig ? { ...s, cx: orig.x + dx, cy: orig.y + dy } : s;
+        if (!orig) return s;
+        const { x: cx, y: cy } = this.#clampToField(orig.x + dx, orig.y + dy);
+        return { ...s, cx, cy };
       });
       this.textItems = this.textItems.map(t => {
         const orig = pointOrigins.get(t.id);
-        return orig ? { ...t, x: orig.x + dx, y: orig.y + dy } : t;
+        if (!orig) return t;
+        const { x, y } = this.#clampToField(orig.x + dx, orig.y + dy);
+        return { ...t, x, y };
       });
     }
 
     if (lineOrigins.size > 0) {
+      const { w, h } = getFieldDimensions(this.fieldOrientation, this.pitchType);
+      const M = FIELD_MARGIN;
       this.lines = this.lines.map(l => {
         const orig = lineOrigins.get(l.id);
-        return orig ? {
+        if (!orig) return l;
+        // Clamp the shared dx/dy so ALL of x1, x2, cx (and y equivalents) stay
+        // within bounds. Centre-only clamping fails when the Bezier handle sits
+        // far from the geometric midpoint — endpoints end up well outside MARGIN.
+        const adx = this.#clamp(
+          dx,
+          Math.max(-M - orig.x1, -M - orig.x2, -M - orig.cx),
+          Math.min(w + M - orig.x1, w + M - orig.x2, w + M - orig.cx),
+        );
+        const ady = this.#clamp(
+          dy,
+          Math.max(-M - orig.y1, -M - orig.y2, -M - orig.cy),
+          Math.min(h + M - orig.y1, h + M - orig.y2, h + M - orig.cy),
+        );
+        return {
           ...l,
-          x1: orig.x1 + dx, y1: orig.y1 + dy,
-          x2: orig.x2 + dx, y2: orig.y2 + dy,
-          cx: orig.cx + dx, cy: orig.cy + dy,
-        } : l;
+          x1: orig.x1 + adx, y1: orig.y1 + ady,
+          x2: orig.x2 + adx, y2: orig.y2 + ady,
+          cx: orig.cx + adx, cy: orig.cy + ady,
+        };
       });
     }
   }
@@ -5277,6 +5334,7 @@ export class CoachBoard extends LitElement {
   }
 
   #addPlayer(x: number, y: number) {
+    ({ x, y } = this.#clampToField(x, y));
     const color = this.playerColor;
     const team = this.playerTeam;
     let label: string | undefined;
@@ -5304,6 +5362,7 @@ export class CoachBoard extends LitElement {
   }
 
   #addEquipment(x: number, y: number) {
+    ({ x, y } = this.#clampToField(x, y));
     const kind = this.equipmentKind;
     const needsAngle = kind === 'dummy' || kind === 'goal' || kind === 'mini-goal' || kind === 'popup-goal';
     const newEq: Equipment = {
@@ -5318,6 +5377,7 @@ export class CoachBoard extends LitElement {
   }
 
   #addTextItem(x: number, y: number, text: string) {
+    ({ x, y } = this.#clampToField(x, y));
     const newText: TextItem = {
       id: uid('text'),
       x, y,
