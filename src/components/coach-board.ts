@@ -13,7 +13,7 @@ import { FIELD, getFieldDimensions } from '../lib/field.js';
 import type { FieldOrientation } from '../lib/field.js';
 import { uid, ensureMinId } from '../lib/svg-utils.js';
 import { saveBoard, putBoard, loadBoard, listBoards, deleteBoard, renameBoard, createEmptyBoard, getActiveBoardId, setActiveBoardId, saveUserTemplate, listUserTemplates, deleteUserTemplate, renameUserTemplate, duplicateUserTemplate, type SavedBoard, type UserTemplate } from '../lib/board-store.js';
-import { initAuth, openSignIn, signOut, cloudSyncBoard, cloudDeleteBoard, cloudSyncTemplate, cloudDeleteTemplate, cloudFetchBoards, cloudFetchTemplates, type AuthUser } from '../lib/cloud-sync.js';
+import { initAuth, openSignIn, signOut, cloudSyncBoard, cloudDeleteBoard, cloudSyncTemplate, cloudDeleteTemplate, cloudFetchBoards, cloudFetchTemplates, cloudFetchBoardThumbnail, cloudFetchTemplateThumbnail, type AuthUser } from '../lib/cloud-sync.js';
 import { registerSW } from 'virtual:pwa-register';
 import { getTemplatesForPitch } from '../lib/templates.js';
 import { getItemPosition, getItemAngle, getItemPositionAtFrame, getItemAngleAtFrame } from '../lib/animation-utils.js';
@@ -1688,6 +1688,19 @@ export class CoachBoard extends LitElement {
       await Promise.all([
         ...boardsToMerge.map(b => putBoard(b)),   // preserves cloud updatedAt for future LWW
         ...templatesToMerge.map(t => saveUserTemplate(t)),
+      ]);
+
+      // Fetch thumbnails for merged items and store them alongside the board/template data.
+      // Runs concurrently; failures are silently ignored (thumbnail is non-critical).
+      await Promise.all([
+        ...boardsToMerge.map(async b => {
+          const thumb = await cloudFetchBoardThumbnail(b.id);
+          if (thumb) await putBoard({ ...b, thumbnail: thumb });
+        }),
+        ...templatesToMerge.map(async t => {
+          const thumb = await cloudFetchTemplateThumbnail(t.id);
+          if (thumb) await saveUserTemplate({ ...t, thumbnail: thumb });
+        }),
       ]);
 
       console.log(

@@ -125,6 +125,38 @@ export async function cloudDeleteBoard(id: string): Promise<void> {
  * Fetch all boards stored in the cloud for the current user.
  * Returns an empty array if unauthenticated, offline, or on error.
  */
+/**
+ * Fetch a single board or template thumbnail from the cloud.
+ * Returns a base64 JPEG data URL, or null if not found / unauthenticated.
+ */
+async function cloudFetchThumbnail(path: string): Promise<string | null> {
+  const token = await getBearerToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(`/api/sync${path}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise<string | null>(resolve => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function cloudFetchBoardThumbnail(id: string): Promise<string | null> {
+  return cloudFetchThumbnail(`/boards/${id}/thumb`);
+}
+
+export function cloudFetchTemplateThumbnail(id: string): Promise<string | null> {
+  return cloudFetchThumbnail(`/templates/${id}/thumb`);
+}
+
 export async function cloudFetchBoards(): Promise<SavedBoard[]> {
   const data = await syncRequestJson<{ items: SavedBoard[]; truncated?: boolean }>('/boards');
   if (data?.truncated) console.warn('[cloud-sync] board list was truncated at 200 items');

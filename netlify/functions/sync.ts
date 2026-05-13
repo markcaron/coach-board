@@ -164,6 +164,24 @@ export default async (request: Request, context: Context): Promise<Response> => 
   const baseKey = `user/${userId}/${blobPrefix}/${itemId}`;
   const blobKey = isThumb ? `${baseKey}-thumb` : baseKey;
 
+  // ── GET individual item (JSON or thumbnail) ───────────────────────────────
+  if (request.method === 'GET' && itemMatch) {
+    if (isThumb) {
+      const bytes = await store.get(blobKey, { type: 'arrayBuffer' });
+      if (!bytes) return json({ error: 'Not found' }, 404, headers);
+      return new Response(bytes as ArrayBuffer, {
+        status: 200,
+        headers: { 'Content-Type': 'image/jpeg', ...headers },
+      });
+    }
+    const text = await store.get(blobKey, { type: 'text' });
+    if (!text) return json({ error: 'Not found' }, 404, headers);
+    return new Response(text, {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...headers },
+    });
+  }
+
   // ── PUT ───────────────────────────────────────────────────────────────────
   if (request.method === 'PUT') {
     if (isThumb) {
