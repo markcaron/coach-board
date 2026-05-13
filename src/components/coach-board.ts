@@ -1,5 +1,6 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { toolShortcutHintStyle } from '../lib/shared-styles.js';
+import { clampMenuToBoardArea } from '../lib/menu-utils.js';
 import { customElement, state, query } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { guard } from 'lit/directives/guard.js';
@@ -603,6 +604,10 @@ export class CoachBoard extends LitElement {
     }
 
     .sidebar-tool:hover {
+      background: var(--pt-border);
+    }
+
+    .sidebar-tool[aria-expanded="true"] {
       background: var(--pt-border);
     }
 
@@ -1431,6 +1436,7 @@ export class CoachBoard extends LitElement {
 
   @query('cb-field') private accessor _field!: CbField;
   @query('.sidebar') private accessor _sidebar!: HTMLElement;
+  @query('.select-track cb-toolbar') private accessor _ctxToolbar!: HTMLElement & { closeMenu(): void };
   @query('cb-share') private accessor _share!: CbShare;
   @query('#svg-import-input') accessor _fileInput!: HTMLInputElement;
   @query('cb-dialogs') private accessor _dialogs!: CbDialogs;  @state() private accessor _boardName: string = 'Untitled Board';
@@ -1486,13 +1492,22 @@ export class CoachBoard extends LitElement {
     const isOpening = this._sidebarMenu !== name;
     this._sidebarMenu = isOpening ? name : null;
     if (isOpening) {
+      // Close any open sidebar-context (edit) menu so the two don't overlap
+      this._ctxToolbar?.closeMenu();
       this.updateComplete.then(() => {
+        const menuEl = this.renderRoot.querySelector<HTMLElement>(`#sidebar-menu-${name}`);
+        if (menuEl) this.#clampMenuToBoardArea(menuEl);
         const first = this.renderRoot.querySelector(
           '.sidebar [role="menu"] [role="menuitem"]:not([disabled]), .sidebar [role="menu"] [role="menuitemradio"]:not([disabled])'
         ) as HTMLElement | null;
         first?.focus();
       });
     }
+  }
+
+  #clampMenuToBoardArea(menuEl: HTMLElement): void {
+    const boardArea = this.renderRoot.querySelector<HTMLElement>('.board-area');
+    if (boardArea) clampMenuToBoardArea(menuEl, boardArea);
   }
 
   #onSidebarMenuKeyDown = (e: KeyboardEvent) => {
@@ -2641,6 +2656,7 @@ export class CoachBoard extends LitElement {
               sidebar-context
               .selectedItems="${this.#selectedItems}"
               .fieldTheme="${this.fieldTheme}"
+              @cb-ctx-menu-open="${() => { this._sidebarMenu = null; }}"
               @player-update="${this.#onPlayerUpdate}"
               @equipment-update="${this.#onEquipmentUpdate}"
               @line-update="${this.#onLineUpdate}"
