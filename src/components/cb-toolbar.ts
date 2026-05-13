@@ -1,5 +1,6 @@
 import { LitElement, html, svg, css, nothing, type PropertyValues } from 'lit';
 import { toolShortcutHintStyle } from '../lib/shared-styles.js';
+import { clampMenuToBoardArea } from '../lib/menu-utils.js';
 import { customElement, property, state, query } from 'lit/decorators.js';
 
 import type { Tool, LineStyle, EquipmentKind, Player, Equipment, Line, Shape, TextItem, Team, ShapeKind, ShapeStyle, FieldTheme } from '../lib/types.js';
@@ -1099,22 +1100,6 @@ export class CbToolbar extends LitElement {
       left: calc(100% + 4px);
     }
 
-    .ctx-dd-wrap.flipped [role="menu"] {
-      top: auto;
-      bottom: 0;
-      left: calc(100% + 4px);
-      z-index: 300;
-      min-width: 180px;
-      width: max-content;
-      background: var(--pt-bg-surface);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 6px;
-      padding: 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    }
 
     .ctx-dd-wrap [role="menuitem"],
     .ctx-dd-wrap [role="menuitemradio"] {
@@ -1350,7 +1335,6 @@ export class CbToolbar extends LitElement {
   // picks up the correct position. panelFlipped = true → use as CSS `bottom`, else `top`.
   #panelTop = 0;
   #panelFlipped = false;
-  #ctxMenuFlipped = false;
   #panelLeft = 0;
   #boundDocKeyDown!: (e: KeyboardEvent) => void;
 
@@ -2308,7 +2292,13 @@ export class CbToolbar extends LitElement {
         ? this.offsetHeight - btn.offsetTop  // used as CSS `bottom`
         : btn.offsetTop;
       this._openMenu = 'ctx-panel';
+      this.dispatchEvent(new CustomEvent('cb-ctx-menu-open', { bubbles: true, composed: true }));
     }
+  }
+
+  /** Close any open submenu. Called by coach-board when a sidebar tool menu opens. */
+  closeMenu(): void {
+    this._openMenu = null;
   }
 
   #onCtxArrangeClick(menu: 'align' | 'grouping' | 'z-order', e: Event) {
@@ -2316,13 +2306,18 @@ export class CbToolbar extends LitElement {
     if (this._openMenu === menu) {
       this._openMenu = null;
     } else {
-      const btn = e.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      const BOTTOM_CLEARANCE = 76;
-      const MENU_ESTIMATE = 320;
-      this.#ctxMenuFlipped = (window.innerHeight - rect.bottom - BOTTOM_CLEARANCE) < MENU_ESTIMATE;
       this._openMenu = menu;
+      this.dispatchEvent(new CustomEvent('cb-ctx-menu-open', { bubbles: true, composed: true }));
+      this.updateComplete.then(() => {
+        const menuEl = this.renderRoot.querySelector<HTMLElement>(`#menu-ctx-${menu}`);
+        if (menuEl) this.#clampMenuToBoardArea(menuEl);
+      });
     }
+  }
+
+  #clampMenuToBoardArea(menuEl: HTMLElement): void {
+    const boardArea = this.closest('.board-area') as HTMLElement | null;
+    if (boardArea) clampMenuToBoardArea(menuEl, boardArea);
   }
 
   #onPanelKeyDown(e: KeyboardEvent) {
@@ -2702,7 +2697,7 @@ export class CbToolbar extends LitElement {
     const hasGroup = this.selectedItems.some(i => 'groupId' in i && (i as unknown as Record<string, unknown>).groupId);
     return html`
       ${count >= 2 ? html`
-      <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
+      <div class="ctx-dd-wrap">
         <button class="ctx-icon-btn has-submenu" title="Grouping" aria-label="Grouping"
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'grouping'}"
@@ -2729,7 +2724,7 @@ export class CbToolbar extends LitElement {
           </div>
         ` : nothing}
       </div>
-      <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
+      <div class="ctx-dd-wrap">
         <button class="ctx-icon-btn has-submenu" title="Align" aria-label="Align"
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'align'}"
@@ -2790,7 +2785,7 @@ export class CbToolbar extends LitElement {
         ` : nothing}
       </div>
       ` : nothing}
-      <div class="${this.#ctxMenuFlipped ? 'ctx-dd-wrap flipped' : 'ctx-dd-wrap'}">
+      <div class="ctx-dd-wrap">
         <button class="ctx-icon-btn has-submenu" title="Z-order" aria-label="Z-order"
                 aria-haspopup="menu"
                 aria-expanded="${this._openMenu === 'z-order'}"
