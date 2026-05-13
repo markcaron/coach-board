@@ -1631,8 +1631,7 @@ export class CoachBoard extends LitElement {
 
   #cloudSaveBoard(board: SavedBoard): void {
     if (!this._authUser) return;
-    console.log(`[cloud-save] pushing board "${board.name}" updatedAt=${board.updatedAt}`);
-    cloudSyncBoard(board).catch((err) => console.error('[cloud-save] error:', err));
+    cloudSyncBoard(board).catch(() => {});
   }
 
   #cloudDeleteBoard(id: string): void {
@@ -1657,7 +1656,6 @@ export class CoachBoard extends LitElement {
    * Never throws — the cloud is backup only; local IDB is always the source of truth.
    */
   async #restoreFromCloud(): Promise<void> {
-    console.log('[cloud-restore] starting restore…');
     this._cloudRestoring = true;
     try {
       const [cloudBoards, cloudTemplates, localBoards, localTemplates] = await Promise.all([
@@ -1673,13 +1671,7 @@ export class CoachBoard extends LitElement {
       // Boards: cloud wins when it's newer or not present locally
       const boardsToMerge = cloudBoards.filter(cb => {
         const local = localBoardMap.get(cb.id);
-        if (!local) return true;
-        const win = cb.updatedAt > local.updatedAt;
-        if (!win) console.log(
-          `[cloud-restore] skip "${cb.name}" cloud=${cb.updatedAt} local=${local.updatedAt}` +
-          ` diff=${local.updatedAt - cb.updatedAt}ms`,
-        );
-        return win;
+        return !local || cb.updatedAt > local.updatedAt;
       });
 
       // Templates: last-write-wins by updatedAt (falling back to createdAt for older records
@@ -1710,16 +1702,10 @@ export class CoachBoard extends LitElement {
         }),
       ]);
 
-      console.log(
-        `[cloud-restore] cloud=${cloudBoards.length} boards, ${cloudTemplates.length} templates` +
-        ` | local=${localBoards.length} boards, ${localTemplates.length} templates` +
-        ` | merged ${boardsToMerge.length} boards, ${templatesToMerge.length} templates`,
-      );
-
       if (boardsToMerge.length > 0)    this._myBoards       = await listBoards();
       if (templatesToMerge.length > 0) this._userTemplates  = await listUserTemplates();
-    } catch (err) {
-      console.error('[cloud-restore] error:', err);
+    } catch {
+      // Fire-and-forget — never block the UI
     } finally {
       this._cloudRestoring = false;
     }
@@ -2289,7 +2275,6 @@ export class CoachBoard extends LitElement {
     initAuth(user => {
       const wasSignedOut = !this._authUser;
       this._authUser = user;
-      console.log('[auth] user=', user?.email ?? 'null', '| wasSignedOut=', wasSignedOut);
       if (user && wasSignedOut) this.#restoreFromCloud();
     });
   }
