@@ -17,16 +17,19 @@ Always use these — never hard-code colors:
 | `var(--pt-bg-surface)` | Card / dialog / dropdown backgrounds |
 | `var(--pt-bg-body)` | Page / field background |
 | `var(--pt-bg-primary)` | Input / code block background |
-| `var(--pt-text)` | Primary text (dark theme — near-white; **do not use on light surfaces**) |
-| `var(--pt-text-muted)` | Secondary / placeholder text (dark theme — **do not use on light surfaces**) |
+| `var(--pt-text)` | Primary text |
+| `var(--pt-text-muted)` | Secondary / placeholder text |
 | `var(--pt-text-white)` | Text on dark/colored backgrounds |
-| `var(--pt-text-on-inverted)` | Primary text on white/light surfaces (`#1a1a2e`, ~17:1 on white) |
-| `var(--pt-text-on-light)` | Secondary/hint text on white/light surfaces (`#555`, ~7.3:1 on white) |
 | `var(--pt-border)` | Button hover backgrounds, dividers |
-| `var(--pt-accent)` | Focus rings, active indicators, links |
+| `var(--pt-accent)` | Focus rings, active indicators, links (dark surfaces) |
 | `var(--pt-danger-hover)` | Active/pressed tool state (the red) |
 | `var(--pt-danger-lightest)` | Danger text on dark backgrounds |
 | `var(--pt-success-hover)` | Confirm / success button background |
+| `var(--pt-btn-primary)` | Primary action button background; also links + focus rings on **light surfaces** (5.17:1 on white — use instead of `--pt-accent` which only meets 2.6:1 on white) |
+| `var(--pt-btn-primary-hover)` | Hover state for primary action buttons and links on light surfaces |
+| `var(--pt-bg-inverted)` | White surface (dialogs, side-sheets) |
+| `var(--pt-text-on-inverted)` | Dark navy text on white/inverted surfaces (17:1 on white) |
+| `var(--pt-border-on-inverted)` | Subtle **container/card** border on white (`rgba(0,0,0,0.12)`, ~1.2:1) — do **not** use for interactive element borders (inputs, buttons), which need `rgba(0,0,0,0.45–0.5)` to meet WCAG 1.4.11 (3:1) |
 
 ## Button patterns
 
@@ -47,9 +50,14 @@ background: var(--pt-danger-hover);
 border-color: var(--pt-danger-hover);
 color: var(--pt-text-white);
 
-/* Focus ring */
+/* Focus ring — dark surface */
 outline: 2px solid var(--pt-accent);
 outline-offset: 2px;  /* or -2px/-4px for inset (menus, sidebar) */
+
+/* Focus ring — light/inverted surface (dialogs, side-sheets, toasts) */
+/* --pt-accent is only 2.6:1 on white; use --pt-btn-primary (5.17:1) instead */
+outline: 2px solid var(--pt-btn-primary);
+outline-offset: 2px;
 ```
 
 ## Toolbar bars
@@ -62,9 +70,20 @@ All horizontal bars (top context, bottom) share:
 ## Sidebar
 
 - Same `var(--pt-bg-toolbar)` background as bars
-- Tool button size: 44×44px minimum touch target
+- Tool button size: **44×44px** — primary tool palette buttons use this larger target
 - Active tool: `var(--pt-danger-hover)` background (red)
 - Hover: `var(--pt-border)` background
+
+## Touch target sizing
+
+CoachingBoard targets **WCAG 2.1 AA** — not AAA. Apply the right threshold based on context:
+
+| Context | Minimum | Standard |
+|---|---|---|
+| Primary controls (sidebar tool palette, dialog buttons, main action buttons) | **44×44px** | WCAG 2.5.5 AAA — chosen as project standard for primary actions |
+| Secondary controls (inline formatting toolbars, compact toggles, icon-only row actions) | **24×24px** | WCAG 2.5.8 AA |
+
+Do not flag secondary toolbar buttons (e.g. notes formatting toolbar, context editor) as failing touch target if they meet the 24×24px AA minimum. Reserve the 44px expectation for the sidebar and full-height action buttons.
 
 ## Dialogs / panels
 
