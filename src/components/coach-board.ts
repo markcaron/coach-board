@@ -1656,6 +1656,7 @@ export class CoachBoard extends LitElement {
    * Never throws — the cloud is backup only; local IDB is always the source of truth.
    */
   async #restoreFromCloud(): Promise<void> {
+    console.log('[cloud-restore] starting restore…');
     this._cloudRestoring = true;
     try {
       const [cloudBoards, cloudTemplates, localBoards, localTemplates] = await Promise.all([
@@ -1682,15 +1683,15 @@ export class CoachBoard extends LitElement {
         ...templatesToMerge.map(t => saveUserTemplate(t)),
       ]);
 
-      console.debug(
+      console.log(
         `[cloud-restore] cloud=${cloudBoards.length} boards, ${cloudTemplates.length} templates` +
         ` | merged ${boardsToMerge.length} boards, ${templatesToMerge.length} templates`,
       );
 
       if (boardsToMerge.length > 0)    this._myBoards       = await listBoards();
       if (templatesToMerge.length > 0) this._userTemplates  = await listUserTemplates();
-    } catch {
-      // Fire-and-forget — never block the UI
+    } catch (err) {
+      console.error('[cloud-restore] error:', err);
     } finally {
       this._cloudRestoring = false;
     }
@@ -2260,6 +2261,7 @@ export class CoachBoard extends LitElement {
     initAuth(user => {
       const wasSignedOut = !this._authUser;
       this._authUser = user;
+      console.log('[auth] user=', user?.email ?? 'null', '| wasSignedOut=', wasSignedOut);
       if (user && wasSignedOut) this.#restoreFromCloud();
     });
   }
