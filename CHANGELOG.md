@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.7.0 — Houston Dash (2026-05-13)
+
+### Features
+
+- **Cross-device cloud sync** (#214): Boards and templates are now restored from Netlify Blobs on sign-in. Signing in on a second device (or after clearing local storage) pulls all cloud boards into local IndexedDB using last-write-wins conflict resolution by `updatedAt` timestamp. Thumbnails are fetched and stored alongside each restored board. Templates also participate in LWW sync via a new optional `updatedAt` field stamped on create and rename. The Netlify sync function (`sync.ts`) gains GET routes for listing and fetching boards/templates; auth uses HMAC-SHA256 JWT verification with `JWT_SECRET` (replacing the v1 `context.clientContext` path that silently failed on Functions v2). A "Syncing boards from cloud…" status message (persistent `aria-live` region) appears in the Settings sheet while restore is in progress.
+- **Retheme all dialogs to light surface** (#213): All `<dialog>` elements in `cb-dialogs.ts` and the sidebar delete confirmation in `cb-toolbar.ts` switch to the same white/light surface used by side-sheets (`--pt-bg-inverted`, `color-scheme: light`). `color-scheme: light` ensures native form controls (selects, checkboxes, inputs) render in light mode. Alert colours updated for adequate contrast on white: warning `#7a5800` (6.5:1), info `#5c3d99` (8.1:1). All interactive element borders meet WCAG 1.4.11 (inputs/selects `rgba(0,0,0,0.5)` → 3.95:1; export cards `rgba(0,0,0,0.45)` → 3.36:1).
+- **About panel moved to side-sheet** (#204): The About modal dialog is replaced by a `cb-side-sheet` panel consistent with Settings, Board Summary, and My Boards. Focus moves to the close button on open and returns to the hamburger toggle on close. The dialog template, `@query` accessor, `showAbout()` method, and all About-specific CSS are removed from `cb-dialogs.ts`.
+- **Clamp all items to field bounds** (#203): Players, equipment, shapes, text, lines, and animation trail control points can no longer be dragged or placed so far off-screen that they become unrecoverable. A `FIELD_MARGIN` of 10 SVG units (~10 m / ~11 yards) outside each edge is enforced at all placement and drag sites: click-to-place, line/shape drawing (start point + live endpoint), group drag for all item types, individual handle drag for line start/end/control points, and animation trail Bézier control points. Lines preserve shape and length during group drag by clamping the shared delta rather than individual endpoints.
+
+### Bug Fixes
+
+- **Sidebar menus clipped on iOS** (#210): All sidebar tool submenus (Equipment, Draw, More/⋯) and sidebar-context edit menus (Align, Grouping, Z-order) were clipped by the browser because `.board-area` has `overflow: hidden` and the sidebar sits inside it. A post-render `#clampMenuToBoardArea()` helper (extracted to `src/lib/menu-utils.ts`) measures available space above and below the trigger, opens in the direction with more room, nudges by the exact overflow amount when the menu almost fits (avoiding scroll), and falls back to `max-height` + `overflow-y: auto` only when the menu is taller than the entire board area. Fixes Equipment (Goal/Coach hidden), Draw (Dribble cut off), More/⋯ (most items hidden), and Align ("Align left" clipped behind the context bar).
+- **Sidebar tool button shows active state while menu is open**: Sidebar trigger buttons (Player, Equipment, Draw, More) now show the hover background (`--pt-border`) when their submenu is open via `[aria-expanded="true"]` CSS.
+- **Sidebar tool menu + context edit menu open simultaneously**: Opening a tool submenu (player, equipment, draw, more) and a context edit menu (Align, Grouping, Style) at the same time caused them to overlap. Fixed with mutual exclusion: `cb-toolbar` dispatches `cb-ctx-menu-open` (bubbles, composed) when a context menu opens; `coach-board` listens and closes `_sidebarMenu`. Opening a tool submenu calls `ctxToolbar.closeMenu()`.
+
+### Accessibility
+
+- **Focus rings on light surfaces** (#213, #218): All components that render on a white side-sheet or dialog surface now use `--pt-btn-primary` (`#2563eb`, 5.17:1 on white) for `:focus-visible` outlines instead of `--pt-accent` (`#4ea8de`, 2.60:1 — fails WCAG 1.4.11). Affects `cb-side-sheet`, `cb-board-summary`, `cb-my-boards`, `cb-share`, and the settings controls in `coach-board.ts`.
+- **Scrollable menu `tabindex`** (#210): When a sidebar menu falls back to `overflow-y: auto` (extreme small viewport), the menu container receives `tabindex="0"` so keyboard and AT users can scroll it; the attribute is removed on reset.
+- **`cb-toolbar.ts` delete dialog close button** (#218): The delete confirmation dialog in `cb-toolbar.ts` was missing a `.dialog-close:focus-visible` rule (pre-existing gap). Now has `outline: 2px solid var(--pt-btn-primary)`.
+
+### Design System
+
+- **`--pt-border-on-inverted` corrected**: The token previously resolved to `var(--pt-color-navy-500)` (`#1a4a7a`), a dark saturated blue unsuitable as a subtle border on white. Updated to `rgba(0, 0, 0, 0.12)` — a neutral light-gray container border. Interactive element borders (buttons, inputs) still require `rgba(0,0,0,0.45–0.5)` and must be set explicitly.
+- **Token table updated**: `--pt-btn-primary`, `--pt-btn-primary-hover`, `--pt-bg-inverted`, `--pt-text-on-inverted`, and `--pt-border-on-inverted` added to the `design-system.mdc` canonical table with contrast ratios and guidance on when to use each. Focus ring patterns documented for both dark and light surfaces.
+
+
 ## 1.6.0 — Angel City FC (2026-05-12)
 
 ### Features
