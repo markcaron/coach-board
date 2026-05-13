@@ -303,7 +303,6 @@ export class CoachBoard extends LitElement {
 
     .menu-spacer { flex: 1; }
 
-    /* ── Settings side-sheet content ────────────────────────────────── */
     /* ── About side-sheet content ──────────────────────────────────── */
 
     .about-content {

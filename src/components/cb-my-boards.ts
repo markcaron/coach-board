@@ -144,7 +144,7 @@ export class CbMyBoards extends LitElement {
       outline: 2px solid var(--pt-btn-primary);
       outline-offset: -2px;
       border-radius: 6px;
-      background: color-mix(in srgb, var(--pt-accent) 8%, transparent);
+      background: color-mix(in srgb, var(--pt-btn-primary) 8%, transparent);
     }
 
     .board-icon {
