@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.1 (2026-05-13)
+
+### Patch
+
+Recovery patch restoring three features that were included in the v1.7.0 Houston Dash release notes but were absent from the deployed build due to a branch history issue (the `staging/houston-dash` commits for PRs #215, #216, and #217 were orphaned before the staging → main merge).
+
+- **Sidebar menus clipped on iOS** (#210 / PR #215): restored.
+- **Clamp all items to field bounds** (#203 / PR #216): restored.
+- **Retheme all dialogs to light surface** (#213 / PR #217): restored.
+
+No new features or breaking changes. Functionally identical to what v1.7.0 was intended to ship.
+
 ## 1.7.0 — Houston Dash (2026-05-13)
 
 ### Features
